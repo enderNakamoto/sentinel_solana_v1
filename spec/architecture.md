@@ -11,9 +11,9 @@ The system requires three off-chain cron jobs to keep ticking:
 
 | Cron | Name | Frequency | Purpose |
 |------|------|-----------|---------|
-| #1 | **FlightDataFetcher** | Every 2 hours | Fetches flight data from AeroAPI, writes estimated/actual arrival times to FlightData accounts |
-| #2 | **FlightClassifier** | Every 1 hour | Reads oracle data and transitions Landed/Cancelled flights into `ToBeSettled*` based on delay threshold. No money movement. |
-| #3 | **SettlementExecutor** | Every 5 minutes | Executes money movement on `ToBeSettled*` flights, drains underwriter withdrawal queue, snapshots share price. |
+| #1 | **FlightDataFetcher** | Every 2 hours | Fetches flight data from AeroAPI, writes estimated/actual arrival times to `FlightData` accounts on `oracle_aggregator_program`. Signed by `authorized_oracle`. |
+| #2 | **FlightClassifier** | Every 1 hour | Calls `controller_program.classify_flights()` — reads FlightData + FlightPool, decides `ToBeSettled*`, writes via CPI to oracle. No money movement. Signed by `authorized_keeper`. |
+| #3 | **SettlementExecutor** | Every 5 minutes | Calls `controller_program.execute_settlements()` — executes money movement, transitions FlightData to `Settled` via CPI to oracle, drains withdrawal queue, snapshots share price. Signed by `authorized_keeper`. |
 
 These run inside a modular **Executor Backend** that is fully swappable. The programs
 enforce authorization via Anchor `Signer` checks against stored authorized addresses — they
@@ -28,8 +28,9 @@ The flight pool program owns a single **pool treasury** token account that holds
 in-flight premiums and pending payouts across every flight. Per-flight liability is tracked
 on `FlightPool` PDAs (premium × buyer_count, payoff × buyer_count, claimed count) — no
 per-flight token accounts. The treasury also holds expired-claim funds, accounted via a
-`recovered_balance` counter on the flight pool config. The insurance program orchestrates
-but does not custody flight funds.
+`recovered_balance` counter on the flight pool config. The controller program orchestrates
+but does not custody flight funds. The oracle aggregator program holds flight data only —
+no funds ever touch it.
 
 The frontend dApp uses **framework-kit** (`@solana/client` + `@solana/react-hooks`) with
 wallet-standard connection, and Anchor IDL-generated TypeScript clients for each program.
@@ -38,29 +39,37 @@ wallet-standard connection, and Anchor IDL-generated TypeScript clients for each
 
 ## Program Architecture
 
-The system is split into **4 Anchor programs**, each with a single domain responsibility:
+The system is split into **5 Anchor programs**, each with a single domain responsibility:
 
 | Program | Responsibility | Why separate |
 |---------|---------------|--------------|
 | `governance_program` | Route management, terms, admin whitelist | Independent admin concern, rarely called |
 | `vault_program` | Capital management, share token, withdrawal queue | Underwriters interact directly, independent upgrade cycle |
 | `flight_pool_program` | Per-flight pool registry, buyer records, shared pool treasury, claim, sweep, recovery accounting | Owns user-facing flight funds; isolated audit surface; iterates independently of controller logic |
-| `insurance_program` | Controller + OracleAggregator: orchestration, oracle data, classify, settle | Pure orchestration — never custodies flight funds |
+| `oracle_aggregator_program` | FlightData accounts; oracle-authority writes (estimated arrival, landed, cancelled) | Authority isolation — oracle keypair compromise cannot trigger payouts; mirrors Pyth/Switchboard pattern; swappable feed |
+| `controller_program` | Orchestration: buy, classify, settle. Holds `ControllerConfig` + `ActiveFlightList` | Pure orchestration — never custodies funds; clean settlement state machine; reads oracle by passing FlightData accounts; writes oracle via CPI for state transitions |
 
 **CPI map:**
 
 ```
-insurance_program ──CPI──► governance_program   (read route terms, check whitelist)
-insurance_program ──CPI──► flight_pool_program  (register pool, add buyer, settle_*)
-insurance_program ──CPI──► vault_program        (lock/unlock, payouts, premium income, queue, snapshot)
-flight_pool_program ──CPI──► SPL Token          (premium in, claim out)
-vault_program       ──CPI──► flight_pool_program  (send_payout target = pool treasury)
-vault_program       ──CPI──► SPL Token          (USDC transfers, mint/burn RVS shares)
+controller_program ──CPI──► governance_program        (read route terms, check whitelist)
+controller_program ──CPI──► flight_pool_program       (register pool, add buyer, settle_*)
+controller_program ──CPI──► vault_program             (lock/unlock, payouts, premium income, queue, snapshot)
+controller_program ──CPI──► oracle_aggregator_program (init_flight_data, set_to_be_settled, set_settled)
+flight_pool_program ──CPI──► SPL Token                (premium in, claim out)
+vault_program       ──CPI──► flight_pool_program      (send_payout target = pool treasury)
+vault_program       ──CPI──► SPL Token                (USDC transfers, mint/burn RVS shares)
 ```
 
+**Read access (no CPI required):** `controller_program` reads `FlightData` accounts during `classify_flights` and `execute_settlements` by passing them in as `Account<'info, FlightData>` with an `owner = oracle_aggregator_program` constraint. CPIs to oracle are only needed for state transitions written by the controller.
+
 `flight_pool_program` exposes controller-gated instructions (`register_pool`, `add_buyer`,
-`settle_on_time`, `settle_delayed`, `settle_cancelled`) that only `insurance_program`'s
+`settle_on_time`, `settle_delayed`, `settle_cancelled`) that only `controller_program`'s
 config PDA can sign for, using the same `set_controller` pattern as the vault.
+
+`oracle_aggregator_program` exposes consumer-gated instructions (`init_flight_data`,
+`set_to_be_settled`, `set_settled`) that only `controller_program`'s config PDA can sign for,
+via a one-time `set_authorized_consumer` wiring step.
 
 ---
 
@@ -95,7 +104,7 @@ program via CPI before every insurance purchase.
 - **Terms can be updated** by the owner or an admin. Updates only apply to FlightPools
   created after the update; existing pools have their terms locked at creation.
 - **Whitelisting a route does NOT create a FlightPool.** FlightPools are created lazily
-  on first purchase (see insurance_program).
+  on first purchase (see controller_program).
 
 **Account types:**
 
@@ -217,7 +226,7 @@ with an SPL Token share mint — shares represent proportional ownership of the 
 #[account]
 pub struct VaultState {
     pub owner: Pubkey,
-    pub controller: Pubkey,             // insurance_program's config PDA (set once)
+    pub controller: Pubkey,             // controller_program's ControllerConfig PDA (set once)
     pub usdc_mint: Pubkey,
     pub share_mint: Pubkey,             // RVS token mint
     pub vault_token_account: Pubkey,    // USDC held by the vault
@@ -277,7 +286,7 @@ fn request_withdrawal(ctx, shares: u64) -> Result<()>;      // queued FIFO
 fn cancel_withdrawal(ctx, queue_index: u32) -> Result<()>;
 fn collect(ctx) -> Result<()>;                               // pull claimable balance
 
-// Controller-only (CPI from insurance_program)
+// Controller-only (CPI from controller_program)
 fn increase_locked(ctx, amount: u64) -> Result<()>;
 fn decrease_locked(ctx, amount: u64) -> Result<()>;
 fn send_payout(ctx, amount: u64) -> Result<()>;              // recipient = flight_pool's pool_treasury
@@ -337,7 +346,7 @@ is tracked entirely in `FlightPool` PDA fields; no per-flight token accounts.
 #[account]
 pub struct FlightPoolConfig {
     pub owner: Pubkey,
-    pub controller: Pubkey,             // insurance_program's config PDA (set once)
+    pub controller: Pubkey,             // controller_program's ControllerConfig PDA (set once)
     pub usdc_mint: Pubkey,
     pub pool_treasury: Pubkey,          // shared USDC token account for all flights
     pub recovered_balance: u64,         // expired-claim USDC owed to owner
@@ -415,10 +424,10 @@ fn initialize(ctx, usdc_mint: Pubkey) -> Result<()>;
 fn set_controller(ctx, controller: Pubkey) -> Result<()>;  // set once, panics on second call
 ```
 
-**Controller-only (CPI from insurance_program):**
+**Controller-only (CPI from controller_program):**
 
 ```rust
-/// Creates a new FlightPool PDA with locked terms. Called by insurance_program on the
+/// Creates a new FlightPool PDA with locked terms. Called by controller_program on the
 /// first buy_insurance for a (flight_id, date) pair. Reverts if pool already exists.
 fn register_pool(ctx, flight_id: String, date: u64,
                  premium: u64, payoff: u64, delay_hours: u32) -> Result<()>;
@@ -432,7 +441,7 @@ fn add_buyer(ctx, flight_id: String, date: u64) -> Result<()>;
 fn settle_on_time(ctx, flight_id: String, date: u64) -> Result<()>;
 
 /// Marks pool SettledDelayed; sets claim_expiry. No transfer here — vault.send_payout
-/// (called separately by insurance_program in the same tx) tops up the treasury.
+/// (called separately by controller_program in the same tx) tops up the treasury.
 fn settle_delayed(ctx, flight_id: String, date: u64, claim_expiry: i64) -> Result<()>;
 
 /// Marks pool SettledCancelled; sets claim_expiry. Same payout path as delayed.
@@ -465,7 +474,7 @@ fn withdraw_recovered(ctx, amount: u64) -> Result<()>;
 | Action | Who | Mechanism |
 |--------|-----|-----------|
 | `set_controller` | Owner | `has_one = owner` + `is_controller_set == false` |
-| `register_pool`, `add_buyer`, `settle_on_time`, `settle_delayed`, `settle_cancelled` | Controller (insurance_program's config PDA) | `has_one = controller` on FlightPoolConfig + PDA signer seeds |
+| `register_pool`, `add_buyer`, `settle_on_time`, `settle_delayed`, `settle_cancelled` | Controller (controller_program's ControllerConfig PDA) | `has_one = controller` on FlightPoolConfig + PDA signer seeds |
 | `claim` | Traveler with policy | `Signer` + BuyerRecord existence + `claimed == false` + status & expiry checks |
 | `sweep_expired` | Anyone | `Signer` (for tx fee) + expiry check |
 | `withdraw_recovered` | Owner | `has_one = owner` |
@@ -475,41 +484,28 @@ seeds — same pattern as the vault.
 
 ---
 
-### insurance_program
+### oracle_aggregator_program
 
-The orchestrator. Owns oracle data, the active flight list, classification, and the
-settlement pipeline. Holds zero user funds — every money movement is delegated to
-`flight_pool_program` (treasury) or `vault_program` (capital).
+The flight data feed. Owns `FlightData` accounts and is the only program the
+`authorized_oracle` keypair can sign for. Holds zero funds. Reads are free (controller
+passes FlightData accounts in as readonly); writes are split between the oracle keypair
+(raw flight statuses) and the controller's PDA (settlement-pipeline transitions).
 
 #### Config Account
 
 ```rust
-/// Program-wide configuration
-/// PDA seeds: [b"insurance_config"]
+/// PDA seeds: [b"oracle_config"]
 #[account]
-pub struct InsuranceConfig {
+pub struct OracleConfig {
     pub owner: Pubkey,
     pub authorized_oracle: Pubkey,      // FlightDataFetcher's keypair
-    pub authorized_keeper: Pubkey,      // FlightClassifier + SettlementExecutor's keypair
-    pub governance_program: Pubkey,
-    pub vault_program: Pubkey,
-    pub vault_state: Pubkey,            // vault_program's VaultState PDA
-    pub flight_pool_program: Pubkey,
-    pub flight_pool_config: Pubkey,     // flight_pool_program's FlightPoolConfig PDA
-    pub usdc_mint: Pubkey,
-    pub solvency_ratio: u32,            // default 100 = fully collateralised
-    pub min_lead_time: i64,             // seconds before departure (default 3600)
-    pub claim_expiry_window: i64,       // seconds (default 60 days = 5_184_000)
-    pub total_policies_sold: u64,
-    pub total_premiums_collected: u64,
-    pub total_payouts_distributed: u64,
+    pub authorized_consumer: Pubkey,    // controller_program's ControllerConfig PDA (set once)
+    pub is_consumer_set: bool,
     pub bump: u8,
 }
 ```
 
-#### FlightData Accounts (OracleAggregator)
-
-On-chain registry of flight data and settlement pipeline status.
+#### FlightData Accounts
 
 ```rust
 /// One per (flight_id, date)
@@ -547,14 +543,105 @@ NotInitiated → Active → Landed ──► ToBeSettledOnTime ──► Settled
 
 | State | Meaning | Set by |
 |-------|---------|--------|
-| `NotInitiated` | Flight registered, no data yet | `create_pool` (on first purchase) |
-| `Active` | Estimated arrival time stored | FlightDataFetcher (oracle cron) |
-| `Landed` | Flight has landed, actual arrival stored | FlightDataFetcher (oracle cron) |
-| `Cancelled` | Flight was cancelled | FlightDataFetcher (oracle cron) |
-| `ToBeSettledOnTime` | Classified as on-time, awaiting money movement | FlightClassifier (keeper cron) |
-| `ToBeSettledDelayed` | Classified as delayed, awaiting money movement | FlightClassifier (keeper cron) |
-| `ToBeSettledCancelled` | Classified as cancelled, awaiting money movement | FlightClassifier (keeper cron) |
-| `Settled` | Settlement complete, money moved | SettlementExecutor (keeper cron) |
+| `NotInitiated` | FlightData created, no oracle data yet | `init_flight_data` (CPI from controller on first buy) |
+| `Active` | Estimated arrival time stored | `set_estimated_arrival` — FlightDataFetcher (oracle key) |
+| `Landed` | Flight has landed, actual arrival stored | `set_landed` — FlightDataFetcher (oracle key) |
+| `Cancelled` | Flight was cancelled | `set_cancelled` — FlightDataFetcher (oracle key) |
+| `ToBeSettledOnTime` | Classified as on-time, awaiting money movement | `set_to_be_settled` — controller PDA (CPI from `classify_flights`) |
+| `ToBeSettledDelayed` | Classified as delayed, awaiting money movement | `set_to_be_settled` — controller PDA (CPI from `classify_flights`) |
+| `ToBeSettledCancelled` | Classified as cancelled, awaiting money movement | `set_to_be_settled` — controller PDA (CPI from `classify_flights`) |
+| `Settled` | Settlement complete, money moved | `set_settled` — controller PDA (CPI from `execute_settlements`) |
+
+#### Instructions
+
+**Initialization (owner-only):**
+
+```rust
+fn initialize(ctx, authorized_oracle: Pubkey) -> Result<()>;
+fn set_authorized_oracle(ctx, new_oracle: Pubkey) -> Result<()>;
+/// One-time wiring: stores controller's ControllerConfig PDA as the consumer.
+/// Reverts if already set. Mirrors flight_pool's set_controller pattern.
+fn set_authorized_consumer(ctx, consumer: Pubkey) -> Result<()>;
+```
+
+**Consumer (CPI from controller, signed by ControllerConfig PDA):**
+
+```rust
+/// Creates FlightData PDA in NotInitiated. Called by controller on first buy.
+fn init_flight_data(ctx, flight_id: String, date: u64) -> Result<()>;
+
+/// Landed/Cancelled → ToBeSettled*. Called by controller's classify_flights.
+fn set_to_be_settled(ctx, flight_id: String, date: u64,
+                     new_status: FlightStatus) -> Result<()>;
+
+/// ToBeSettled* → Settled. Called by controller's execute_settlements.
+fn set_settled(ctx, flight_id: String, date: u64) -> Result<()>;
+```
+
+**Oracle (FlightDataFetcher cron, signed by `authorized_oracle`):**
+
+```rust
+/// Sets estimated arrival time. NotInitiated → Active.
+fn set_estimated_arrival(ctx, flight_id: String, date: u64,
+                         estimated_arrival_time: i64) -> Result<()>;
+
+/// Sets actual arrival time. Active → Landed.
+fn set_landed(ctx, flight_id: String, date: u64,
+              actual_arrival_time: i64) -> Result<()>;
+
+/// Marks flight as cancelled. Active → Cancelled.
+fn set_cancelled(ctx, flight_id: String, date: u64) -> Result<()>;
+```
+
+#### Authorization
+
+| Action | Who | Mechanism |
+|--------|-----|-----------|
+| `set_estimated_arrival`, `set_landed`, `set_cancelled` | Authorized oracle | `Signer` + `config.authorized_oracle` check |
+| `init_flight_data`, `set_to_be_settled`, `set_settled` | Authorized consumer (controller PDA) | `has_one = authorized_consumer` on `OracleConfig` + `invoke_signed` from controller |
+| `set_authorized_oracle`, `set_authorized_consumer` | Owner | `has_one = owner` on `OracleConfig` |
+
+The controller signs CPIs to `oracle_aggregator_program` using its own `ControllerConfig`
+PDA's signer seeds.
+
+---
+
+### controller_program
+
+The orchestrator. Owns `ControllerConfig`, `ActiveFlightList`, and the buy / classify /
+settle pipeline. Holds zero user funds — every money movement is delegated to
+`flight_pool_program` (treasury) or `vault_program` (capital). FlightData lives on
+`oracle_aggregator_program`; the controller reads it (account passing, owner check) and
+writes settlement-pipeline state via CPI.
+
+#### Config Account
+
+```rust
+/// PDA seeds: [b"controller_config"]
+#[account]
+pub struct ControllerConfig {
+    pub owner: Pubkey,
+    pub authorized_keeper: Pubkey,      // FlightClassifier + SettlementExecutor's keypair
+    pub governance_program: Pubkey,
+    pub vault_program: Pubkey,
+    pub vault_state: Pubkey,            // vault_program's VaultState PDA
+    pub flight_pool_program: Pubkey,
+    pub flight_pool_config: Pubkey,     // flight_pool_program's FlightPoolConfig PDA
+    pub oracle_program: Pubkey,         // oracle_aggregator_program ID
+    pub oracle_config: Pubkey,          // oracle_aggregator_program's OracleConfig PDA
+    pub usdc_mint: Pubkey,
+    pub solvency_ratio: u32,            // default 100 = fully collateralised
+    pub min_lead_time: i64,             // seconds before departure (default 3600)
+    pub claim_expiry_window: i64,       // seconds (default 60 days = 5_184_000)
+    pub total_policies_sold: u64,
+    pub total_premiums_collected: u64,
+    pub total_payouts_distributed: u64,
+    pub bump: u8,
+}
+```
+
+Note: `authorized_oracle` is **not** stored here — it lives on `oracle_aggregator_program`'s
+`OracleConfig`. The controller has no oracle authority.
 
 #### Active Flight List
 
@@ -580,71 +667,59 @@ pub struct FlightEntry {
 
 ```rust
 fn initialize(ctx, config_params: InitializeParams) -> Result<()>;
-fn set_authorized_oracle(ctx, new_oracle: Pubkey) -> Result<()>;
 fn set_authorized_keeper(ctx, new_keeper: Pubkey) -> Result<()>;
 ```
 
-**Buy insurance (Controller orchestration):**
+**Buy insurance (orchestration):**
 
 ```rust
 /// Orchestrates a policy purchase. Holds no funds — premium goes through
-/// flight_pool_program; collateral is locked in vault_program.
+/// flight_pool_program; collateral is locked in vault_program; FlightData is created
+/// on oracle_aggregator_program.
 ///
 /// Flow:
 ///   1. CPI → governance_program.is_route_whitelisted() — revert if not
 ///   2. CPI → governance_program.get_route_terms() — read resolved terms
 ///   3. Enforce min_lead_time — revert if departure too soon
 ///   4. If FlightPool doesn't exist (first buy for this flight_id, date):
-///        - Init FlightData PDA (NotInitiated) + add to ActiveFlightList
+///        - CPI → oracle_aggregator.init_flight_data(flight_id, date)
+///            (creates FlightData PDA in NotInitiated; signed by ControllerConfig PDA)
+///        - Add to ActiveFlightList
 ///        - CPI → flight_pool.register_pool(flight_id, date, premium, payoff, delay_hours)
 ///   5. Solvency check — revert if undercollateralised
 ///   6. CPI → flight_pool.add_buyer(flight_id, date)
 ///        (flight_pool internally transfers premium from traveler ATA → pool treasury,
 ///         creates BuyerRecord PDA — traveler's signature passes through transitively)
 ///   7. CPI → vault_program.increase_locked(payoff)
-///   8. Update aggregate counters on InsuranceConfig
+///   8. Update aggregate counters on ControllerConfig
 fn buy_insurance(ctx, flight_id: String, origin: String, dest: String, date: u64) -> Result<()>;
-```
-
-**Oracle data (FlightDataFetcher cron):**
-
-```rust
-/// Sets estimated arrival time. NotInitiated → Active.
-fn set_estimated_arrival(ctx, flight_id: String, date: u64,
-                         estimated_arrival_time: i64) -> Result<()>;
-
-/// Sets actual arrival time. Active → Landed.
-fn set_landed(ctx, flight_id: String, date: u64,
-              actual_arrival_time: i64) -> Result<()>;
-
-/// Marks flight as cancelled. Active → Cancelled.
-fn set_cancelled(ctx, flight_id: String, date: u64) -> Result<()>;
 ```
 
 **Classification (FlightClassifier cron, ~1h):**
 
 ```rust
-/// Reads oracle data and transitions Landed/Cancelled flights into ToBeSettled*.
-/// No money movement, no vault CPIs — purely state transitions on FlightData.
+/// Reads FlightData (account-passed, owner = oracle_aggregator_program) and FlightPool
+/// (for delay_hours), decides ToBeSettled* status, writes via CPI to oracle.
 ///
 /// For each flight in Landed or Cancelled status:
-///   - Cancelled → ToBeSettledCancelled
+///   - Cancelled → set_to_be_settled(ToBeSettledCancelled)
 ///   - Landed → read FlightPool.delay_hours, compute delay
-///     - delay >= delay_hours → ToBeSettledDelayed
-///     - delay <  delay_hours → ToBeSettledOnTime
+///     - delay >= delay_hours → set_to_be_settled(ToBeSettledDelayed)
+///     - delay <  delay_hours → set_to_be_settled(ToBeSettledOnTime)
 ///
-/// Processes up to MAX_FLIGHTS_PER_TX flights. Cheap per flight — no CPIs.
+/// Processes up to MAX_FLIGHTS_PER_TX flights. One CPI to oracle per classified flight.
 fn classify_flights(ctx) -> Result<()>;
 ```
 
 **Settlement (SettlementExecutor cron, ~5min):**
 
 ```rust
-/// Executes money movement on ToBeSettled* flights, then drains the underwriter
-/// withdrawal queue and snapshots share price.
+/// Executes money movement on ToBeSettled* flights, transitions FlightData to Settled
+/// via CPI to oracle, then drains the underwriter withdrawal queue and snapshots share
+/// price.
 ///
 /// Phase 1 — Settlement:
-///   For each flight in ToBeSettled* status (read FlightPool via CPI account passing):
+///   For each flight in ToBeSettled* status (FlightData passed in, owner-checked):
 ///     - ToBeSettledOnTime:
 ///         CPI flight_pool.settle_on_time(flight_id, date)
 ///             (transfers premium * buyer_count from pool_treasury → vault token account)
@@ -655,22 +730,16 @@ fn classify_flights(ctx) -> Result<()>;
 ///             (vault transfers to flight_pool's pool_treasury)
 ///         CPI vault.decrease_locked(payoff * buyer_count)
 ///         CPI flight_pool.settle_delayed_or_cancelled(flight_id, date, claim_expiry)
-///     - Mark FlightData as Settled
+///     - CPI oracle_aggregator.set_settled(flight_id, date)
 ///     - Remove from ActiveFlightList
 ///
 /// Phase 2 — Housekeeping:
 ///   CPI vault.process_withdrawal_queue()
 ///   CPI vault.snapshot()
 ///
-/// Compute budget: ~3-4 CPIs per flight; MAX_FLIGHTS_PER_TX is ~3. Larger batches fan
-/// out across multiple transactions.
+/// Compute budget: ~4-5 CPIs per flight (vault + flight_pool + oracle); MAX_FLIGHTS_PER_TX
+/// is ~2. Larger batches fan out across multiple transactions.
 fn execute_settlements(ctx) -> Result<()>;
-```
-
-**Read helpers (also readable client-side from account data):**
-
-```rust
-fn get_flight_data(flight_data: &FlightData) -> FlightData;
 ```
 
 #### Authorization
@@ -678,9 +747,11 @@ fn get_flight_data(flight_data: &FlightData) -> FlightData;
 | Action | Who | Mechanism |
 |--------|-----|-----------|
 | `buy_insurance` | Any traveler | Traveler is `Signer`; signature passes transitively through CPI to flight_pool for premium transfer |
-| `set_estimated_arrival`, `set_landed`, `set_cancelled` | Authorized oracle | `Signer` + `config.authorized_oracle` check |
 | `classify_flights`, `execute_settlements` | Authorized keeper | `Signer` + `config.authorized_keeper` check |
-| `set_authorized_oracle`, `set_authorized_keeper` | Owner | `has_one = owner` on InsuranceConfig |
+| `set_authorized_keeper` | Owner | `has_one = owner` on `ControllerConfig` |
+
+CPIs to `oracle_aggregator_program`, `flight_pool_program`, and `vault_program` are signed
+with `ControllerConfig` PDA seeds.
 
 ---
 
@@ -693,9 +764,9 @@ enforce authorization via Anchor `Signer` checks against stored authorized addre
 
 | Cron | Name | Frequency | On-chain target | Authorization |
 |------|------|-----------|-----------------|---------------|
-| #1 | **FlightDataFetcher** | Every 2 hours | `insurance_program` (oracle instructions) | `authorized_oracle` |
-| #2 | **FlightClassifier** | Every 1 hour | `insurance_program.classify_flights()` | `authorized_keeper` |
-| #3 | **SettlementExecutor** | Every 5 minutes | `insurance_program.execute_settlements()` + vault CPIs | `authorized_keeper` |
+| #1 | **FlightDataFetcher** | Every 2 hours | `oracle_aggregator_program` (`set_estimated_arrival`, `set_landed`, `set_cancelled`) | `authorized_oracle` |
+| #2 | **FlightClassifier** | Every 1 hour | `controller_program.classify_flights()` (CPIs to oracle to write `set_to_be_settled`) | `authorized_keeper` |
+| #3 | **SettlementExecutor** | Every 5 minutes | `controller_program.execute_settlements()` (CPIs to vault, flight_pool, oracle) | `authorized_keeper` |
 
 ### Cron #1 — FlightDataFetcher (Oracle, every 2 hours)
 
@@ -710,7 +781,7 @@ FlightDataFetcher
     ├─► Step A: For flights in NotInitiated status:
     │       calls AeroAPI for estimated arrival time
     │       signs + submits tx:
-    │         insurance_program.set_estimated_arrival(flight_id, date, eta)
+    │         oracle_aggregator_program.set_estimated_arrival(flight_id, date, eta)
     │       (NotInitiated → Active)
     │
     └─► Step B: For flights in Active status
@@ -718,11 +789,11 @@ FlightDataFetcher
             calls AeroAPI for actual flight status
             │
             ├─ Landed → signs + submits tx:
-            │    insurance_program.set_landed(flight_id, date, actual_arrival_time)
+            │    oracle_aggregator_program.set_landed(flight_id, date, actual_arrival_time)
             │    (Active → Landed)
             │
             ├─ Cancelled → signs + submits tx:
-            │    insurance_program.set_cancelled(flight_id, date)
+            │    oracle_aggregator_program.set_cancelled(flight_id, date)
             │    (Active → Cancelled)
             │
             └─ Still in flight / HTTP error → skip, retry next cycle
@@ -739,7 +810,7 @@ movement, no vault CPIs — purely state transitions on FlightData.
 
 ```
 FlightClassifier → signs + submits tx:
-    insurance_program.classify_flights()
+    controller_program.classify_flights()
         │
         ├─► keeper Signer check
         │
@@ -762,7 +833,7 @@ exits are prompt.
 
 ```
 SettlementExecutor → signs + submits tx:
-    insurance_program.execute_settlements()
+    controller_program.execute_settlements()
         │
         ├─► keeper Signer check
         │
@@ -887,8 +958,8 @@ Migrating between executor backends is a **zero-downtime, no-redeployment operat
 3. Fund new executor account(s) with SOL (for transaction fees)
 4. Start new executor jobs (both old and new running — only old is authorized)
 5. Execute migration transactions:
-     owner → insurance_program.set_authorized_oracle(new_oracle_address)
-     owner → insurance_program.set_authorized_keeper(new_keeper_address)
+     owner → oracle_aggregator_program.set_authorized_oracle(new_oracle_address)
+     owner → controller_program.set_authorized_keeper(new_keeper_address)
 6. Verify new executor's txs are succeeding on-chain
 7. Shut down old executor backend
 ```
@@ -915,7 +986,7 @@ Owner or Admin → governance_program.whitelist_route(flight_id, origin, dest,
 ### Buying Insurance (with lazy pool creation)
 
 ```
-Traveler → insurance_program.buy_insurance(flight_id, origin, dest, date)
+Traveler → controller_program.buy_insurance(flight_id, origin, dest, date)
                 │
                 ├─► traveler is Signer (Anchor enforces; passes through CPIs transitively)
                 ├─► CPI → governance_program.is_route_whitelisted(...)
@@ -962,7 +1033,7 @@ FlightDataFetcher (off-chain)
     ├─► for each flight in NotInitiated status:
     │       calls AeroAPI → gets estimated arrival time
     │       signs + submits tx:
-    │       insurance_program.set_estimated_arrival(flight_id, date, eta)
+    │       oracle_aggregator_program.set_estimated_arrival(flight_id, date, eta)
     │           └─► NotInitiated → Active
     │
     └─► for each flight in Active status
@@ -970,11 +1041,11 @@ FlightDataFetcher (off-chain)
             calls AeroAPI → gets actual flight status
             │
             ├─ Landed → signs + submits tx:
-            │    insurance_program.set_landed(flight_id, date, actual_arrival_time)
+            │    oracle_aggregator_program.set_landed(flight_id, date, actual_arrival_time)
             │        └─► Active → Landed
             │
             ├─ Cancelled → signs + submits tx:
-            │    insurance_program.set_cancelled(flight_id, date)
+            │    oracle_aggregator_program.set_cancelled(flight_id, date)
             │        └─► Active → Cancelled
             │
             └─ Still in flight / HTTP error → skip, retry next cycle
@@ -984,7 +1055,7 @@ FlightDataFetcher (off-chain)
 
 ```
 FlightClassifier (off-chain) → signs + submits tx:
-    insurance_program.classify_flights()
+    controller_program.classify_flights()
         │
         ├─► keeper Signer check
         │
@@ -1003,7 +1074,7 @@ FlightClassifier (off-chain) → signs + submits tx:
 
 ```
 SettlementExecutor (off-chain) → signs + submits tx:
-    insurance_program.execute_settlements()
+    controller_program.execute_settlements()
         │
         ├─► keeper Signer check
         │
@@ -1071,7 +1142,7 @@ Traveler → flight_pool_program.claim(flight_id, date)
         (treasury PDA signs via invoke_signed with [b"pool_treasury"])
 ```
 
-The traveler calls `flight_pool_program` directly — no insurance_program round-trip,
+The traveler calls `flight_pool_program` directly — no controller_program round-trip,
 since the pool program owns the treasury and the pool/buyer state.
 
 ### Sweeping Expired Claims (treasury accounting only)
@@ -1152,16 +1223,17 @@ vault.free_capital() >= (total_locked + new_payoff) * solvency_ratio / 100
       governance_program ─── default terms + per-route overrides
                │  resolved terms (CPI read)
                ▼
-      insurance_program (Controller + Oracle, no funds custody)
-          │         │           │
-    ┌─────┘         │           └──────────────┐
-    ▼               ▼                          ▼
-vault_program   flight_pool_program     Off-chain Executor
-(RVS shares     (FlightPool, BuyerRecord, ┌────────────────────────┐
- + USDC)         pool_treasury, recovery) │ Cron #1: Fetcher       │ ← authorized_oracle
-    │               │                      │ Cron #2: Classifier    │ ← authorized_keeper
-    │               │                      │ Cron #3: SettlementExec│ ← authorized_keeper
+      controller_program (orchestration, no funds custody)
+          │       │       │       │
+    ┌─────┘       │       │       └─────────────────────┐
+    ▼             ▼       ▼                             ▼
+vault_program   flight_pool_program   oracle_aggregator_program     Off-chain Executor
+(RVS shares     (FlightPool,           (FlightData,                 ┌────────────────────────┐
+ + USDC)         BuyerRecord,           OracleConfig — no funds)    │ Cron #1: Fetcher       │ ← authorized_oracle
+    │            pool_treasury,            ▲                        │ Cron #2: Classifier    │ ← authorized_keeper
+    │            recovery)                 │ writes (oracle key)    │ Cron #3: SettlementExec│ ← authorized_keeper
     │               │                      └────────────────────────┘
+    │               │
     └──── send_payout ─►
               (vault → flight_pool's pool_treasury on delayed/cancelled settle)
 
@@ -1171,7 +1243,10 @@ vault_program   flight_pool_program     Off-chain Executor
 Underwriters ──deposit──► vault_program
                                └── collect() ◄── Underwriters (FIFO queue)
 
-Travelers ──buy_insurance──► insurance_program
+Travelers ──buy_insurance──► controller_program
+                                   ├─CPI→ governance.is_route_whitelisted / get_route_terms
+                                   ├─CPI→ oracle_aggregator.init_flight_data (first buy only)
+                                   ├─CPI→ flight_pool.register_pool (first buy only)
                                    ├─CPI→ flight_pool.add_buyer (premium → treasury)
                                    └─CPI→ vault.increase_locked
 
@@ -1188,10 +1263,12 @@ Owner    ──withdraw_recovered()──► flight_pool_program (treasury → o
 |-------|---------|-----------------|-----------|
 | Owner-only | governance_program | `set_defaults`, `add_admin`, `remove_admin` | `has_one = owner` + `Signer` |
 | Owner or Admin | governance_program | `whitelist_route`, `disable_route`, `update_route_terms` | Owner check OR AdminRecord lookup + `Signer` |
-| Owner-only | insurance_program | `set_authorized_oracle`, `set_authorized_keeper`, config updates | `has_one = owner` + `Signer` |
-| Authorized oracle | insurance_program | `set_estimated_arrival`, `set_landed`, `set_cancelled` | `Signer` + `config.authorized_oracle` check |
-| Authorized keeper | insurance_program | `classify_flights`, `execute_settlements` | `Signer` + `config.authorized_keeper` check |
-| Traveler | insurance_program | `buy_insurance` | `Signer` (traveler signs top-level tx) |
+| Owner-only | controller_program | `set_authorized_keeper`, config updates | `has_one = owner` + `Signer` |
+| Authorized keeper | controller_program | `classify_flights`, `execute_settlements` | `Signer` + `config.authorized_keeper` check |
+| Traveler | controller_program | `buy_insurance` | `Signer` (traveler signs top-level tx) |
+| Controller PDA | controller_program → oracle_aggregator_program | `init_flight_data`, `set_to_be_settled`, `set_settled` | `has_one = authorized_consumer` + PDA signer seeds (CPI) |
+| Owner-only | oracle_aggregator_program | `set_authorized_oracle`, `set_authorized_consumer` (once) | `has_one = owner` + `Signer` |
+| Authorized oracle | oracle_aggregator_program | `set_estimated_arrival`, `set_landed`, `set_cancelled` | `Signer` + `config.authorized_oracle` check |
 | Controller PDA | vault_program | `increase_locked`, `decrease_locked`, `send_payout`, `record_premium_income`, `process_withdrawal_queue`, `snapshot` | `has_one = controller` + PDA signer seeds |
 | Owner-only | vault_program | `set_controller` (once) | `has_one = owner` + `is_controller_set == false` |
 | Controller PDA | flight_pool_program | `register_pool`, `add_buyer`, `settle_on_time`, `settle_delayed`, `settle_cancelled` | `has_one = controller` + PDA signer seeds |
@@ -1199,21 +1276,28 @@ Owner    ──withdraw_recovered()──► flight_pool_program (treasury → o
 | Traveler with policy | flight_pool_program | `claim` | `Signer` + BuyerRecord exists + not claimed + status & expiry checks |
 | Anyone | flight_pool_program | `sweep_expired` | `Signer` (for tx fee) + expiry check |
 
-**`authorized_keeper`:** The executor backend's Solana keypair is registered in
-InsuranceConfig. Anchor verifies the executor signed the transaction. No unauthorized
-address can trigger processing. The address is **owner-updatable** for zero-downtime migration.
+**`authorized_keeper`:** Lives on `ControllerConfig`. The executor backend's Solana keypair
+signs `classify_flights` and `execute_settlements`. **Owner-updatable** for zero-downtime
+migration.
 
-**`authorized_oracle`** is owner-updatable for backend migration without redeployment.
+**`authorized_oracle`:** Lives on `OracleConfig` (separate program). The fetcher backend's
+Solana keypair signs `set_estimated_arrival`, `set_landed`, `set_cancelled`. Owner-updatable.
+Compromise of this key cannot trigger payouts because oracle has no fund-moving authority.
+
+**`authorized_consumer` on OracleConfig** is set once via `set_authorized_consumer()`.
+Subsequent calls panic. The consumer is the controller program's `ControllerConfig` PDA,
+which signs CPIs to oracle (`init_flight_data`, `set_to_be_settled`, `set_settled`) with
+its own seeds.
 
 **`controller` on VaultState and FlightPoolConfig** is set once via `set_controller()`.
-Subsequent calls panic. In both cases the controller is the insurance program's config
-PDA, which signs vault and flight_pool CPIs with its own seeds.
+Subsequent calls panic. In both cases the controller is the controller program's
+`ControllerConfig` PDA, which signs vault and flight_pool CPIs with its own seeds.
 
-**Insurance program holds zero user funds.** The flight_pool program is the sole custodian
-of in-flight USDC via its `pool_treasury`. Inflows go to treasury via SPL Token transfers
-authorized by traveler signatures (transitively, through CPI). Outflows (claims, on-time
-settlement to vault, owner recovery withdrawals) are signed by the treasury PDA via
-`invoke_signed`.
+**Controller and oracle programs hold zero user funds.** The flight_pool program is the
+sole custodian of in-flight USDC via its `pool_treasury`. Inflows go to treasury via SPL
+Token transfers authorized by traveler signatures (transitively, through CPI). Outflows
+(claims, on-time settlement to vault, owner recovery withdrawals) are signed by the
+treasury PDA via `invoke_signed`.
 
 ---
 
@@ -1306,11 +1390,11 @@ protocol. The solvency check and fixed premium prevent sandwich attacks.
 **Buy insurance:**
 1. Frontend calls `governance_program` view: check route is whitelisted.
 2. Frontend reads vault free_capital: check solvency.
-3. Wallet signs transaction calling `insurance_program.buy_insurance(flight_id, origin, dest, date)`.
+3. Wallet signs transaction calling `controller_program.buy_insurance(flight_id, origin, dest, date)`.
    Anchor handles USDC transfer authorization within the same signature.
 
 **Claim payout (if delayed or cancelled):**
-After settlement, call `insurance_program.claim(flight_id, date)`. Must claim before expiry.
+After settlement, call `controller_program.claim(flight_id, date)`. Must claim before expiry.
 
 **If on time:** No action needed. Premium becomes underwriter yield.
 
@@ -1439,7 +1523,7 @@ import { Program } from '@coral-xyz/anchor';
 import { Insurance } from '../idl/insurance';
 
 // Buy insurance — wallet signs one transaction
-// insurance_program orchestrates CPIs into flight_pool and vault.
+// controller_program orchestrates CPIs into flight_pool and vault.
 const tx = await insuranceProgram.methods
   .buyInsurance(flightId, origin, dest, new BN(date))
   .accounts({

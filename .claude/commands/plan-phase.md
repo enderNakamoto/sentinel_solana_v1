@@ -16,9 +16,10 @@ The user provides a phase number as the argument (e.g. `/plan-phase 4`).
 
 ### 1. Read context
 
-- Read `spec/development_list.md` — extract all subtasks for the requested phase number
-- Read `spec/progress.md` — check the phase's current status (must be `planned` to generate a plan)
-- Read `spec/architecture.md` — understand what this phase's contracts/components depend on
+- Read `spec/dev_steps.md` — extract all deliverables / subtasks for the requested phase number (this file is the source of truth)
+- Read `spec/progress.md` — confirm the phase row status is `not generated` (or `planned` if regenerating)
+- Read `spec/architecture.md` — understand what this phase's programs / off-chain components depend on
+- Read `MEMORY.md` (auto-loaded) — pick up any decisions already locked in
 
 ### 2. Determine the phase file path
 
@@ -28,85 +29,119 @@ spec/phases/phase-{NN}-{slug}.md
 ```
 where `{NN}` is zero-padded phase number and `{slug}` is a short kebab-case name.
 
-Phase slugs:
-- 0  → phase-00-foundry-init
-- 1  → phase-01-mockusdc
-- 2  → phase-02-recoverypool
-- 3  → phase-03-governancemodule
-- 4  → phase-04-riskvault
-- 5  → phase-05-oracleaggregator
-- 6  → phase-06-flightpool
-- 7  → phase-07-controller
-- 8  → phase-08-integration-tests
-- 9  → phase-09-mock-api-server
-- 10 → phase-10-cre-workflow-mock
-- 11 → phase-11-cre-workflow-aeroapi
-- 12 → phase-12-testnet
-- 13 → phase-13-frontend-init
-- 14 → phase-14-frontend
-- 15 → phase-15-mainnet
+Phase slugs (Solana build):
+
+| # | Slug |
+|---|---|
+| 0  | `phase-00-project-bootstrap` |
+| 1  | `phase-01-governance-program` |
+| 2  | `phase-02-vault-program` |
+| 3  | `phase-03-flight-pool-program` |
+| 4  | `phase-04-oracle-aggregator-program` |
+| 5  | `phase-05-controller-program` |
+| 6  | `phase-06-cross-program-integration-tests` |
+| 7  | `phase-07-devnet-deployment` |
+| 8  | `phase-08-oracle-cron` |
+| 9  | `phase-09-classifier-cron` |
+| 10 | `phase-10-settlement-cron` |
+| 11 | `phase-11-frontend-bootstrap` |
+| 12 | `phase-12-frontend-traveler` |
+| 13 | `phase-13-frontend-underwriter` |
+| 14 | `phase-14-frontend-admin` |
+| 15 | `phase-15-e2e-test` |
 
 ### 3. Build the Context Manifest
 
-Determine which skills, external docs, and project files the agent will need to load when `/start-phase` runs. Use the mapping below as a baseline, then adjust based on the phase's specific subtasks and dependencies.
+Determine which skills, external docs, and project files the agent will need to load when `/start-phase` runs. The mapping below is the **default baseline for every Solana phase**, then add phase-specific extras.
 
-#### Phase → Context Mapping
+#### Universal defaults (every phase, no exceptions)
 
-**Phases 0 (project init):**
-- Skills: `git`
+- **Skills:** `git`, `solana-dev`
+- **`solana-dev` references** (auto-load alongside the skill):
+  - `references/compatibility-matrix.md`
+  - `references/common-errors.md`
+  - `references/security.md`
+- **Project files:** `spec/architecture.md`, `spec/dev_steps.md`, `spec/workflow.md`, `MEMORY.md`
+
+#### Phase → Context Mapping (additions on top of the defaults)
+
+**Phase 0 — Project Bootstrap:**
+- Skill references: `kit/overview.md`, `kit/plugins.md`, `frontend-framework-kit.md`, `programs/anchor.md`, `idl-codegen.md`, `testing.md`, `surfpool/overview.md`, `surfpool/cheatcodes.md`, `kit-web3-interop.md`, `anchor/migrating-v0.32-to-v1.md`
 - Docs to fetch:
-  - https://developers.stellar.org/docs/build/smart-contracts — Soroban smart contract overview
-  - https://developers.stellar.org/docs/tools/sdks/library — Stellar SDK reference
-- Files: `spec/architecture.md`, `Cargo.toml` (root), any existing contract `Cargo.toml` files
+  - https://www.anchor-lang.com/ — Anchor v1 docs, workspace layout
+  - https://solana.com/docs/intro/installation — Agave/Solana CLI install
+  - https://github.com/anza-xyz/kit — `@solana/kit` README + plugins
+  - https://github.com/codama-idl/codama — Codama codegen CLI
+  - https://github.com/LiteSVM/litesvm — LiteSVM TS API
+  - https://docs.surfpool.run/ — Surfpool CLI + cheatcodes
+  - https://github.com/anza-xyz/wallet-standard — Wallet Standard (autoDiscover)
+  - https://nextjs.org/docs/app — Next.js App Router
+- Files: `spec/learn_solana.md`
 
-**Phases 1–7 (Soroban contracts):**
-- Skills: `git`
+**Phases 1–5 — Anchor programs (governance, vault, flight_pool, oracle_aggregator, controller):**
+- Skill references: `programs/anchor.md`, `idl-codegen.md`, `testing.md`, `kit/overview.md`, `anchor/migrating-v0.32-to-v1.md`
 - Docs to fetch:
-  - https://developers.stellar.org/docs/build/smart-contracts — Soroban smart contract patterns
-  - https://developers.stellar.org/docs/build/smart-contracts/example-contracts — example contracts for reference patterns
-- Files: `spec/architecture.md`, any contracts this phase depends on (read from Dependencies section), test files for dependent contracts
+  - https://www.anchor-lang.com/docs — Anchor v1 docs
+  - https://www.anchor-lang.com/docs/references/account-constraints — `#[account]` constraint reference
+  - https://spl.solana.com/token — SPL Token program reference
+- Files: all preceding program source dirs (`contracts/programs/<name>/src/`), `contracts/tests/setup.ts`, the architecture section for this program (cite section in manifest)
 
-**Phase 8 (integration tests):**
-- Skills: `git`
+**Phase 6 — Cross-Program Integration Tests:**
+- Skill references: `testing.md`, `surfpool/overview.md`, `surfpool/cheatcodes.md`, `programs/anchor.md`, `kit/overview.md`
 - Docs to fetch:
-  - https://developers.stellar.org/docs/build/smart-contracts — contract interaction patterns
-- Files: `spec/architecture.md`, ALL contract source files in `contracts/`, existing test infrastructure
+  - https://docs.surfpool.run/ — Surfpool integration patterns
+- Files: ALL five program source dirs in `contracts/programs/`, `contracts/tests/`, `Surfpool.toml`
 
-**Phases 9–11 (executor / API):**
-- Skills: `git`, `aero-api`
+**Phase 7 — Devnet Deployment:**
+- Skill references: `programs/anchor.md`, `kit/overview.md`, `kit/plugins.md`, `idl-codegen.md`
 - Docs to fetch:
-  - https://docs.acurast.com — Acurast TEE executor documentation
-- Files: `spec/architecture.md`, `executor/` directory, any existing API client code, contract ABIs/bindings the executor calls
+  - https://www.anchor-lang.com/docs/references/cli — `anchor deploy` reference
+  - https://docs.solana.com/cli/deploy-a-program — Solana CLI deploy
+  - https://faucet.solana.com — devnet faucet
+- Files: `contracts/Anchor.toml`, `scripts/`, `keys/*.pubkey`, `.env.example`
 
-**Phase 12 (testnet deploy):**
-- Skills: `git`
+**Phases 8–10 — Off-chain crons (oracle, classifier, settlement):**
+- Skills: add `aero-api` (FlightAware AeroAPI reference)
+- Skill references: `kit/overview.md`, `kit/plugins.md`, `kit/advanced.md`, `idl-codegen.md`, `kit-web3-interop.md`
 - Docs to fetch:
-  - https://developers.stellar.org/docs/networks — Stellar network configuration
-- Files: `spec/architecture.md`, all contracts, deploy scripts, `.env.example`
+  - https://github.com/anza-xyz/kit — Kit advanced patterns
+  - (AeroAPI URLs come from the `aero-api` skill itself)
+- Files: `executor/`, `executor/src/clients/` (Codama-generated), `spec/architecture.md` §Off-Chain Executor Layer
 
-**Phases 13–14 (frontend):**
-- Skills: `git`
+**Phase 11 — Frontend Bootstrap:**
+- Skill references: `frontend-framework-kit.md`, `kit/overview.md`, `kit/plugins.md`, `idl-codegen.md`
 - Docs to fetch:
-  - https://developers.stellar.org/docs/tools/sdks/library — Stellar JS SDK for frontend integration
-- Files: `spec/architecture.md`, `frontend/` directory, contract bindings/ABIs, `package.json`
+  - https://nextjs.org/docs/app — Next.js App Router
+  - https://github.com/anza-xyz/wallet-standard — Wallet Standard
+  - https://github.com/anza-xyz/kit — `@solana/client` + `@solana/react-hooks`
+- Files: `frontend/`, `frontend/src/clients/` (Codama-generated)
 
-**Phase 15 (mainnet):**
-- Skills: `git`
+**Phases 12–14 — Frontend dashboards (traveler, underwriter, admin):**
+- Skill references: `frontend-framework-kit.md`, `kit/overview.md`, `kit/plugins.md`, `idl-codegen.md`, `payments.md`
 - Docs to fetch:
-  - https://developers.stellar.org/docs/networks — mainnet configuration
-- Files: `spec/architecture.md`, deploy scripts, testnet deploy artifacts, all contracts
+  - https://nextjs.org/docs/app — Next.js App Router
+  - https://tailwindcss.com/docs — Tailwind reference
+- Files: `frontend/src/`, `frontend/src/clients/`, all five program source dirs (for instruction reference)
+
+**Phase 15 — End-to-End Test:**
+- Skill references: `testing.md`, `surfpool/overview.md`, `surfpool/cheatcodes.md`, `frontend-framework-kit.md`
+- Docs to fetch:
+  - https://playwright.dev/docs/intro — Playwright (browser e2e)
+  - https://docs.surfpool.run/ — Surfpool integration
+- Files: all five program source dirs, `executor/`, `frontend/`, `Surfpool.toml`
 
 ### 4. Ask the user clarifying questions
 
-Before writing the file, review the subtasks and architecture context for this phase. Identify anything that is ambiguous, has multiple valid design choices, or depends on decisions not already recorded in architecture.md or memory. Ask the user these questions directly — wait for answers before proceeding to write the file.
+Before writing the file, review the subtasks and architecture context for this phase. Identify anything that is ambiguous, has multiple valid design choices, or depends on decisions not already recorded in `architecture.md`, `dev_steps.md`, or `MEMORY.md`. Ask the user these questions directly — wait for answers before proceeding to write the file.
 
 Examples of things worth asking about:
-- Design choices that affect the contract interface (e.g. naming, parameter types, error style)
-- Whether to follow an existing Soroban pattern or implement from scratch
-- Edge cases where the architecture doc is silent
-- Any constraints the user may want to enforce (storage rent, access control style, upgrade patterns)
+- Design choices that affect the program interface (account names, instruction parameters, error enum style)
+- Whether to use Anchor account constraints or manual checks for a particular invariant
+- PDA seed schemes, signer hierarchy, or upgrade authority decisions
+- Edge cases where `architecture.md` is silent
+- Constraints the user may want to enforce (rent, compute budget, account sizing, CPI surface)
 
-Do not ask about things that are already clearly specified in architecture.md, development_list.md, or memory. Keep questions concise — one to three questions is typical. If nothing is genuinely ambiguous, skip this step and proceed directly to writing the file.
+Do not ask about things already clearly specified in `architecture.md`, `dev_steps.md`, or `MEMORY.md`. Keep questions concise — one to three questions is typical. If nothing is genuinely ambiguous, skip this step and proceed directly to writing the file.
 
 ### 5. Generate the phase file
 
@@ -127,7 +162,7 @@ Completed: —
 
 ## Dependencies
 
-{List contracts/components that must exist before this phase can begin. Reference which prior phase produces each dependency.}
+{List programs / components that must exist before this phase can begin. Reference which prior phase produces each dependency. Phase 0 has no dependencies.}
 
 ## Context Manifest
 
@@ -135,13 +170,16 @@ Completed: —
 > Edit this section if you want the agent to consult additional resources.
 
 ### Skills
-{List of skills to auto-load, e.g. `git`, `aero-api`}
+{Always include `git` and `solana-dev`. Add `aero-api` for cron phases (7–9).}
+
+### Skill References
+{List of `solana-dev/references/*.md` paths to read alongside the skill — universal defaults plus phase-specific entries from §3.}
 
 ### Docs to Fetch
-{List of URLs the agent will WebFetch at start, with one-line descriptions}
+{List of URLs the agent will WebFetch at start, with one-line descriptions.}
 
 ### Project Files to Read
-{List of specific files/directories the agent must read before starting work}
+{List of specific files/directories the agent must read before starting work — universal defaults plus phase-specific entries.}
 
 ## Pre-work Notes
 
@@ -152,7 +190,7 @@ Completed: —
 
 ## Subtasks
 
-{All numbered subtasks from development_list.md for this phase, as unchecked boxes}
+{All numbered subtasks from dev_steps.md for this phase, as unchecked boxes. Group under sub-headings if the phase has many.}
 
 - [ ] 1. ...
 - [ ] 2. ...
@@ -160,7 +198,7 @@ Completed: —
 
 ### Gate
 
-{The gate condition from development_list.md — what must be true before this phase is considered done.}
+{The gate / "Done when" condition from dev_steps.md — what must be true before this phase is considered complete.}
 
 ---
 
@@ -189,12 +227,18 @@ Completed: —
 
 ### 6. Update progress.md
 
-In the Phase Files table, change the phase row's Status column from `not generated` to `planned`.
+In the Phase Files table, change the phase row's Status column from `not generated` to `planned`. Update the Phase File path column with the slug filename.
 
 ### 7. Tell the user what to do next
 
 Output a short message:
 - Confirm the file was created at its path
-- Show the **Context Manifest** summary — list the skills, docs, and key files that will be loaded
+- Show the **Context Manifest** summary — list the skills (always including `solana-dev`), skill references, docs, and key files that will be loaded
 - Tell the user to open the file, read the subtasks, fill in the Pre-work Notes, and optionally edit the Context Manifest
 - Tell them to run `/start-phase {N}` when they are ready — it will automatically clear context and begin work
+
+## Hard rules
+
+- **`solana-dev` is mandatory in every phase's manifest.** Never omit it. Never replace it. The agent's Solana defaults (framework-kit, `@solana/kit`, Anchor, LiteSVM, Surfpool, NO_DNA=1) live in this skill — without it the agent will drift.
+- **No Stellar/Soroban references.** This is a Solana project. If you find any in `spec/` or commands during planning, flag them to the user.
+- **Use `spec/dev_steps.md` as the source of truth.** Not `development_list.md`, not anything else.

@@ -1,0 +1,207 @@
+# Phase 0 — Project Bootstrap
+
+Status: planned
+Started: —
+Completed: —
+
+---
+
+## Goal
+
+Stand up the empty Sentinel Solana monorepo with the locked stack — Anchor (programs), `@solana/kit` + `@solana-program/*` (client SDK), framework-kit (`@solana/client` + `@solana/react-hooks`) for UI, Codama for typed program clients, LiteSVM for unit tests, and Surfpool for integration tests. The goal is wiring, not logic: every subsequent phase should be able to plug in its program, instructions, hooks, or cron without renegotiating tooling. Four no-op Anchor programs compile, IDLs flow through Codama into typed Kit clients in both `frontend/` and `executor/`, smoke tests pass under LiteSVM, Surfpool starts cleanly, and a single mock USDC mint pubkey is shared across LiteSVM, Surfpool, and devnet.
+
+## Dependencies
+
+—
+
+This phase has no on-chain dependencies. It does depend on the developer machine having Rust toolchain, Solana CLI (Agave), Anchor CLI v1.x, Node 20+, pnpm via corepack, and the `surfpool` CLI installed (or installable via `cargo install surfpool`). Versions are recorded in README after bootstrap (1a — latest stable at bootstrap time).
+
+## Context Manifest
+
+> These are the skills, docs, and files `/start-phase` will load automatically.
+> Edit this section if you want the agent to consult additional resources.
+
+### Skills
+
+- `git` — commit conventions for this repo
+- `solana-dev` — locked stack defaults, NO_DNA=1 CLI prefix, agent guardrails
+- `solana-dev/references/kit/overview.md` — `createClient()` + plugin composition
+- `solana-dev/references/kit/plugins.md` — `solanaRpc`, `solanaLocalRpc`, `signer`/`signerFromFile`/`generatedSigner`
+- `solana-dev/references/frontend-framework-kit.md` — `SolanaProvider`, `autoDiscover()`, hook patterns
+- `solana-dev/references/programs/anchor.md` — Anchor v1 workspace + program scaffolding
+- `solana-dev/references/idl-codegen.md` — Codama IDL → typed Kit client generation
+- `solana-dev/references/testing.md` — LiteSVM TS setup, Surfpool integration patterns
+- `solana-dev/references/surfpool/overview.md` — Surfnet startup, config
+- `solana-dev/references/surfpool/cheatcodes.md` — `surfnet_setAccount` for seeding mock USDC
+- `solana-dev/references/compatibility-matrix.md` — confirm Anchor v1 / Solana CLI / Rust pin at bootstrap time
+- `solana-dev/references/anchor/migrating-v0.32-to-v1.md` — Anchor v1 specifics if templates lag
+- `solana-dev/references/kit-web3-interop.md` — `@solana/web3-compat` boundary for LiteSVM TS
+
+### Docs to Fetch
+
+- https://www.anchor-lang.com/ — Anchor v1 docs, `anchor init` + workspace layout
+- https://solana.com/docs/intro/installation — Agave/Solana CLI install + version check
+- https://github.com/anza-xyz/kit — `@solana/kit` README + plugin catalog
+- https://github.com/codama-idl/codama — Codama codegen CLI usage
+- https://github.com/LiteSVM/litesvm — LiteSVM TS API surface
+- https://docs.surfpool.run/ — Surfpool CLI, `Surfpool.toml`, cheatcodes
+- https://github.com/anza-xyz/wallet-standard — Wallet Standard discovery (referenced by `autoDiscover()`)
+- https://nextjs.org/docs/app — Next.js App Router (provider wrapping, client component boundaries)
+
+### Project Files to Read
+
+- `spec/architecture.md` — full architecture (5 programs, 3 crons, mock USDC, RVS share mint)
+- `spec/dev_steps.md` §Phase 0 — locked deliverables (this is the contract for the phase)
+- `spec/learn_solana.md` — Soroban-to-Solana concept mapping (sanity check)
+- `spec/workflow.md` — phase lifecycle rules
+- `.claude/skills/solana-dev/SKILL.md` — locked stack defaults
+- `.claude/commands/commit.md` — commit message format
+
+## Pre-work Notes
+
+> Fill this in before running `/start-phase 0`.
+> Anything below is a hard requirement the agent will treat as non-negotiable.
+
+### Decisions already locked
+
+1. **5 programs.** `governance`, `vault`, `flight_pool`, `oracle_aggregator`, `controller`. Per `architecture.md` §Program Architecture. Do not consolidate. (Was 4 before the oracle/controller split — flag if you find 4-program references.)
+2. **Versioning: 1a.** Use latest stable Anchor v1.x, latest stable Agave/Solana CLI, latest stable Rust at bootstrap time. Record exact resolved versions in README after install. Do **not** hard-pin via `rust-toolchain.toml` / `.tool-versions` in this phase.
+3. **Mock USDC: 2a.** Single mint pubkey shared across LiteSVM, Surfpool, and devnet. Generate once into `keys/mock-usdc.json`, commit only the pubkey to `keys/mock-usdc.pubkey`. 6 decimals. Mint authority = `keys/mock-usdc-authority.json`. Surfpool seeds it via `surfnet_setAccount`; LiteSVM seeds it via `svm.setAccount(...)`; devnet creates it with `spl-token create-token --decimals 6 keys/mock-usdc.json` (Phase 6 work — set up the keypair file in Phase 0).
+4. **Codama: 3a.** Generated typed Kit clients are the canonical client API. Raw IDL JSON is copied alongside but not the primary import path. Both `frontend/src/clients/<program>/` and `executor/src/clients/<program>/` are gitignored — regenerated by `pnpm gen-clients`.
+5. **No `@solana/wallet-adapter-react`.** Framework-kit only. If `create-solana-dapp` template ships with wallet-adapter, strip it.
+6. **Deterministic program IDs.** Generate keypairs once into `contracts/target/deploy/<program>-keypair.json`, run `anchor keys list`, paste IDs into `Anchor.toml` `[programs.localnet]` AND `[programs.devnet]`. Commit `Anchor.toml`. Subsequent `anchor build` runs must produce the same IDs across machines + CI.
+7. **NO_DNA=1.** Every CLI command run by the agent (or in scripts) is prefixed `NO_DNA=1`. Document this in README.
+
+### Things to ask before assuming
+
+- If `create-solana-dapp` doesn't have a kit-compatible template ready, fall back to `npx create-next-app@latest` with TypeScript + Tailwind + App Router, then add framework-kit deps manually. Do not pull in `@solana/wallet-adapter-*`.
+- LiteSVM TS API uses `@solana/web3.js` types (`PublicKey`, `Transaction`). Use `@solana/web3-compat` to bridge to/from Kit `Address` and Kit transaction messages. Contain the bridge to `tests/setup.ts` and one `lib/web3compat.ts` module — don't let web3.js types leak into program-specific test files.
+- Codama config lives in `scripts/gen-clients.ts`. If a Codama renderer for `@solana/kit` isn't yet stable for Anchor v1 IDL, fall back to the Codama "Kit-style" JS renderer and adapt — note this in `Decisions Made` if it happens.
+
+### Risks / known sharp edges
+
+- **Anchor v1 IDL format vs Codama compatibility.** Anchor v1 emits a slightly different IDL JSON than v0.30/v0.31. Verify Codama's Anchor IDL parser version supports Anchor v1 before locking the codegen step. If not, file an issue and either pin Anchor 0.31 OR write a small IDL-shim — flag this immediately if it blocks.
+- **`@solana/kit-plugin-rpc`'s `solanaLocalRpc` defaults.** Confirm it points at `127.0.0.1:8899` (Surfnet default) — if not, pass `rpcUrl` explicitly.
+- **LiteSVM mock-USDC mint serialization.** `spl_token::state::Mint::pack()` produces 82 bytes; ensure `setAccount` is called with `owner = TOKEN_PROGRAM_ID` and `data = packed_mint_bytes` (base64) — easy to get wrong and silently break ATA creation downstream.
+- **`Surfpool.toml` schema is young.** If the cheatcode-on-startup syntax is unstable, fall back to running `surfnet_setAccount` from `scripts/surfpool-seed.ts` invoked after `surfpool start` is healthy.
+
+### Out of scope
+
+- Mollusk CU benchmarking (defer)
+- Real program logic (Phases 1–4)
+- Cron scheduling, AeroAPI client (Phases 7–9)
+- UI dashboards (Phases 10–13)
+- CI workflows (separate phase or part of Phase 6)
+
+---
+
+## Subtasks
+
+### Workspace + tooling
+
+- [ ] 1. Initialize pnpm workspace at repo root (`pnpm-workspace.yaml` covering `contracts/`, `frontend/`, `executor/`, `scripts/`)
+- [ ] 2. Create root `package.json` with scripts: `sync-idl`, `gen-clients`, `dev:frontend`, `dev:executor`, `dev:surfpool`, `test:contracts`, `test:integration`, `build:all`, `clean`, `typecheck`
+- [ ] 3. Pin pnpm version via `packageManager` field; document corepack enable step in README
+- [ ] 4. Create `.env.example` with `NEXT_PUBLIC_SOLANA_RPC_URL`, `NEXT_PUBLIC_SOLANA_WS_URL`, `SOLANA_RPC_URL`, `EXECUTOR_KEYPAIR`
+- [ ] 5. Create `.gitignore` covering `target/`, `node_modules/`, `.anchor/`, `frontend/src/idl/`, `frontend/src/clients/`, `executor/src/idl/`, `executor/src/clients/`, `.surfpool/`, `.next/`, `.env.local`, `keys/*.json` (NOT `keys/*.pubkey`)
+- [ ] 6. Write README — install prerequisites (Rust, Agave/Solana CLI, Anchor v1, Node 20+, pnpm via corepack, surfpool), one-command bring-up (`pnpm install && pnpm sync-idl && pnpm gen-clients && pnpm dev:frontend`), `NO_DNA=1` documentation, resolved tool versions
+
+### `contracts/` — Anchor workspace
+
+- [ ] 7. Run `NO_DNA=1 anchor init contracts --no-git` (or hand-roll equivalent layout if `--no-git` unavailable)
+- [ ] 8. Pin Anchor version in `contracts/Cargo.toml` workspace; record version in README
+- [ ] 9. Create five program crates under `contracts/programs/`: `governance`, `vault`, `flight_pool`, `oracle_aggregator`, `controller` — each with `declare_id!()`, a no-op `initialize` instruction, and one no-op state account
+- [ ] 10. Generate program keypairs into `contracts/target/deploy/<program>-keypair.json`, run `anchor keys list`, paste IDs into `Anchor.toml` `[programs.localnet]` and `[programs.devnet]`. Commit `Anchor.toml`.
+- [ ] 11. `NO_DNA=1 anchor build` succeeds and produces 5 IDL JSONs in `contracts/target/idl/`
+- [ ] 12. Re-run `anchor build` on a clean checkout — confirm program IDs are identical (deterministic build)
+- [ ] 13. Add `contracts/package.json` devDeps: `litesvm`, `vitest`, `@types/node`, `@solana/kit`, `@solana/kit-plugin-signer`, `@solana-program/system`, `@solana-program/token`, `@solana/web3-compat`, `@solana/spl-token`
+- [ ] 14. Wire `postbuild` hook in `contracts/package.json` to invoke `scripts/sync-idl.sh`
+
+### Mock USDC mint (shared across envs)
+
+- [ ] 15. Generate `keys/mock-usdc.json` (mint keypair) and `keys/mock-usdc-authority.json` via `solana-keygen new --no-bip39-passphrase --outfile`
+- [ ] 16. Write the public addresses to `keys/mock-usdc.pubkey` and `keys/mock-usdc-authority.pubkey` (committed). Add `keys/*.json` to `.gitignore`.
+- [ ] 17. Document the mock USDC strategy in README §Local development
+
+### LiteSVM unit-test harness
+
+- [ ] 18. `contracts/tests/setup.ts` — `makeSvm()` constructs `LiteSVM`, loads all five `target/deploy/*.so` at their declared program IDs
+- [ ] 19. `airdrop(svm, pubkey, lamports)` helper
+- [ ] 20. `createMockUsdcMint(svm)` — packs `spl_token::state::Mint` (decimals=6, mint_authority from `keys/mock-usdc-authority.pubkey`, supply=0) and seeds at the address from `keys/mock-usdc.pubkey` via `svm.setAccount`
+- [ ] 21. `fundAta(svm, mint, owner, amount)` — derives ATA via `@solana/spl-token`, creates+mints
+- [ ] 22. `advanceClock(svm, secondsForward)` — wraps `svm.setSysvar(Clock, …)`
+- [ ] 23. `lib/web3compat.ts` (in `contracts/tests/`) — narrow boundary exporting `toLegacyTx` / `toKitAddress` adapters using `@solana/web3-compat`
+- [ ] 24. `contracts/tests/smoke.test.ts` — one test per program (5 total): assert `program.programId` matches declared ID; build + send `initialize` instruction; assert success
+
+### `frontend/` — Next.js + framework-kit
+
+- [ ] 25. Bootstrap `frontend/` via `NO_DNA=1 npx create-solana-dapp` with kit-compatible Next.js + Tailwind template (fallback: `create-next-app` + manual deps)
+- [ ] 26. TypeScript strict mode on; remove any `@solana/wallet-adapter-*` deps the template ships
+- [ ] 27. Add deps: `@solana/client`, `@solana/react-hooks`, `@solana/kit`, `@solana/kit-plugin-rpc`, `@solana/kit-plugin-signer`, `@solana-program/system`, `@solana-program/token`
+- [ ] 28. `app/providers.tsx` — single `createClient({ endpoint, websocketEndpoint, walletConnectors: autoDiscover() })` wrapped in `<SolanaProvider>`
+- [ ] 29. `app/layout.tsx` wraps children with `<Providers>`
+- [ ] 30. `app/page.tsx` — minimal landing page with `useWalletConnection()` connect button
+- [ ] 31. `src/lib/cluster.ts` — env-driven RPC plugin selection (`solanaLocalRpc` / `solanaDevnetRpc`)
+
+### `executor/` — TypeScript skeleton
+
+- [ ] 32. `executor/package.json`, `executor/tsconfig.json` (NodeNext, strict), `executor/src/index.ts` placeholder `main()`
+- [ ] 33. Deps: `@solana/kit`, `@solana/kit-plugin-rpc`, `@solana/kit-plugin-signer`, `@solana-program/system`, `@solana-program/token`, `dotenv`
+- [ ] 34. `executor/src/lib/client.ts` — `createExecutorClient()` builds Kit client with `signerFromFile(EXECUTOR_KEYPAIR)` + `solanaRpc({ rpcUrl: SOLANA_RPC_URL })`
+- [ ] 35. `executor/src/index.ts` smoke-imports `createExecutorClient`, logs cluster version, exits 0
+
+### `scripts/`
+
+- [ ] 36. `scripts/sync-idl.sh` — runs `NO_DNA=1 anchor build` in `contracts/`, copies `target/idl/*.json` and `target/types/*.ts` into `frontend/src/idl/` and `executor/src/idl/`
+- [ ] 37. `scripts/gen-clients.ts` — Codama codegen: reads `contracts/target/idl/*.json`, emits typed Kit clients into `frontend/src/clients/<program>/` and `executor/src/clients/<program>/`
+- [ ] 38. `scripts/dev-surfpool.sh` — `NO_DNA=1 surfpool start`
+- [ ] 39. `scripts/keys-bootstrap.sh` — one-time generator for the four program keypairs + the mock USDC keypair pair (idempotent: skip if files already exist)
+- [ ] 40. `Surfpool.toml` — seeds the mock USDC mint at `keys/mock-usdc.pubkey` via `surfnet_setAccount` on startup; defaults document slot/clock
+
+### Verification
+
+- [ ] 41. `pnpm test:contracts` — 5 LiteSVM smoke tests pass
+- [ ] 42. `pnpm sync-idl` — 5 IDL JSONs land in `frontend/src/idl/` and `executor/src/idl/`
+- [ ] 43. `pnpm gen-clients` — typed Kit clients land in `frontend/src/clients/<program>/` and `executor/src/clients/<program>/`; trivial import (e.g., `import { GovernanceClient } from '@/clients/governance'`) typechecks
+- [ ] 44. `pnpm dev:frontend` — Next.js starts, landing page renders, wallet connect button visible, no console errors
+- [ ] 45. `pnpm dev:executor` — runs end-to-end (logs cluster version, exits 0)
+- [ ] 46. `pnpm dev:surfpool` — Surfnet starts on `127.0.0.1:8899`; `solana cluster-version --url http://127.0.0.1:8899` succeeds
+- [ ] 47. `pnpm test:integration` — at least one stub test against running Surfnet fetches mock USDC mint at `keys/mock-usdc.pubkey` and asserts `decimals = 6`
+- [ ] 48. `pnpm typecheck` passes across all workspaces
+
+### Gate
+
+All of:
+
+1. `pnpm test:contracts` — 5 LiteSVM smoke tests green.
+2. `pnpm sync-idl && pnpm gen-clients` — IDL JSONs and Codama-generated typed Kit clients land in both `frontend/` and `executor/`.
+3. `pnpm dev:frontend` — landing page renders with framework-kit wallet connect button visible, no console errors. Cluster defaults to devnet.
+4. `pnpm dev:executor` — exits 0 after constructing a Kit client against `SOLANA_RPC_URL`.
+5. `pnpm dev:surfpool` — Surfnet healthy on `127.0.0.1:8899` with mock USDC mint seeded at the canonical address.
+6. `pnpm test:integration` — at least one Surfpool test asserts mock USDC mint decimals = 6.
+7. `Anchor.toml` has committed deterministic program IDs for `localnet` and `devnet`; rebuilding produces the same IDs.
+8. `pnpm typecheck` passes across all workspaces.
+
+---
+
+## Work Log
+
+> Populated by the agent during work. Do not edit manually.
+
+---
+
+## Files Created / Modified
+
+> Populated by the agent during work.
+
+---
+
+## Decisions Made
+
+> Key architectural or implementation decisions locked in during this phase. Populated during work.
+
+---
+
+## Completion Summary
+
+> Populated by /complete-phase. Do not edit manually.

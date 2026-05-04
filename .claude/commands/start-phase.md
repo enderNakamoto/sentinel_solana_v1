@@ -25,10 +25,18 @@ This is equivalent to `/clear` — treat this moment as the beginning of a new s
 Run these in parallel to establish baseline project understanding:
 
 **a) Core docs:**
-- Read `README.md` — project overview, structure, tech stack
-- Read `spec/architecture.md` — **first ~50 lines only** (System Overview + contract table)
-- Read `CLAUDE.md` if it exists
-- Read `spec/preferences.md` — user coding preferences (hard requirements)
+- Read `README.md` if it exists — project overview, structure, tech stack
+- Read `spec/architecture.md` — **first ~50 lines only** (System Overview + program table)
+- Read `CLAUDE.md` if it exists — project-level instructions and locked stack
+- Read `spec/workflow.md` — phase lifecycle rules
+
+**a.bis) Always-on Solana defaults (mandatory, regardless of manifest):**
+- Read `.claude/skills/solana-dev/SKILL.md` — locked stack (Anchor, `@solana/kit`, framework-kit, LiteSVM, Surfpool, Codama, NO_DNA=1)
+- Read `.claude/skills/solana-dev/references/compatibility-matrix.md`
+- Read `.claude/skills/solana-dev/references/common-errors.md`
+- Read `.claude/skills/solana-dev/references/security.md`
+
+These are loaded **for every phase**, even if the phase's Context Manifest somehow omits `solana-dev`. The skill's defaults are non-negotiable for this project.
 
 **b) Progress state:**
 - Read `spec/progress.md` — current phase status
@@ -39,23 +47,23 @@ This gives the agent just enough context to orient before diving into phase-spec
 
 ### 2. Read the phase file
 
-- Determine the phase file path using the slug table:
-  - 0 → `spec/phases/phase-00-foundry-init.md`
-  - 1 → `spec/phases/phase-01-mockusdc.md`
-  - 2 → `spec/phases/phase-02-recoverypool.md`
-  - 3 → `spec/phases/phase-03-governancemodule.md`
-  - 4 → `spec/phases/phase-04-riskvault.md`
-  - 5 → `spec/phases/phase-05-oracleaggregator.md`
-  - 6 → `spec/phases/phase-06-flightpool.md`
-  - 7 → `spec/phases/phase-07-controller.md`
-  - 8 → `spec/phases/phase-08-integration-tests.md`
-  - 9 → `spec/phases/phase-09-mock-api-server.md`
-  - 10 → `spec/phases/phase-10-cre-workflow-mock.md`
-  - 11 → `spec/phases/phase-11-cre-workflow-aeroapi.md`
-  - 12 → `spec/phases/phase-12-testnet.md`
-  - 13 → `spec/phases/phase-13-frontend-init.md`
-  - 14 → `spec/phases/phase-14-frontend.md`
-  - 15 → `spec/phases/phase-15-mainnet.md`
+- Determine the phase file path using the Solana slug table:
+  - 0  → `spec/phases/phase-00-project-bootstrap.md`
+  - 1  → `spec/phases/phase-01-governance-program.md`
+  - 2  → `spec/phases/phase-02-vault-program.md`
+  - 3  → `spec/phases/phase-03-flight-pool-program.md`
+  - 4  → `spec/phases/phase-04-oracle-aggregator-program.md`
+  - 5  → `spec/phases/phase-05-controller-program.md`
+  - 6  → `spec/phases/phase-06-cross-program-integration-tests.md`
+  - 7  → `spec/phases/phase-07-devnet-deployment.md`
+  - 8  → `spec/phases/phase-08-oracle-cron.md`
+  - 9  → `spec/phases/phase-09-classifier-cron.md`
+  - 10 → `spec/phases/phase-10-settlement-cron.md`
+  - 11 → `spec/phases/phase-11-frontend-bootstrap.md`
+  - 12 → `spec/phases/phase-12-frontend-traveler.md`
+  - 13 → `spec/phases/phase-13-frontend-underwriter.md`
+  - 14 → `spec/phases/phase-14-frontend-admin.md`
+  - 15 → `spec/phases/phase-15-e2e-test.md`
 
 - Read the full phase file — confirm Status is `planned`
 - Read the **Pre-work Notes** — these are the user's constraints, treat as hard requirements
@@ -74,18 +82,19 @@ Execute these in parallel:
 - For directories, read the key source files within them
 
 **b) Load skills listed in the manifest:**
-- For each skill name listed (e.g. `soroban`, `oz-stellar`, `git`):
-  - Read the main skill file: `.claude/commands/skills/{name}/SKILL.md`
-  - Read any reference files listed in the Context Manifest from `.claude/commands/skills/{name}/references/`
+- For each skill name listed (e.g. `git`, `solana-dev`, `aero-api`):
+  - Read the main skill file: `.claude/skills/{name}/SKILL.md`
+  - Read any reference files listed under "Skill References" in the Context Manifest from `.claude/skills/{name}/references/`
 - Do NOT use the `Skill` tool to load these — just read the files directly with the `Read` tool
+- If a manifest somehow omits `solana-dev`, you have **already** loaded its baseline files in step 1.a.bis — proceed without re-asking, but flag the omission to the user as a manifest bug.
 
 **c) Fetch external docs listed in the manifest:**
 - WebFetch each URL listed under "Docs to Fetch" in the Context Manifest
 - These are reference docs — scan for patterns and APIs relevant to this phase's subtasks
-- If a fetch fails, note it in the Work Log but do not block — proceed with architecture.md as primary reference
+- If a fetch fails, note it in the Work Log but do not block — proceed with `architecture.md` and the `solana-dev` skill as primary reference
 
-**d) Read development_list.md:**
-- Read `spec/development_list.md` for the full test list and gate conditions for this phase
+**d) Read dev_steps.md:**
+- Read `spec/dev_steps.md` for the full deliverables list and gate conditions for this phase (this file is the source of truth — not `development_list.md`, which does not exist)
 
 ### 4. Update the phase file
 

@@ -56,25 +56,25 @@ Think of it this way:
   OracleAggregator, RecoveryPool), each with its own embedded SQLite database. To talk to
   another service, you make an HTTP call (cross-contract call).
 
-- **Solana** = 3 API servers (governance_program, vault_program, insurance_program), each
-  backed by a shared PostgreSQL database (the Solana account space). The "tables" are PDA
-  accounts. The servers do not contain data — they contain logic that operates on rows in
-  the database.
+- **Solana** = 5 API servers (governance_program, vault_program, flight_pool_program,
+  oracle_aggregator_program, controller_program), each backed by a shared PostgreSQL
+  database (the Solana account space). The "tables" are PDA accounts. The servers do not
+  contain data — they contain logic that operates on rows in the database.
 
 ### The Key Mental Shift
 
 **The program is the smart contract. The PDA is just a database row.**
 
 On Soroban, you deploy a new FlightPool contract for every flight. On Solana, you create a
-new FlightPool PDA account under the `insurance_program`. Same data, same logic — but the
+new FlightPool PDA account under the `flight_pool_program`. Same data, same logic — but the
 FlightPool is an account, not a deployed program.
 
 | Soroban | Solana |
 |---------|--------|
 | Deploy GovernanceModule contract | Deploy `governance_program` once |
 | `env.storage().set(&DataKey::Route(...), &terms)` | Create a `RouteAccount` PDA |
-| Deploy a new FlightPool contract per flight | Create a `FlightPoolAccount` PDA per flight |
-| 6 contract deployments | 3 program deployments + N PDA accounts |
+| Deploy a new FlightPool contract per flight | Create a `FlightPool` PDA per flight under `flight_pool_program` |
+| 6 contract deployments | 5 program deployments + N PDA accounts |
 
 ---
 
@@ -125,14 +125,15 @@ Here is every Soroban `DataKey` from the architecture mapped to its Solana PDA e
 | RiskVault | `WithdrawalQueue` | vault_program | `[b"withdrawal", index.to_le_bytes()]` | `WithdrawalRequest` |
 | RiskVault | `ClaimableBalance(Address)` | vault_program | `[b"claimable", owner.key().as_ref()]` | `ClaimableBalance` |
 | RiskVault | `SnapshotPrice(u64)` | vault_program | `[b"snapshot", day.to_le_bytes()]` | `SnapshotRecord` |
-| Controller | `Owner, Governance, RiskVault, Oracle...` | insurance_program | `[b"insurance_config"]` | `InsuranceConfig` |
-| Controller | `AuthorizedKeeper` | insurance_program | `[b"insurance_config"]` | `InsuranceConfig` (field) |
-| Controller | `ActiveFlight(Symbol, u64)` | insurance_program | `[b"flight_pool", flight_id, date]` | `FlightPoolAccount` |
-| FlightPool | `Controller, FlightId, Date, Premium...` | insurance_program | `[b"flight_pool", flight_id, date]` | `FlightPoolAccount` (fields) |
-| FlightPool | `Buyer(Address)` | insurance_program | `[b"buyer", pool.key().as_ref(), buyer.key().as_ref()]` | `BuyerRecord` |
-| FlightPool | `Claimed(Address)` | insurance_program | `[b"buyer", pool.key().as_ref(), buyer.key().as_ref()]` | `BuyerRecord` (claimed field) |
-| OracleAggregator | `FlightData(Symbol, u64)` | insurance_program | `[b"flight_data", flight_id, date]` | `FlightDataAccount` |
-| RecoveryPool | entire contract | insurance_program | `[b"recovery_pool"]` | `RecoveryPoolAccount` |
+| Controller | `Owner, Governance, RiskVault, Oracle...` | controller_program | `[b"controller_config"]` | `ControllerConfig` |
+| Controller | `AuthorizedKeeper` | controller_program | `[b"controller_config"]` | `ControllerConfig` (field) |
+| Controller | `ActiveFlightList` | controller_program | `[b"active_flights"]` | `ActiveFlightList` |
+| FlightPool | `Controller, FlightId, Date, Premium...` | flight_pool_program | `[b"flight_pool", flight_id, date]` | `FlightPool` (fields) |
+| FlightPool | `Buyer(Address)` | flight_pool_program | `[b"buyer", pool.key().as_ref(), buyer.key().as_ref()]` | `BuyerRecord` |
+| FlightPool | `Claimed(Address)` | flight_pool_program | `[b"buyer", pool.key().as_ref(), buyer.key().as_ref()]` | `BuyerRecord` (claimed field) |
+| OracleAggregator | `Owner, AuthorizedOracle...` | oracle_aggregator_program | `[b"oracle_config"]` | `OracleConfig` |
+| OracleAggregator | `FlightData(Symbol, u64)` | oracle_aggregator_program | `[b"flight", flight_id, date]` | `FlightData` |
+| RecoveryPool | `recovered_balance` counter | flight_pool_program | `[b"flight_pool_config"]` | `FlightPoolConfig` (field) |
 
 Notice how Soroban's `RouteList` and `ActiveFlightList` disappear entirely. On Solana, you
 query all accounts of a given type using `getProgramAccounts` with filters (see Section 7).
@@ -219,7 +220,7 @@ pub struct CreateFlightPool<'info> {
 
 ### What CPI Is
 
-CPI is Solana's equivalent of Soroban's cross-contract calls. When `insurance_program`
+CPI is Solana's equivalent of Soroban's cross-contract calls. When `controller_program`
 needs to move tokens from the vault, it makes a CPI to `vault_program`. When it needs to
 check route approval, it makes a CPI to `governance_program`.
 
@@ -229,7 +230,7 @@ CPI is significantly more expensive than Soroban's cross-contract calls:
 
 - **~25,000 Compute Units overhead** per CPI, on top of the invoked instruction's own cost.
 - **Account fan-out**: every account the callee needs must also be passed into the caller's
-  transaction. If `insurance_program` CPIs into `vault_program`, and vault needs 5 accounts,
+  transaction. If `controller_program` CPIs into `vault_program`, and vault needs 5 accounts,
   all 5 must appear in the original transaction's account list.
 - **4-level depth limit**: A can call B can call C can call D — but no deeper.
 - **Stack size**: each CPI level consumes stack. Deep chains risk stack overflow.
@@ -256,59 +257,68 @@ oracle_client.set_to_be_settled(&controller_addr, &flight_id, &date, &status);
 On Solana, CPIs are explicit, verbose, and require passing all accounts:
 
 ```rust
-// Anchor — insurance_program CPIs into vault_program
+// Anchor — controller_program CPIs into vault_program
 let cpi_program = ctx.accounts.vault_program.to_account_info();
 let cpi_accounts = vault_program::cpi::accounts::IncreaseLocked {
     vault_config: ctx.accounts.vault_config.to_account_info(),
-    authority: ctx.accounts.insurance_config.to_account_info(),
+    authority: ctx.accounts.controller_config.to_account_info(),
 };
-let seeds = &[b"insurance_config", &[ctx.accounts.insurance_config.bump]];
+let seeds = &[b"controller_config", &[ctx.accounts.controller_config.bump]];
 let signer_seeds = &[&seeds[..]];
 let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
 vault_program::cpi::increase_locked(cpi_ctx, amount)?;
 ```
 
-### Why We Consolidated 6 Contracts Into 3 Programs
+### Why We Mapped 6 Soroban Contracts to 5 Solana Programs
 
 On Soroban, the Sentinel Protocol has 6 contracts: GovernanceModule, RiskVault, Controller,
 FlightPool, OracleAggregator, RecoveryPool. The Controller makes cross-contract calls to
 all of them freely because calls are cheap and seamless.
 
-On Solana, each of those cross-program calls would cost ~25K CU overhead and require
-passing every account the callee needs. The Controller's `execute_settlements()` function
-calls FlightPool, RiskVault, and OracleAggregator in a loop — that would be 3 CPIs per
-flight, each with its own account fan-out, inside a batch operation that already pushes
-compute limits.
+On Solana, each cross-program call costs ~25K CU overhead and requires passing every
+account the callee needs — so we consolidated where it made sense and split where authority
+isolation mattered.
 
-The consolidation:
+The mapping:
 
 | Soroban Contracts | Solana Program | Rationale |
 |-------------------|----------------|-----------|
-| GovernanceModule | governance_program | Standalone — only read by others |
-| RiskVault | vault_program | Standalone — manages its own token accounts |
-| Controller + FlightPool + OracleAggregator + RecoveryPool | insurance_program | Controller called all three constantly. Merging them into one program eliminates 3+ CPIs per settlement |
+| GovernanceModule | `governance_program` | Standalone — only read by others |
+| RiskVault | `vault_program` | Standalone — manages its own token accounts and share mint |
+| FlightPool + RecoveryPool | `flight_pool_program` | Same custody surface (per-flight pool + recovery counter); merging eliminates the FlightPool↔RecoveryPool CPI. RecoveryPool collapsed to a `recovered_balance` field on `FlightPoolConfig`. |
+| OracleAggregator | `oracle_aggregator_program` | Kept separate so the `authorized_oracle` keypair (compromise risk: it signs every 2h from an internet-exposed cron) cannot trigger payouts. Mirrors the Pyth/Switchboard pattern. Reads from controller are free (account passing); only state-transition writes use CPIs. |
+| Controller | `controller_program` | Pure orchestration. CPIs into all 4 other programs to drive buy / classify / settle. Holds zero funds. |
 
-### CPIs That Remain
+### CPIs in the runtime hot path
 
-These cross-program calls still exist because the programs genuinely manage separate concerns:
+These cross-program calls happen during normal protocol operation:
 
-1. **insurance_program -> vault_program**: `increase_locked`, `decrease_locked`,
-   `send_payout`, `record_premium_income`, `process_withdrawal_queue`
-2. **insurance_program -> governance_program**: `get_route_terms` (read-only, can also be
-   done client-side by passing the RouteAccount into the transaction)
-3. **insurance_program -> SPL Token program**: token transfers for premiums and claims
+1. **`controller_program → governance_program`**: `is_route_whitelisted`, `get_route_terms`
+   (read-only; could alternatively be done client-side by passing `RouteAccount` in)
+2. **`controller_program → flight_pool_program`**: `register_pool`, `add_buyer`,
+   `settle_on_time`, `settle_delayed`, `settle_cancelled` (consumer-gated)
+3. **`controller_program → vault_program`**: `increase_locked`, `decrease_locked`,
+   `send_payout`, `record_premium_income`, `process_withdrawal_queue`, `snapshot`
+4. **`controller_program → oracle_aggregator_program`**: `init_flight_data` (on first
+   buy), `set_to_be_settled` (during classify), `set_settled` (during execute) — all
+   consumer-gated, signed by the controller's `ControllerConfig` PDA
+5. **`flight_pool_program → SPL Token program`**: premium in (from traveler), claim out
+   (to traveler), settle on-time (to vault token account)
+6. **`vault_program → flight_pool_program`**: `send_payout` target = `pool_treasury`
+7. **`vault_program → SPL Token program`**: USDC transfers, RVS share mint/burn
 
-### CPIs We Eliminated
+**Settlement budget:** `controller_program.execute_settlements()` does ~4–5 CPIs per
+flight (vault + flight_pool + oracle), so `MAX_FLIGHTS_PER_TX` is ~2. The keeper cron
+fans out across multiple transactions when the queue is bigger.
 
-By consolidating Controller + FlightPool + OracleAggregator + RecoveryPool into
-`insurance_program`, we eliminated:
+### Reads are free — only writes are CPIs
 
-- Controller -> FlightPool: `buy_insurance`, `settle_on_time`, `settle_delayed`, `settle_cancelled`
-- Controller -> OracleAggregator: `register_flight`, `set_to_be_settled`, `set_settled`, `get_flight_data`
-- Controller -> RecoveryPool: `receive_sweep`
-- FlightPool -> RiskVault: `record_premium_income` (now insurance_program calls vault directly)
-
-All of these are now internal function calls within `insurance_program` — zero CPI overhead.
+The controller reads `FlightData` accounts during `classify_flights` and
+`execute_settlements` by passing them in as `Account<'info, FlightData>` with an
+`owner = oracle_aggregator_program` constraint. **No CPI is required for reads** —
+that's the whole point of Solana's account model. CPIs from controller to oracle
+only happen when the controller needs to **mutate** FlightData state (init,
+to_be_settled, settled).
 
 ---
 
@@ -351,11 +361,11 @@ pub struct ProcessFlights<'info> {
 
     // Step 2: has_one = authorized_keeper checks that config.authorized_keeper == keeper.key()
     #[account(
-        seeds = [b"insurance_config"],
+        seeds = [b"controller_config"],
         bump = config.bump,
         has_one = authorized_keeper @ SentinelError::UnauthorizedKeeper,
     )]
-    pub config: Account<'info, InsuranceConfig>,
+    pub config: Account<'info, ControllerConfig>,
 
     /// CHECK: Validated by has_one on config
     pub authorized_keeper: AccountInfo<'info>,
@@ -370,12 +380,12 @@ in the transaction. A cleaner pattern for our case:
 #[derive(Accounts)]
 pub struct ProcessFlights<'info> {
     #[account(
-        seeds = [b"insurance_config"],
+        seeds = [b"controller_config"],
         bump = config.bump,
         constraint = config.authorized_keeper == keeper.key()
             @ SentinelError::UnauthorizedKeeper,
     )]
-    pub config: Account<'info, InsuranceConfig>,
+    pub config: Account<'info, ControllerConfig>,
 
     pub keeper: Signer<'info>,
 }
@@ -389,7 +399,7 @@ The `Signer<'info>` type is the equivalent of `require_auth()`.
 On Soroban, the `classify_flights` function just takes `keeper: Address` as a parameter.
 The contract reads `AuthorizedKeeper` from its own storage internally.
 
-On Solana, you cannot "just read from storage." The `InsuranceConfig` account that holds
+On Solana, you cannot "just read from storage." The `ControllerConfig` account that holds
 `authorized_keeper` must be explicitly passed as an account in the transaction. Every piece
 of state your instruction reads or writes must be declared in the accounts struct. You
 cannot access any on-chain data that was not passed into the transaction.
@@ -511,7 +521,7 @@ On Soroban, you deploy the standard Soroban token contract with custom parameter
 On Solana:
 
 - **localnet/devnet**: Deploy your own SPL Token mint, set decimals to 6, mint freely for
-  testing. Store the mint address in `InsuranceConfig` and `VaultConfig`.
+  testing. Store the mint address in `ControllerConfig` and `VaultConfig`.
 - **mainnet**: Use the real USDC mint address (`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`).
 - The program code is identical — only the configured mint address changes.
 
@@ -628,7 +638,7 @@ Neither is great.
 
 ### Solana: getProgramAccounts with memcmp Filters
 
-On Solana, every `BuyerRecord` is a separate account owned by `insurance_program`. The
+On Solana, every `BuyerRecord` is a separate account owned by `flight_pool_program`. The
 Solana RPC has a `getProgramAccounts` endpoint that returns all accounts owned by a program,
 with optional **memcmp filters** that match bytes at specific offsets in the account data.
 
@@ -639,13 +649,13 @@ Since every `BuyerRecord` contains the buyer's pubkey at a known byte offset, yo
 // TypeScript — find all policies for a specific wallet
 import { connection } from "./connection";
 import { PublicKey } from "@solana/web3.js";
-import { INSURANCE_PROGRAM_ID } from "./constants";
+import { FLIGHT_POOL_PROGRAM_ID } from "./constants";
 
 const BUYER_RECORD_DISCRIMINATOR = Buffer.from(/* anchor discriminator for BuyerRecord */);
 const BUYER_PUBKEY_OFFSET = 8; // 8-byte discriminator, then buyer pubkey starts
 
 async function getPoliciesForWallet(walletPubkey: PublicKey) {
-  const accounts = await connection.getProgramAccounts(INSURANCE_PROGRAM_ID, {
+  const accounts = await connection.getProgramAccounts(FLIGHT_POOL_PROGRAM_ID, {
     filters: [
       {
         // Match the BuyerRecord account discriminator
@@ -682,7 +692,7 @@ matches a specific FlightPool PDA:
 const POOL_PUBKEY_OFFSET = 8 + 32; // discriminator + buyer pubkey, then pool pubkey
 
 async function getBuyersForPool(poolPubkey: PublicKey) {
-  const accounts = await connection.getProgramAccounts(INSURANCE_PROGRAM_ID, {
+  const accounts = await connection.getProgramAccounts(FLIGHT_POOL_PROGRAM_ID, {
     filters: [
       {
         memcmp: {
@@ -713,7 +723,7 @@ You cannot query it from outside without calling the contract. There is no cross
 storage scan.
 
 On Solana, each `BuyerRecord` is a separate account in the global account space. The
-`getProgramAccounts` RPC scans all accounts owned by `insurance_program` and applies byte-level
+`getProgramAccounts` RPC scans all accounts owned by `flight_pool_program` and applies byte-level
 filters. This is possible because accounts are "database rows" — not entries hidden inside
 a contract's private storage.
 
@@ -745,8 +755,8 @@ A `buy_insurance` call on Solana must pass approximately these accounts:
 #[derive(Accounts)]
 pub struct BuyInsurance<'info> {
     // 1. Insurance program config PDA (read)
-    #[account(seeds = [b"insurance_config"], bump = config.bump)]
-    pub config: Account<'info, InsuranceConfig>,
+    #[account(seeds = [b"controller_config"], bump = config.bump)]
+    pub config: Account<'info, ControllerConfig>,
 
     // 2. Flight pool PDA (write — update buyer_count)
     #[account(mut, seeds = [b"flight_pool", ...], bump = flight_pool.bump)]
@@ -836,10 +846,10 @@ separate instance.
 
 ```bash
 # Deploy initially
-anchor deploy --program-name insurance_program --provider.cluster devnet
+anchor deploy --program-name controller_program --provider.cluster devnet
 
 # Upgrade with new code — all PDAs and accounts remain untouched
-anchor upgrade target/deploy/insurance_program.so \
+anchor upgrade target/deploy/controller_program.so \
   --program-id <PROGRAM_ID> \
   --provider.cluster devnet
 ```
@@ -957,14 +967,19 @@ RiskVault (contract)           ──►       vault_program
   ├─ VaultKey::ClaimableBalance(addr)      ├─ ClaimableBalance PDA (per user)
   └─ VaultKey::SnapshotPrice(day)          └─ SnapshotRecord PDA (per day)
 
-Controller (contract)          ──┐
-FlightPool (contract, per flight)├──►    insurance_program
-OracleAggregator (contract)    ──┤         ├─ InsuranceConfig PDA
-RecoveryPool (contract)        ──┘         ├─ FlightPoolAccount PDA (per flight)
-                                           ├─ BuyerRecord PDA (per buyer per pool)
-  CtrlKey::ActiveFlight(f, d)              ├─ FlightDataAccount PDA (per flight)
-  OracleKey::FlightData(f, d)              ├─ RecoveryPoolAccount PDA
-  PoolKey::Buyer(addr)                     └─ (use getProgramAccounts for lists)
+Controller (contract)          ──►   controller_program
+                                       ├─ ControllerConfig PDA
+                                       └─ ActiveFlightList PDA
+
+FlightPool (contract, per flight) ──►   flight_pool_program
+RecoveryPool (contract)           ──┘     ├─ FlightPoolConfig PDA (incl. recovered_balance)
+  PoolKey::Buyer(addr)                    ├─ FlightPool PDA (per flight)
+                                          ├─ BuyerRecord PDA (per buyer per pool)
+                                          └─ pool_treasury (token account, PDA-owned)
+
+OracleAggregator (contract)    ──►   oracle_aggregator_program
+  OracleKey::FlightData(f, d)         ├─ OracleConfig PDA
+                                      └─ FlightData PDA (per flight)
   PoolKey::Claimed(addr)
 
 Off-chain crons:
