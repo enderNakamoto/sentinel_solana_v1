@@ -82,7 +82,12 @@ This phase has no on-chain dependencies. It does depend on the developer machine
 
 ### Risks / known sharp edges
 
-- **Anchor v1 IDL format vs Codama compatibility (BLOCKER candidate).** Anchor v1 emits a slightly different IDL JSON than v0.30/v0.31. **Run a 30-min spike before `/start-phase 0`**: install latest Codama, run it against an Anchor v1 sample IDL, confirm Kit-style typed-client output. If it fails: either pin Anchor 0.31 (downgrade decision noted in Decisions Made) OR write a small IDL-shim. Do not commit to Anchor v1 + Codama until this spike passes.
+- **Anchor v1 IDL ↔ Codama compatibility — RESOLVED (spike 2026-05-04).** Codama parses Anchor v1 IDL schema cleanly (top-level `address`, `metadata.spec`, instruction/account `discriminator` arrays, snake_case PDA seeds with `kind: "const"`) and emits Kit-native typed clients. Verified versions:
+  - `codama@^1.6`
+  - `@codama/nodes-from-anchor@^1.4`
+  - `@codama/renderers-js@^2.2` — note: API in v2 is `renderVisitor` (NOT `renderJavaScriptVisitor` from v1)
+  - Generated client requires runtime deps `@solana/kit@^6.4` + `@solana/program-client-core@^6.4` — both must be in `frontend/` and `executor/` deps.
+  Generated output: `programs/`, `instructions/`, `accounts/`, `pdas/`, `errors/` — all importing from `@solana/kit`, zero `@solana/web3.js` leakage. `tsc --strict` passes clean on the generated code.
 - **`@solana/kit-plugin-rpc`'s `solanaLocalRpc` defaults.** Confirm it points at `127.0.0.1:8899` (Surfnet default) — if not, pass `rpcUrl` explicitly.
 - **LiteSVM mock-USDC mint serialization.** `spl_token::state::Mint::pack()` produces 82 bytes; ensure `setAccount` is called with `owner = TOKEN_PROGRAM_ID` and `data = packed_mint_bytes` (base64) — easy to get wrong and silently break ATA creation downstream.
 - **`Surfpool.toml` schema is young.** If the cheatcode-on-startup syntax is unstable, fall back to running `surfnet_setAccount` from `scripts/surfpool-seed.ts` invoked after `surfpool start` is healthy.
@@ -119,7 +124,7 @@ This phase has no on-chain dependencies. It does depend on the developer machine
 - [ ] 10. Generate program keypairs into `contracts/target/deploy/<program>-keypair.json`, run `anchor keys list`, paste IDs into `Anchor.toml` `[programs.localnet]` and `[programs.devnet]`. Set `[provider] cluster = "localnet"` and `wallet = "~/.config/solana/id.json"` as defaults. Commit `Anchor.toml`.
 - [ ] 11. `NO_DNA=1 anchor build` succeeds and produces 5 IDL JSONs in `contracts/target/idl/`
 - [ ] 12. Re-run `anchor build` on a clean checkout — confirm program IDs are identical (deterministic build)
-- [ ] 13. Add `contracts/package.json` devDeps: `litesvm`, `vitest`, `@types/node`, `@solana/kit`, `@solana/kit-plugin-signer`, `@solana-program/system`, `@solana-program/token`, `@solana/web3-compat`, `@solana/spl-token`
+- [ ] 13. Add `contracts/package.json` devDeps: `litesvm`, `vitest`, `@types/node`, `@solana/kit@^6.4`, `@solana/program-client-core@^6.4` (required by Codama-generated clients used in tests), `@solana/kit-plugin-signer`, `@solana-program/system`, `@solana-program/token`, `@solana/web3-compat`, `@solana/spl-token`
 - [ ] 14. Wire `contracts/package.json` scripts: `postbuild` → `scripts/sync-idl.sh`; `pretest` → `NO_DNA=1 anchor build` (so `pnpm test:contracts` works on a fresh clone without manual build)
 
 ### Mock USDC mint (shared across envs)
@@ -142,7 +147,7 @@ This phase has no on-chain dependencies. It does depend on the developer machine
 
 - [ ] 25. Bootstrap `frontend/` via `NO_DNA=1 npx create-solana-dapp` with kit-compatible Next.js + Tailwind template (fallback: `create-next-app` + manual deps)
 - [ ] 26. TypeScript strict mode on; remove any `@solana/wallet-adapter-*` deps the template ships
-- [ ] 27. Add deps: `@solana/client`, `@solana/react-hooks`, `@solana/kit`, `@solana/kit-plugin-rpc`, `@solana/kit-plugin-signer`, `@solana-program/system`, `@solana-program/token`
+- [ ] 27. Add deps: `@solana/client`, `@solana/react-hooks`, `@solana/kit@^6.4`, `@solana/program-client-core@^6.4` (required by Codama-generated clients), `@solana/kit-plugin-rpc`, `@solana/kit-plugin-signer`, `@solana-program/system`, `@solana-program/token`
 - [ ] 28. `app/providers.tsx` — single `createClient({ endpoint, websocketEndpoint, walletConnectors: autoDiscover() })` wrapped in `<SolanaProvider>`
 - [ ] 29. `app/layout.tsx` wraps children with `<Providers>`
 - [ ] 30. `app/page.tsx` — minimal landing page with `useWalletConnection()` connect button
@@ -151,14 +156,14 @@ This phase has no on-chain dependencies. It does depend on the developer machine
 ### `executor/` — TypeScript skeleton
 
 - [ ] 32. `executor/package.json`, `executor/tsconfig.json` (NodeNext, strict), `executor/src/index.ts` placeholder `main()`
-- [ ] 33. Deps: `@solana/kit`, `@solana/kit-plugin-rpc`, `@solana/kit-plugin-signer`, `@solana-program/system`, `@solana-program/token`, `dotenv`
+- [ ] 33. Deps: `@solana/kit@^6.4`, `@solana/program-client-core@^6.4` (required by Codama-generated clients), `@solana/kit-plugin-rpc`, `@solana/kit-plugin-signer`, `@solana-program/system`, `@solana-program/token`, `dotenv`
 - [ ] 34. `executor/src/lib/client.ts` — `createExecutorClient()` builds Kit client with `signerFromFile(EXECUTOR_KEYPAIR)` + `solanaRpc({ rpcUrl: SOLANA_RPC_URL })`
 - [ ] 35. `executor/src/index.ts` smoke-imports `createExecutorClient`, logs cluster version, exits 0
 
 ### `scripts/`
 
 - [ ] 36. `scripts/sync-idl.sh` — runs `NO_DNA=1 anchor build` in `contracts/`, copies `target/idl/*.json` and `target/types/*.ts` into `frontend/src/idl/` and `executor/src/idl/`
-- [ ] 37. `scripts/gen-clients.ts` — Codama codegen: reads `contracts/target/idl/*.json`, emits typed Kit clients into `frontend/src/clients/<program>/` and `executor/src/clients/<program>/`
+- [ ] 37. `scripts/gen-clients.ts` — Codama codegen using `codama@^1.6`, `@codama/nodes-from-anchor@^1.4`, `@codama/renderers-js@^2.2`. API: `import { renderVisitor } from '@codama/renderers-js'` (NOT `renderJavaScriptVisitor` — that was the v1 name). Pattern: `createFromRoot(rootNodeFromAnchor(idl)).accept(renderVisitor(outDir))`. Reads `contracts/target/idl/*.json`, emits typed Kit clients into `frontend/src/clients/<program>/` and `executor/src/clients/<program>/`. Generated output structure: `programs/`, `instructions/`, `accounts/`, `pdas/`, `errors/`.
 - [ ] 38. `scripts/dev-surfpool.sh` — `NO_DNA=1 surfpool start`
 - [ ] 39. `scripts/keys-bootstrap.sh` — one-time idempotent generator (skip if files already exist) for: five program keypairs in `contracts/target/deploy/`, mock USDC mint + authority in `keys/`, and `keys/executor.json`
 - [ ] 40. `Surfpool.toml` — seeds the mock USDC mint at `keys/mock-usdc.pubkey` via `surfnet_setAccount` on startup; defaults document slot/clock
