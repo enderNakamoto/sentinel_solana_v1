@@ -10,7 +10,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 
 | #  | Name                                  | Status        | Phase File                                                |
 |----|---------------------------------------|---------------|------------------------------------------------------------|
-| 0  | Project Bootstrap                     | planned       | `spec/phases/phase-00-project-bootstrap.md`                |
+| 0  | Project Bootstrap                     | complete      | `spec/phases/phase-00-project-bootstrap.md` (completed 2026-05-04) |
 | 1  | governance_program                    | not generated | —                                                          |
 | 2  | vault_program                         | not generated | —                                                          |
 | 3  | flight_pool_program                   | not generated | —                                                          |
@@ -29,4 +29,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 
 ## Current Pointer
 
-Active phase: **Phase 0 — Project Bootstrap** (planned, awaiting `/start-phase 0`)
+Active phase: **Phase 1 — governance_program** (next; run `/plan-phase 1` to start)
+
+Last updated: 2026-05-04
+Last completed: Phase 0 — Project Bootstrap (2026-05-04)

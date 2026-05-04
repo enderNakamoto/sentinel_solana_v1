@@ -1,0 +1,35 @@
+[workspace]
+members = [
+    "programs/governance",
+    "programs/vault",
+    "programs/flight_pool",
+    "programs/oracle_aggregator",
+    "programs/controller",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "Apache-2.0"
+
+# Anchor v1 + Solana ^3 — see solana-dev/references/compatibility-matrix.md
+[workspace.dependencies]
+anchor-lang = "1.0.0"
+anchor-spl  = "1.0.0"
+solana-program = "^3"
+
+# Suppress unexpected_cfgs warnings emitted by Anchor + Solana derive macros.
+# Per anchor/migrating-v0.32-to-v1.md §7 (Option B — workspace-wide).
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow" }
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1

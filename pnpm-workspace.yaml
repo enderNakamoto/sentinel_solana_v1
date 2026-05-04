@@ -1,0 +1,5 @@
+packages:
+  - 'contracts'
+  - 'frontend'
+  - 'executor'
+  - 'scripts'

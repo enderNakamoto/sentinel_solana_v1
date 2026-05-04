@@ -1,0 +1,28 @@
+[package]
+name = "governance"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sentinel governance program — route registry, terms, admin whitelist."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "governance"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+# Anchor / Solana cfg flags emitted by derive macros — see workspace lints.
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+anchor-lang = { workspace = true }
+
+[lints]
+workspace = true

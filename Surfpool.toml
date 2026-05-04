@@ -1,0 +1,40 @@
+# Surfpool configuration for Sentinel Solana (Phase 0).
+#
+# Surfnet runs at http://127.0.0.1:8899 (default). The `[network]` section
+# below configures clock + slot defaults. The `[[setup]]` block seeds the
+# canonical mock USDC mint at the address committed in keys/mock-usdc.pubkey
+# so integration tests find the same mint pubkey they'd see on devnet.
+#
+# Phase 0 risk note: Surfpool.toml schema is young; if `surfnet_setAccount`
+# at startup is unstable in the version you have installed, fall back to
+# running it via `scripts/surfpool-seed.ts` once the surfnet is healthy.
+
+[network]
+# Default Surfnet behaviour. Override by passing flags to `surfpool start`.
+block_production_mode = "clock"
+log_level             = "info"
+startup_wait_ms       = 5000
+
+# ─── Mock USDC mint seed ─────────────────────────────────────────────────
+# The mint address must match keys/mock-usdc.pubkey. The mint authority
+# matches keys/mock-usdc-authority.pubkey. Decimals = 6.
+#
+# Surfpool's `surfnet_setAccount` cheatcode rebuilds the account at the
+# given address with the supplied data + owner = TOKEN_PROGRAM_ID.
+[[setup]]
+kind     = "set_account"
+# Replace the mint address below with the actual content of
+# keys/mock-usdc.pubkey after running `bash scripts/keys-bootstrap.sh`.
+address  = "epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K"
+owner    = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+lamports = 1461600
+# 82 bytes of base64-encoded `spl_token::state::Mint` data with:
+#   mint_authority    = <keys/mock-usdc-authority.pubkey>
+#   supply            = 0
+#   decimals          = 6
+#   is_initialized    = true
+#   freeze_authority  = None
+# Generate this blob with `scripts/surfpool-seed.ts` (TODO: write helper if
+# the seed format isn't already in spec). Until then, leave commented out
+# and seed manually post-startup.
+# data_base64 = "..."

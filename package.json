@@ -1,0 +1,32 @@
+{
+  "name": "sentinel-solana",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Decentralised flight delay insurance on Solana — monorepo root.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@9.9.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "sync-idl": "bash scripts/sync-idl.sh",
+    "gen-clients": "node --experimental-strip-types scripts/gen-clients.ts",
+    "dev:frontend": "pnpm --filter @sentinel/frontend dev",
+    "dev:executor": "pnpm --filter @sentinel/executor dev",
+    "dev:surfpool": "bash scripts/dev-surfpool.sh",
+    "test:contracts": "pnpm --filter @sentinel/contracts test",
+    "test:integration": "pnpm --filter @sentinel/contracts test:integration",
+    "build:all": "pnpm sync-idl && pnpm gen-clients && pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean && rm -rf contracts/target frontend/.next frontend/src/idl frontend/src/clients executor/dist executor/src/idl executor/src/clients .surfpool"
+  },
+  "devDependencies": {
+    "@codama/nodes-from-anchor": "^1.4.1",
+    "@codama/renderers-js": "^2.2.0",
+    "codama": "^1.6.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

@@ -1,0 +1,46 @@
+# ─── Node ─────────────────────────────────────────────────────────
+node_modules/
+*.log
+.pnpm-debug.log
+.npm
+.yarn
+
+# ─── Anchor / Rust ────────────────────────────────────────────────
+target/
+.anchor/
+**/*.rs.bk
+
+# ─── Generated (regenerable from IDL/Codama) ──────────────────────
+frontend/src/idl/
+frontend/src/clients/
+executor/src/idl/
+executor/src/clients/
+
+# ─── Frontend (Next.js) ───────────────────────────────────────────
+.next/
+out/
+frontend/.next/
+frontend/out/
+*.tsbuildinfo
+
+# ─── Executor build output ────────────────────────────────────────
+executor/dist/
+
+# ─── Surfpool ─────────────────────────────────────────────────────
+.surfpool/
+
+# ─── Env files (commit only .env.example) ─────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Keys (commit only the .pubkey side) ──────────────────────────
+keys/*.json
+
+# ─── Editor / OS ──────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp

@@ -1,0 +1,27 @@
+[package]
+name = "oracle_aggregator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sentinel oracle_aggregator program — flight data feed; only program the authorized_oracle keypair can sign for."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "oracle_aggregator"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+anchor-lang = { workspace = true }
+
+[lints]
+workspace = true
