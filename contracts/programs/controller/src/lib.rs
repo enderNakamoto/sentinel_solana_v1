@@ -378,35 +378,247 @@ pub mod controller {
     /// FlightData → Settled via CPI to oracle, then drains vault's
     /// withdrawal queue + snapshots share price.
     ///
-    /// Phase 5 unit-test scope: this function is implemented as
-    /// **housekeeping-only** initially — it CPIs `vault.process_withdrawal_queue`
-    /// and `vault.snapshot` end-of-batch. The per-flight Phase 1 settlement
-    /// loop is a deferred follow-up: implementing it requires forwarding
-    /// a complex web of flight-specific accounts through `remaining_accounts`,
-    /// which is challenging to wire cleanly with sibling-CPI types in the
-    /// time available. Phase 6 cross-program integration tests will
-    /// exercise the full settlement loop end-to-end (where the test driver
-    /// can inline-invoke each individual settle ix), and Phase 5 leaves
-    /// the per-flight inner loop as a TODO that's explicitly carried
-    /// forward in the work log + decisions.
+    /// Phase 6: full per-flight settlement loop is now implemented. For each
+    /// of `n_flights` slices in `remaining_accounts` (Schema below), the
+    /// handler reads the FlightData status to dispatch the on-time / delayed
+    /// / cancelled branch and runs the corresponding CPI chain. After the
+    /// per-flight loop, the housekeeping CPIs (`vault.process_withdrawal_queue`
+    /// + `vault.snapshot`) fire exactly once per call — they consume the
+    /// `ClaimableBalance` PDAs that follow the per-flight slices in
+    /// `remaining_accounts`.
+    ///
+    /// SCHEMA — `remaining_accounts` layout:
+    ///   [0..n_flights*2]: per-flight pairs `(FlightData mut, FlightPool mut)`
+    ///                     in any order; the per-flight branch is determined
+    ///                     by reading FlightData.status.
+    ///   [n_flights*2..]:  `ClaimableBalance` PDAs in vault queue order for
+    ///                     `process_withdrawal_queue`. May be empty.
+    ///
+    /// Per-flight CPI chain (3 branches, decided by FlightData.status):
+    ///   ToBeSettledOnTime:
+    ///     CPI flight_pool.settle_on_time            (pool_treasury → vault_token_account)
+    ///     CPI vault.record_premium_income(p*N)
+    ///     CPI vault.decrease_locked(payoff*N)
+    ///     CPI oracle.set_settled
+    ///   ToBeSettledDelayed:
+    ///     CPI vault.send_payout((payoff-p)*N)       (vault_token_account → pool_treasury)
+    ///     CPI vault.decrease_locked(payoff*N)
+    ///     CPI flight_pool.settle_delayed(claim_expiry)
+    ///     CPI oracle.set_settled
+    ///   ToBeSettledCancelled:
+    ///     same as Delayed, with flight_pool.settle_cancelled instead.
+    ///
+    /// Then once per call:
+    ///   ActiveFlightList::flights.remove(pos) per settled flight
+    ///   total_payouts_distributed += sum of payout diffs
+    ///   CPI vault.process_withdrawal_queue (claimables forwarded)
+    ///   CPI vault.snapshot
+    ///
+    /// `MAX_FLIGHTS_PER_TX = 2` (D4) — confirmed adequate at 1.4M CU.
     pub fn execute_settlements<'info>(
         ctx: Context<'info, ExecuteSettlements<'info>>,
         day: u64,
+        n_flights: u8,
     ) -> Result<()> {
         require_keys_eq!(
             ctx.accounts.keeper.key(),
             ctx.accounts.controller_config.authorized_keeper,
             ControllerError::Unauthorized
         );
+        let n = n_flights as usize;
+        require!(
+            n <= MAX_FLIGHTS_PER_TX,
+            ControllerError::MaxFlightsPerTxExceeded
+        );
+        require!(
+            ctx.remaining_accounts.len() >= n * 2,
+            ControllerError::NotEnoughRemainingAccounts
+        );
 
         let bump = ctx.accounts.controller_config.bump;
         let signer_seeds: &[&[&[u8]]] = &[&[b"controller_config", &[bump]]];
+        let now = Clock::get()?.unix_timestamp;
+        let claim_expiry_window = ctx.accounts.controller_config.claim_expiry_window;
 
-        // Phase 2 — housekeeping. Process the withdrawal queue and snapshot.
+        // Snapshot the configured sibling-program addresses so we can drop
+        // the borrow on `controller_config` before the per-flight loop
+        // touches the account_info via `to_account_info()` for CPI signers.
+        let oracle_program = ctx.accounts.controller_config.oracle_program;
+        let flight_pool_program = ctx.accounts.controller_config.flight_pool_program;
+
+        let mut total_payouts_added: u64 = 0;
+        // Buffered list of (flight_id, date) tuples to remove from
+        // ActiveFlightList AFTER the loop (we can't borrow the list while
+        // also doing CPIs that need controller_config to_account_info).
+        let mut to_remove: Vec<(String, u64)> = Vec::with_capacity(n);
+
+        for i in 0..n {
+            let fd_info = &ctx.remaining_accounts[i * 2];
+            let pool_info = &ctx.remaining_accounts[i * 2 + 1];
+
+            require_keys_eq!(*fd_info.owner, oracle_program, ControllerError::ForeignFlightData);
+            require_keys_eq!(*pool_info.owner, flight_pool_program, ControllerError::ForeignFlightPool);
+
+            // Decode FlightData + FlightPool. Drop borrows before CPIs (CPIs
+            // need writable account_info handles).
+            let (fd_status, fd_flight_id, fd_date) = {
+                let data = fd_info.try_borrow_data()?;
+                let fd = FlightData::try_deserialize(&mut &data[..])
+                    .map_err(|_| ControllerError::DeserializeFailed)?;
+                (fd.status, fd.flight_id, fd.date)
+            };
+            let (pool_premium, pool_payoff, pool_buyer_count) = {
+                let data = pool_info.try_borrow_data()?;
+                let pool = FlightPool::try_deserialize(&mut &data[..])
+                    .map_err(|_| ControllerError::DeserializeFailed)?;
+                (pool.premium, pool.payoff, pool.buyer_count)
+            };
+
+            // Compute aggregate amounts.
+            let total_premium = (pool_premium as u128)
+                .checked_mul(pool_buyer_count as u128)
+                .ok_or(ControllerError::Overflow)?;
+            let total_payoff = (pool_payoff as u128)
+                .checked_mul(pool_buyer_count as u128)
+                .ok_or(ControllerError::Overflow)?;
+            let total_premium_u64 =
+                u64::try_from(total_premium).map_err(|_| ControllerError::Overflow)?;
+            let total_payoff_u64 =
+                u64::try_from(total_payoff).map_err(|_| ControllerError::Overflow)?;
+            let payout_diff = total_payoff_u64
+                .checked_sub(total_premium_u64)
+                .ok_or(ControllerError::Overflow)?;
+            let claim_expiry = now
+                .checked_add(claim_expiry_window)
+                .ok_or(ControllerError::Overflow)?;
+
+            match fd_status {
+                FlightStatus::ToBeSettledOnTime => {
+                    // CPI flight_pool.settle_on_time — moves premium*N from
+                    // pool_treasury → vault_token_account.
+                    let cpi_accounts = flight_pool_cpi::accounts::SettleOnTime {
+                        config: ctx.accounts.flight_pool_config.to_account_info(),
+                        pool: pool_info.clone(),
+                        pool_treasury: ctx.accounts.pool_treasury.to_account_info(),
+                        treasury_authority: ctx.accounts.treasury_authority.to_account_info(),
+                        recipient: ctx.accounts.vault_token_account.to_account_info(),
+                        controller: ctx.accounts.controller_config.to_account_info(),
+                        token_program: ctx.accounts.token_program.to_account_info(),
+                    };
+                    let cpi_ctx = CpiContext::new_with_signer(
+                        flight_pool::ID,
+                        cpi_accounts,
+                        signer_seeds,
+                    );
+                    flight_pool_cpi::settle_on_time(cpi_ctx, fd_flight_id.clone(), fd_date)?;
+
+                    // CPI vault.record_premium_income(premium * N).
+                    let cpi_accounts = vault_cpi::accounts::ControllerOnly {
+                        vault_state: ctx.accounts.vault_state.to_account_info(),
+                        controller: ctx.accounts.controller_config.to_account_info(),
+                    };
+                    let cpi_ctx = CpiContext::new_with_signer(
+                        vault::ID,
+                        cpi_accounts,
+                        signer_seeds,
+                    );
+                    vault_cpi::record_premium_income(cpi_ctx, total_premium_u64)?;
+
+                    // CPI vault.decrease_locked(payoff * N).
+                    let cpi_accounts = vault_cpi::accounts::ControllerOnly {
+                        vault_state: ctx.accounts.vault_state.to_account_info(),
+                        controller: ctx.accounts.controller_config.to_account_info(),
+                    };
+                    let cpi_ctx = CpiContext::new_with_signer(
+                        vault::ID,
+                        cpi_accounts,
+                        signer_seeds,
+                    );
+                    vault_cpi::decrease_locked(cpi_ctx, total_payoff_u64)?;
+                }
+                FlightStatus::ToBeSettledDelayed => {
+                    settle_payout_branch(
+                        &ctx,
+                        signer_seeds,
+                        pool_info,
+                        payout_diff,
+                        total_payoff_u64,
+                        fd_flight_id.clone(),
+                        fd_date,
+                        claim_expiry,
+                        SettleVariant::Delayed,
+                    )?;
+                    total_payouts_added = total_payouts_added
+                        .checked_add(payout_diff)
+                        .ok_or(ControllerError::Overflow)?;
+                }
+                FlightStatus::ToBeSettledCancelled => {
+                    settle_payout_branch(
+                        &ctx,
+                        signer_seeds,
+                        pool_info,
+                        payout_diff,
+                        total_payoff_u64,
+                        fd_flight_id.clone(),
+                        fd_date,
+                        claim_expiry,
+                        SettleVariant::Cancelled,
+                    )?;
+                    total_payouts_added = total_payouts_added
+                        .checked_add(payout_diff)
+                        .ok_or(ControllerError::Overflow)?;
+                }
+                _ => return Err(ControllerError::InvalidSettlementStatus.into()),
+            }
+
+            // CPI oracle.set_settled — transitions FlightData ToBeSettled* → Settled.
+            let cpi_accounts = oracle_cpi::accounts::SetFlightStatus {
+                config: ctx.accounts.oracle_config.to_account_info(),
+                flight_data: fd_info.clone(),
+                authority: ctx.accounts.controller_config.to_account_info(),
+            };
+            let cpi_ctx = CpiContext::new_with_signer(
+                oracle_aggregator::ID,
+                cpi_accounts,
+                signer_seeds,
+            );
+            oracle_cpi::set_settled(cpi_ctx, fd_flight_id.clone(), fd_date)?;
+
+            to_remove.push((fd_flight_id, fd_date));
+        }
+
+        // Remove settled flights from ActiveFlightList (FIFO Vec::remove,
+        // preserves order — NOT swap_remove).
+        {
+            let list = &mut ctx.accounts.active_flight_list;
+            for (fid, date) in &to_remove {
+                if let Some(pos) = list
+                    .flights
+                    .iter()
+                    .position(|e| e.flight_id == *fid && e.date == *date)
+                {
+                    list.flights.remove(pos);
+                }
+            }
+        }
+
+        // Update aggregate counter.
+        if total_payouts_added > 0 {
+            let config = &mut ctx.accounts.controller_config;
+            config.total_payouts_distributed = config
+                .total_payouts_distributed
+                .checked_add(total_payouts_added)
+                .ok_or(ControllerError::Overflow)?;
+        }
+
+        // ─── Tail housekeeping CPIs (always run, regardless of n_flights) ──
+        //
+        // Claimables come AFTER the per-flight slices in remaining_accounts.
+        let claimables: Vec<AccountInfo> =
+            ctx.remaining_accounts[(n * 2)..].to_vec();
 
         // (a) vault.process_withdrawal_queue
         {
-            // Forward remaining_accounts so vault can credit ClaimableBalances.
             let cpi_accounts = vault_cpi::accounts::ProcessWithdrawalQueue {
                 vault_state: ctx.accounts.vault_state.to_account_info(),
                 withdrawal_queue: ctx.accounts.withdrawal_queue.to_account_info(),
@@ -417,7 +629,7 @@ pub mod controller {
                 cpi_accounts,
                 signer_seeds,
             )
-            .with_remaining_accounts(ctx.remaining_accounts.to_vec());
+            .with_remaining_accounts(claimables);
             vault_cpi::process_withdrawal_queue(cpi_ctx)?;
         }
 
@@ -441,6 +653,84 @@ pub mod controller {
 
         Ok(())
     }
+}
+
+// ─── Per-flight delayed/cancelled helper ───────────────────────────────────
+//
+// Delayed and cancelled share the same money flow:
+//   1) vault.send_payout((payoff - premium) * N)  (vault_token → pool_treasury)
+//   2) vault.decrease_locked(payoff * N)
+//   3) flight_pool.settle_{delayed,cancelled}(claim_expiry)
+//
+// Extracted into a helper so the match arms stay short.
+
+enum SettleVariant {
+    Delayed,
+    Cancelled,
+}
+
+fn settle_payout_branch<'info>(
+    ctx: &Context<'info, ExecuteSettlements<'info>>,
+    signer_seeds: &[&[&[u8]]],
+    pool_info: &AccountInfo<'info>,
+    payout_diff: u64,
+    total_payoff: u64,
+    flight_id: String,
+    date: u64,
+    claim_expiry: i64,
+    variant: SettleVariant,
+) -> Result<()> {
+    // (1) vault.send_payout — only fires if there's a positive payout (which
+    //     there is whenever payoff > premium; if payoff == premium the
+    //     "delayed" payout is zero, but vault.send_payout requires amount > 0,
+    //     so skip in the degenerate case).
+    if payout_diff > 0 {
+        let cpi_accounts = vault_cpi::accounts::SendPayout {
+            vault_state: ctx.accounts.vault_state.to_account_info(),
+            vault_token_account: ctx.accounts.vault_token_account.to_account_info(),
+            recipient: ctx.accounts.pool_treasury.to_account_info(),
+            controller: ctx.accounts.controller_config.to_account_info(),
+            token_program: ctx.accounts.token_program.to_account_info(),
+        };
+        let cpi_ctx =
+            CpiContext::new_with_signer(vault::ID, cpi_accounts, signer_seeds);
+        vault_cpi::send_payout(cpi_ctx, payout_diff)?;
+    }
+
+    // (2) vault.decrease_locked(payoff * N).
+    {
+        let cpi_accounts = vault_cpi::accounts::ControllerOnly {
+            vault_state: ctx.accounts.vault_state.to_account_info(),
+            controller: ctx.accounts.controller_config.to_account_info(),
+        };
+        let cpi_ctx =
+            CpiContext::new_with_signer(vault::ID, cpi_accounts, signer_seeds);
+        vault_cpi::decrease_locked(cpi_ctx, total_payoff)?;
+    }
+
+    // (3) flight_pool.settle_delayed | settle_cancelled.
+    {
+        let cpi_accounts = flight_pool_cpi::accounts::SettleStatusOnly {
+            config: ctx.accounts.flight_pool_config.to_account_info(),
+            pool: pool_info.clone(),
+            controller: ctx.accounts.controller_config.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new_with_signer(
+            flight_pool::ID,
+            cpi_accounts,
+            signer_seeds,
+        );
+        match variant {
+            SettleVariant::Delayed => {
+                flight_pool_cpi::settle_delayed(cpi_ctx, flight_id, date, claim_expiry)?
+            }
+            SettleVariant::Cancelled => {
+                flight_pool_cpi::settle_cancelled(cpi_ctx, flight_id, date, claim_expiry)?
+            }
+        }
+    }
+
+    Ok(())
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -601,36 +891,77 @@ pub struct ClassifyFlights<'info> {
 // ─── Accounts: execute_settlements (keeper-only) ──────────────────────────
 
 #[derive(Accounts)]
-#[instruction(day: u64)]
+#[instruction(day: u64, n_flights: u8)]
 pub struct ExecuteSettlements<'info> {
+    // Controller state — `controller_config` is also the CPI signer (PDA).
+    // `Box<>` per Phase 5 D19 (this struct has 8 typed Account fields).
     #[account(
         mut,
         seeds = [b"controller_config"],
         bump = controller_config.bump,
         has_one = vault_program @ ControllerError::ConfigMismatch,
         has_one = vault_state @ ControllerError::ConfigMismatch,
+        has_one = flight_pool_program @ ControllerError::ConfigMismatch,
+        has_one = flight_pool_config @ ControllerError::ConfigMismatch,
+        has_one = oracle_program @ ControllerError::ConfigMismatch,
+        has_one = oracle_config @ ControllerError::ConfigMismatch,
     )]
-    pub controller_config: Account<'info, ControllerConfig>,
+    pub controller_config: Box<Account<'info, ControllerConfig>>,
 
+    #[account(
+        mut,
+        seeds = [b"active_flights"],
+        bump = active_flight_list.bump,
+    )]
+    pub active_flight_list: Box<Account<'info, ActiveFlightList>>,
+
+    // Sibling programs (UncheckedAccount; validated via has_one above).
     /// CHECK: validated against `controller_config.vault_program`.
     pub vault_program: UncheckedAccount<'info>,
+    /// CHECK: validated against `controller_config.flight_pool_program`.
+    pub flight_pool_program: UncheckedAccount<'info>,
+    /// CHECK: validated against `controller_config.oracle_program`.
+    pub oracle_program: UncheckedAccount<'info>,
 
-    // Vault accounts for the housekeeping CPIs.
+    // Sibling configs (UncheckedAccount — passed-through to CPIs which
+    // validate types themselves).
+    /// CHECK: validated against `controller_config.flight_pool_config`.
+    pub flight_pool_config: UncheckedAccount<'info>,
+    /// CHECK: validated against `controller_config.oracle_config`.
+    pub oracle_config: UncheckedAccount<'info>,
+
+    // Vault accounts for the housekeeping CPIs + send_payout source +
+    // record_premium_income / decrease_locked target.
     #[account(mut)]
-    pub vault_state: Account<'info, VaultState>,
+    pub vault_state: Box<Account<'info, VaultState>>,
     #[account(mut)]
-    pub withdrawal_queue: Account<'info, WithdrawalQueue>,
-    pub share_mint: Account<'info, Mint>,
+    pub vault_token_account: Box<Account<'info, TokenAccount>>,
+    #[account(mut)]
+    pub withdrawal_queue: Box<Account<'info, WithdrawalQueue>>,
+    pub share_mint: Box<Account<'info, Mint>>,
     /// CHECK: passed through to vault.snapshot — init_if_needed inside vault.
     #[account(mut)]
     pub snapshot_record: UncheckedAccount<'info>,
 
+    // Flight pool treasury accounts. The pool treasury is a single shared
+    // SPL Token account whose authority is the `[b"pool_treasury"]` PDA on
+    // flight_pool_program. Its address is stored on flight_pool's config
+    // (validated when the CPI runs).
+    #[account(mut)]
+    pub pool_treasury: Box<Account<'info, TokenAccount>>,
+    /// CHECK: derived via `[b"pool_treasury"]` on flight_pool_program — the
+    /// signer-seed source for treasury outflows. Validated by flight_pool's
+    /// `SettleOnTime` constraints when the CPI runs.
+    pub treasury_authority: UncheckedAccount<'info>,
+
     #[account(mut)]
     pub keeper: Signer<'info>,
 
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
-    // remaining_accounts forwarded to vault.process_withdrawal_queue
-    // (ClaimableBalance PDAs in queue order).
+    // remaining_accounts SCHEMA:
+    //   [0..n_flights*2]: per-flight pairs (FlightData mut, FlightPool mut)
+    //   [n_flights*2..]:  ClaimableBalance PDAs forwarded to vault.process_withdrawal_queue
 }
 
 // ─── Account data ──────────────────────────────────────────────────────────
@@ -734,6 +1065,10 @@ pub enum ControllerError {
     ForeignFlightPool,
     #[msg("Failed to deserialise account data.")]
     DeserializeFailed,
+    #[msg("FlightData status is not `ToBeSettled*` — cannot settle.")]
+    InvalidSettlementStatus,
+    #[msg("`remaining_accounts` does not contain enough entries for `n_flights` per-flight slices.")]
+    NotEnoughRemainingAccounts,
     #[msg("Arithmetic overflow.")]
     Overflow,
 }

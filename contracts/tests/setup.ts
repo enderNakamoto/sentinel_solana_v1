@@ -29,11 +29,13 @@
  */
 
 import {
+  AccountRole,
   address as kitAddress,
   generateKeyPairSigner,
   lamports,
   type Address,
   type Decoder,
+  type Instruction,
   type KeyPairSigner,
 } from '@solana/kit';
 import { litesvm } from '@solana/kit-plugin-litesvm';
@@ -70,14 +72,27 @@ import {
   getInitializeInstructionAsync as getOracleInitializeInstructionAsync,
   getSetAuthorizedConsumerInstruction,
   findConfigPda as findOracleConfigPda,
+  findFlightDataPda,
+  getSetEstimatedArrivalInstructionAsync,
+  getSetLandedInstructionAsync,
+  getSetCancelledInstructionAsync,
   ORACLE_AGGREGATOR_PROGRAM_ADDRESS,
 } from './clients/oracle_aggregator/src/generated/index.ts';
+
+import { findPoolPda } from './clients/flight_pool/src/generated/index.ts';
+import {
+  findSnapshotRecordPda,
+  getDepositInstructionAsync,
+} from './clients/vault/src/generated/index.ts';
+import { getWhitelistRouteInstructionAsync } from './clients/governance/src/generated/index.ts';
 
 import { getSetControllerInstruction as getVaultSetControllerInstruction } from './clients/vault/src/generated/index.ts';
 import { getSetControllerInstruction as getFlightPoolSetControllerInstruction } from './clients/flight_pool/src/generated/index.ts';
 
 import {
   getInitializeInstructionAsync as getControllerInitializeInstructionAsync,
+  getClassifyFlightsInstructionAsync,
+  getExecuteSettlementsInstructionAsync,
   findControllerConfigPda,
   findActiveFlightListPda,
   CONTROLLER_PROGRAM_ADDRESS,
@@ -612,6 +627,12 @@ export async function bootstrapController(
   const [activeFlightListPda] = await findActiveFlightListPda();
 
   const keeperSigner = await generateKeyPairSigner();
+  // Keeper pays rent for SnapshotRecord PDAs each `execute_settlements`
+  // call (vault.snapshot uses init_if_needed → system_program::create_account
+  // when the day's record doesn't yet exist). Airdrop SOL so the keeper
+  // can cover this. Phase 5 didn't need this because tests only hit
+  // execute_settlements via the auth-fail revert path.
+  await client.airdrop(keeperSigner.address, lamports(2_000_000_000n));
 
   // Step 2: controller.initialize.
   const initIx = await getControllerInitializeInstructionAsync({
@@ -673,3 +694,338 @@ export async function bootstrapController(
 
 /** Re-export for tests that need it. */
 export { CONTROLLER_PROGRAM_ADDRESS };
+
+// ─── Compute-budget helper (Phase 5 D20, promoted in Phase 6 B10) ────────
+//
+// Hand-rolled SetComputeUnitLimit instruction. Avoids adding
+// `@solana-program/compute-budget` as a new dep. Buy_insurance chains 6
+// CPIs and execute_settlements chains up to ~9 CPIs per call — both blow
+// past the default 200K CU.
+const COMPUTE_BUDGET_PROGRAM_ID: Address = kitAddress(
+  'ComputeBudget111111111111111111111111111111',
+);
+
+export function setComputeUnitLimitIx(units: number): Instruction {
+  const data = new Uint8Array(5);
+  data[0] = 0x02; // SetComputeUnitLimit discriminator
+  new DataView(data.buffer).setUint32(1, units, true); // u32 LE
+  return {
+    programAddress: COMPUTE_BUDGET_PROGRAM_ID,
+    accounts: [],
+    data,
+  };
+}
+
+// ─── SPL Token program address (used as `token_program` arg in CPIs) ─────
+export const TOKEN_PROGRAM_ADDRESS_KIT: Address = kitAddress(
+  TOKEN_PROGRAM_ID.toBase58(),
+);
+
+// ─── Full-protocol bring-up (Phase 6 B11) ────────────────────────────────
+//
+// Thin wrapper over `bootstrapController` that additionally provisions a
+// funded underwriter signer (with a USDC ATA + share-mint ATA pre-seeded)
+// and a funded traveler signer (with a USDC ATA pre-seeded). The signers
+// inherit the keeper / oracle from the underlying bootstrap.
+//
+// All three crons are simulated by direct in-test ix calls (see
+// `simulateOracle`, `simulateClassifier`, `simulateSettler` below).
+
+export interface FullProtocolBootstrap extends ControllerBootstrap {
+  underwriter: KeyPairSigner;
+  /** Initial USDC the underwriter holds (defaults to 10,000 USDC). */
+  underwriterInitialUsdc: bigint;
+  underwriterUsdcAta: Address;
+  underwriterShareAta: Address;
+  /** Computed PDA: [b"claimable", underwriter]. */
+  underwriterClaimablePda: Address;
+}
+
+export async function bootstrapFullProtocol(
+  client: Awaited<ReturnType<typeof makeClient>>,
+  overrides: {
+    solvencyRatio?: number;
+    minLeadTime?: bigint;
+    claimExpiryWindow?: bigint;
+    underwriterInitialUsdc?: bigint;
+  } = {},
+): Promise<FullProtocolBootstrap> {
+  const ctrl = await bootstrapController(client, overrides);
+
+  // Provision underwriter with mock USDC + share-mint ATA. Generated
+  // outside of `bootstrapController` because the spec for "underwriter"
+  // is test-data, not part of program initialization.
+  const underwriter = await generateKeyPairSigner();
+  await client.airdrop(underwriter.address, lamports(2_000_000_000n));
+
+  const underwriterInitialUsdc =
+    overrides.underwriterInitialUsdc ?? 10_000_000_000n; // 10,000 USDC
+  const { ata: underwriterUsdcAta } = mintMockUsdcTo(
+    client,
+    underwriter.address,
+    underwriterInitialUsdc,
+  );
+  const { ata: underwriterShareAta } = setTokenAccount(client, {
+    mint: ctrl.vault.shareMintPda,
+    owner: underwriter.address,
+    amount: 0n,
+  });
+
+  // ClaimableBalance PDA the vault will create on `request_withdrawal`.
+  // Encoded directly (no Codama PDA helper for this seed pair).
+  const underwriterClaimablePda = await findClaimablePdaForOwner(
+    underwriter.address,
+  );
+
+  return {
+    ...ctrl,
+    underwriter,
+    underwriterInitialUsdc,
+    underwriterUsdcAta,
+    underwriterShareAta,
+    underwriterClaimablePda,
+  };
+}
+
+/**
+ * Vault's `[b"claimable", owner]` PDA address. Anchor uses this PDA as the
+ * per-underwriter pending-withdrawal record. We derive client-side using
+ * `findProgramAddressSync` since Codama doesn't auto-generate a PDA helper
+ * for this seed pair.
+ */
+async function findClaimablePdaForOwner(owner: Address): Promise<Address> {
+  // Lazy-import to avoid pulling web3.js into every consumer of setup.ts.
+  const { PublicKey } = await import('@solana/web3.js');
+  const [pda] = PublicKey.findProgramAddressSync(
+    [Buffer.from('claimable'), new PublicKey(owner.toString()).toBuffer()],
+    new PublicKey(VAULT_PROGRAM_ADDRESS.toString()),
+  );
+  return kitAddress(pda.toBase58());
+}
+
+// ─── Cron simulators (Phase 6 B12) ───────────────────────────────────────
+//
+// In production these instructions are issued by the three off-chain crons
+// (FlightDataFetcher / FlightClassifier / SettlementExecutor). For tests
+// the helpers below stand in: same instruction shape, signed in-process.
+
+export const simulateOracle = {
+  /**
+   * Sign as `authorized_oracle` (the oracle key from `bootstrapOracleAggregator`)
+   * and write the estimated arrival time. NotInitiated → Active.
+   */
+  async setEstimatedArrival(
+    client: Awaited<ReturnType<typeof makeClient>>,
+    oracleSigner: KeyPairSigner,
+    flightId: string,
+    date: bigint,
+    eta: bigint,
+  ): Promise<void> {
+    const [flightDataPda] = await findFlightDataPda({ flightId, date });
+    await client.sendTransaction([
+      await getSetEstimatedArrivalInstructionAsync({
+        flightData: flightDataPda,
+        authority: oracleSigner,
+        flightId,
+        date,
+        eta,
+      }),
+    ]);
+  },
+
+  /** Active → Landed. */
+  async setLanded(
+    client: Awaited<ReturnType<typeof makeClient>>,
+    oracleSigner: KeyPairSigner,
+    flightId: string,
+    date: bigint,
+    actualArrival: bigint,
+  ): Promise<void> {
+    const [flightDataPda] = await findFlightDataPda({ flightId, date });
+    await client.sendTransaction([
+      await getSetLandedInstructionAsync({
+        flightData: flightDataPda,
+        authority: oracleSigner,
+        flightId,
+        date,
+        actualArrival,
+      }),
+    ]);
+  },
+
+  /** Active → Cancelled. */
+  async setCancelled(
+    client: Awaited<ReturnType<typeof makeClient>>,
+    oracleSigner: KeyPairSigner,
+    flightId: string,
+    date: bigint,
+  ): Promise<void> {
+    const [flightDataPda] = await findFlightDataPda({ flightId, date });
+    await client.sendTransaction([
+      await getSetCancelledInstructionAsync({
+        flightData: flightDataPda,
+        authority: oracleSigner,
+        flightId,
+        date,
+      }),
+    ]);
+  },
+};
+
+/**
+ * Sign as `authorized_keeper` and call `controller.classify_flights` with
+ * the supplied per-flight (FlightData, FlightPool) pairs as remaining_accounts.
+ *
+ * The keeper cron's job: for each Landed/Cancelled flight in the active
+ * list, drive the ToBeSettled* transition via CPI to oracle.
+ */
+export async function simulateClassifier(
+  client: Awaited<ReturnType<typeof makeClient>>,
+  ctrl: ControllerBootstrap,
+  flights: { flightId: string; date: bigint }[],
+): Promise<void> {
+  if (flights.length === 0) return;
+
+  const baseIx = await getClassifyFlightsInstructionAsync({
+    oracleProgram: ctrl.oracle.programAddress,
+    oracleConfig: ctrl.oracle.configPda,
+    keeper: ctrl.keeperSigner,
+  });
+
+  // Append (FlightData, FlightPool) pairs to remaining_accounts.
+  const extraAccounts: { address: Address; role: AccountRole }[] = [];
+  for (const f of flights) {
+    const [fdPda] = await findFlightDataPda({ flightId: f.flightId, date: f.date });
+    const [poolPda] = await findPoolPda({ flightId: f.flightId, date: f.date });
+    // FlightData is mutated by oracle.set_to_be_settled (writable);
+    // FlightPool is read-only here (controller only reads delay_hours).
+    extraAccounts.push({ address: fdPda, role: AccountRole.WRITABLE });
+    extraAccounts.push({ address: poolPda, role: AccountRole.READONLY });
+  }
+
+  const ix: Instruction = {
+    ...baseIx,
+    accounts: [...baseIx.accounts, ...extraAccounts],
+  };
+  await client.sendTransaction([setComputeUnitLimitIx(1_400_000), ix]);
+}
+
+/**
+ * Sign as `authorized_keeper` and call `controller.execute_settlements`.
+ *
+ * @param flights      per-flight tuples to settle
+ * @param claimables   ClaimableBalance PDAs for vault.process_withdrawal_queue
+ *                     (in queue order; pass [] if none queued)
+ * @param day          current day index (`unix_timestamp / 86_400`)
+ *
+ * Internally prepends `setComputeUnitLimitIx(1_400_000)` so a 2-flight
+ * batch fits under the per-tx CU cap.
+ */
+export async function simulateSettler(
+  client: Awaited<ReturnType<typeof makeClient>>,
+  ctrl: ControllerBootstrap,
+  args: {
+    flights: { flightId: string; date: bigint }[];
+    claimables?: Address[];
+    day: bigint;
+  },
+): Promise<void> {
+  const { flights, claimables = [], day } = args;
+  const [snapshotRecordPda] = await findSnapshotRecordPda({ day });
+
+  const baseIx = await getExecuteSettlementsInstructionAsync({
+    vaultProgram: VAULT_PROGRAM_ADDRESS,
+    flightPoolProgram: ctrl.flightPool.programAddress,
+    oracleProgram: ctrl.oracle.programAddress,
+    flightPoolConfig: ctrl.flightPool.configPda,
+    oracleConfig: ctrl.oracle.configPda,
+    vaultState: ctrl.vault.vaultStatePda,
+    vaultTokenAccount: ctrl.vault.vaultTokenAccount,
+    withdrawalQueue: ctrl.vault.withdrawalQueuePda,
+    shareMint: ctrl.vault.shareMintPda,
+    snapshotRecord: snapshotRecordPda,
+    poolTreasury: ctrl.flightPool.treasuryAta,
+    treasuryAuthority: ctrl.flightPool.treasuryAuthorityPda,
+    keeper: ctrl.keeperSigner,
+    tokenProgram: TOKEN_PROGRAM_ADDRESS_KIT,
+    day,
+    nFlights: flights.length,
+  });
+
+  // remaining_accounts layout (controller's SCHEMA):
+  //   [0..n_flights*2]: per-flight (flight_data writable, flight_pool writable)
+  //   [n_flights*2..]:  ClaimableBalance writables (vault.process_withdrawal_queue)
+  const extraAccounts: { address: Address; role: AccountRole }[] = [];
+  for (const f of flights) {
+    const [fdPda] = await findFlightDataPda({ flightId: f.flightId, date: f.date });
+    const [poolPda] = await findPoolPda({ flightId: f.flightId, date: f.date });
+    extraAccounts.push({ address: fdPda, role: AccountRole.WRITABLE });
+    extraAccounts.push({ address: poolPda, role: AccountRole.WRITABLE });
+  }
+  for (const c of claimables) {
+    extraAccounts.push({ address: c, role: AccountRole.WRITABLE });
+  }
+
+  const ix: Instruction = {
+    ...baseIx,
+    accounts: [...baseIx.accounts, ...extraAccounts],
+  };
+  await client.sendTransaction([setComputeUnitLimitIx(1_400_000), ix]);
+}
+
+// ─── Convenience: whitelist + deposit (used by integration tests) ────────
+
+/**
+ * Whitelist a route on governance with explicit override terms. Owner is
+ * `client.payer` (matches the bootstrap convention — same payer for all
+ * 5 programs in tests).
+ */
+export async function whitelistRoute(
+  client: Awaited<ReturnType<typeof makeClient>>,
+  args: {
+    flightId: string;
+    origin: string;
+    destination: string;
+    premium: bigint;
+    payoff: bigint;
+    delayHours: number;
+  },
+): Promise<void> {
+  await client.sendTransaction([
+    await getWhitelistRouteInstructionAsync({
+      caller: client.payer,
+      // Phase 1 D11: pass the program address as the None sentinel for
+      // the optional `admin_record` (owner-as-caller branch).
+      adminRecord: GOVERNANCE_PROGRAM_ADDRESS,
+      flightId: args.flightId,
+      origin: args.origin,
+      destination: args.destination,
+      premium: args.premium,
+      payoff: args.payoff,
+      delayHours: args.delayHours,
+    }),
+  ]);
+}
+
+/**
+ * Underwriter deposits USDC into the vault (mints shares to their share-mint ATA).
+ * The underwriter must already have a funded USDC ATA + a 0-balance share ATA
+ * (both pre-seeded by `bootstrapFullProtocol`).
+ */
+export async function depositToVault(
+  client: Awaited<ReturnType<typeof makeClient>>,
+  ctrl: FullProtocolBootstrap,
+  usdcAmount: bigint,
+): Promise<void> {
+  await client.sendTransaction([
+    await getDepositInstructionAsync({
+      vaultState: ctrl.vault.vaultStatePda,
+      shareMint: ctrl.vault.shareMintPda,
+      vaultTokenAccount: ctrl.vault.vaultTokenAccount,
+      depositorUsdcAccount: ctrl.underwriterUsdcAta,
+      depositorShareAccount: ctrl.underwriterShareAta,
+      depositor: ctrl.underwriter,
+      usdcAmount,
+    }),
+  ]);
+}

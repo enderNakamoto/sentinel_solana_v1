@@ -16,7 +16,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 3  | flight_pool_program                   | complete      | `spec/phases/phase-03-flight-pool-program.md` (completed 2026-05-04) |
 | 4  | oracle_aggregator_program             | complete      | `spec/phases/phase-04-oracle-aggregator-program.md` (completed 2026-05-04) |
 | 5  | controller_program                    | complete      | `spec/phases/phase-05-controller-program.md` (completed 2026-05-04) |
-| 6  | Cross-Program Integration Tests       | not generated | —                                                          |
+| 6  | Cross-Program Integration Tests       | complete      | `spec/phases/phase-06-cross-program-integration-tests.md` (completed 2026-05-04) |
 | 7  | Devnet Deployment                     | not generated | —                                                          |
 | 8  | Oracle Cron — FlightDataFetcher       | not generated | —                                                          |
 | 9  | Classifier Cron — FlightClassifier    | not generated | —                                                          |
@@ -29,7 +29,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 
 ## Current Pointer
 
-Active phase: **Phase 6 — Cross-Program Integration Tests** (next; run `/plan-phase 6` to start)
+Active phase: **Phase 7 — Devnet Deployment** (next; run `/plan-phase 7` to start)
 
 Last updated: 2026-05-04
-Last completed: Phase 5 — controller_program (2026-05-04)
+Last completed: Phase 6 — Cross-Program Integration Tests (2026-05-04)

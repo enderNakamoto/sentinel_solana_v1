@@ -412,13 +412,21 @@ describe('Phase 5 — controller: keeper-only auth', () => {
     await expect(
       f.client.sendTransaction([
         await getExecuteSettlementsInstructionAsync({
-          vaultProgram: f.ctrl.vault.vaultStatePda, // any address; not validated by this revert path
+          vaultProgram: VAULT_PROGRAM_ADDRESS,
+          flightPoolProgram: FLIGHT_POOL_PROGRAM_ADDRESS,
+          oracleProgram: f.ctrl.oracle.programAddress,
+          flightPoolConfig: f.ctrl.flightPool.configPda,
+          oracleConfig: f.ctrl.oracle.configPda,
           vaultState: f.ctrl.vault.vaultStatePda,
+          vaultTokenAccount: f.ctrl.vault.vaultTokenAccount,
           withdrawalQueue: f.ctrl.vault.withdrawalQueuePda,
           shareMint: f.ctrl.vault.shareMintPda,
           snapshotRecord: snapshotPda,
+          poolTreasury: f.ctrl.flightPool.treasuryAta,
+          treasuryAuthority: f.ctrl.flightPool.treasuryAuthorityPda,
           keeper: stranger,
           day: today,
+          nFlights: 0,
         }),
       ]),
     ).rejects.toThrow();
