@@ -982,15 +982,21 @@ pub struct Snapshot<'info> {
 
     #[account(
         init_if_needed,
-        payer = controller,
+        payer = rent_payer,
         space = 8 + SnapshotRecord::INIT_SPACE,
         seeds = [b"snapshot", &day.to_le_bytes()],
         bump,
     )]
     pub snapshot_record: Account<'info, SnapshotRecord>,
 
-    #[account(mut)]
+    /// Authority. PDA-signable via the controller PDA in production.
     pub controller: Signer<'info>,
+
+    /// Rent-payer for new `SnapshotRecord` PDAs. Must be a system-owned
+    /// signer (PDAs can't pay rent). In production this is the keeper
+    /// signer driving `execute_settlements`. See Phase 5 D18.
+    #[account(mut)]
+    pub rent_payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }

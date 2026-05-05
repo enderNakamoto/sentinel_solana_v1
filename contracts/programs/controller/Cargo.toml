@@ -15,13 +15,25 @@ cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
-idl-build = ["anchor-lang/idl-build"]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-debug = []
 custom-heap = []
 custom-panic = []
 
 [dependencies]
-anchor-lang = { workspace = true }
+# `init-if-needed` enabled for consistency with Phase 2/3 (D13).
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl = { workspace = true }
+
+# Sibling-program CPI deps with the `cpi` feature flag (which sets
+# `no-entrypoint`). This generates each program's `cpi::accounts::*` +
+# `cpi::*` modules for use as strongly-typed CPI builders. Cleaner than
+# `declare_program!` (no IDL chicken-and-egg) and matches the canonical
+# Anchor v1 multi-program workspace pattern.
+governance = { path = "../governance", features = ["cpi"] }
+vault = { path = "../vault", features = ["cpi"] }
+flight_pool = { path = "../flight_pool", features = ["cpi"] }
+oracle_aggregator = { path = "../oracle_aggregator", features = ["cpi"] }
 
 [lints]
 workspace = true

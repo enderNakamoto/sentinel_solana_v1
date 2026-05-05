@@ -118,6 +118,7 @@ async function registerDefault(f: Fixture, controller: KeyPairSigner): Promise<A
     await getRegisterPoolInstructionAsync({
       config: f.pool.configPda,
       controller,
+      rentPayer: controller, // same-keypair pattern in unit tests; D18
       flightId: FLIGHT.flightId,
       date: FLIGHT.date,
       premium: PREMIUM,
@@ -220,6 +221,7 @@ describe('Phase 3 — flight_pool: controller-only auth', () => {
         await getRegisterPoolInstructionAsync({
           config: f.pool.configPda,
           controller: stranger,
+          rentPayer: stranger,
           flightId: FLIGHT.flightId,
           date: FLIGHT.date,
           premium: PREMIUM,
@@ -257,6 +259,7 @@ describe('Phase 3 — flight_pool: register_pool', () => {
         await getRegisterPoolInstructionAsync({
           config: f.pool.configPda,
           controller,
+          rentPayer: controller,
           flightId: FLIGHT.flightId,
           date: FLIGHT.date,
           premium: PREMIUM,
@@ -277,6 +280,7 @@ describe('Phase 3 — flight_pool: register_pool', () => {
         await getRegisterPoolInstructionAsync({
           config: f.pool.configPda,
           controller,
+          rentPayer: controller,
           flightId: longFlight,
           date: FLIGHT.date,
           premium: PREMIUM,

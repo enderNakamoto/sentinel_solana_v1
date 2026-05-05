@@ -419,15 +419,25 @@ pub struct RegisterPool<'info> {
 
     #[account(
         init,
-        payer = controller,
+        payer = rent_payer,
         space = 8 + FlightPool::INIT_SPACE,
         seeds = [b"pool", flight_id.as_bytes(), &date.to_le_bytes()],
         bump,
     )]
     pub pool: Account<'info, FlightPool>,
 
-    #[account(mut)]
+    /// Authority. In production this is the controller_program's
+    /// `ControllerConfig` PDA (signed via `invoke_signed`). In Phase 3 unit
+    /// tests it's just a regular keypair set by `set_controller`.
     pub controller: Signer<'info>,
+
+    /// Rent-payer for the new `FlightPool` PDA. Must be a system-owned
+    /// signer (a PDA cannot be a system_program::create_account payer).
+    /// In production this is the traveler making the first-buy. In Phase 3
+    /// unit tests it can be the same keypair as `controller`.
+    /// See Phase 5 D18.
+    #[account(mut)]
+    pub rent_payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
 }

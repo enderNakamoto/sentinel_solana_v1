@@ -1,8 +1,8 @@
 # Phase 4 — oracle_aggregator_program
 
-Status: planned
-Started: —
-Completed: —
+Status: complete
+Started: 2026-05-04
+Completed: 2026-05-04
 
 ---
 
@@ -266,79 +266,79 @@ uses strict `init` per D6).
 
 ### 1. Program crate
 
-- [ ] 1.1 Replace `programs/oracle_aggregator/src/lib.rs` no-op with the real module: `declare_id!` preserved (`EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6`).
-- [ ] 1.2 Confirm `programs/oracle_aggregator/Cargo.toml` does NOT add `anchor-spl` (D9). `idl-build = ["anchor-lang/idl-build"]` only. No `init-if-needed` feature flag.
-- [ ] 1.3 Define account structs: `OracleConfig`, `FlightData`, `FlightStatus` enum (D2, D3).
-- [ ] 1.4 Define module constants: `MAX_FLIGHT_ID_LEN = 16` (D1), shared `validate_flight_id` helper (mirror governance/flight_pool).
-- [ ] 1.5 Define `OracleError` enum (D10).
-- [ ] 1.6 Implement `initialize(authorized_oracle: Pubkey)` — owner = signer, creates `OracleConfig` PDA. `authorized_consumer = Pubkey::default()`, `is_consumer_set = false` (D8).
-- [ ] 1.7 Implement `set_authorized_oracle(new_oracle: Pubkey)` — owner-only via `has_one = owner`. Rotatable; no flag.
-- [ ] 1.8 Implement `set_authorized_consumer(consumer: Pubkey)` — owner-only, settable once via `is_consumer_set` flag (D4).
-- [ ] 1.9 Implement `init_flight_data(flight_id, date)` — consumer-only via `has_one = authorized_consumer` AND `require!(config.is_consumer_set, ConsumerNotSet)`. Strict `init` for FlightData PDA (D6). Validates flight_id length (D1).
-- [ ] 1.10 Implement `set_estimated_arrival(flight_id, date, eta)` — oracle-only via `has_one = authorized_oracle`. Forward-only guard: `NotInitiated → Active` (D7).
-- [ ] 1.11 Implement `set_landed(flight_id, date, actual_arrival)` — oracle-only. `Active → Landed`.
-- [ ] 1.12 Implement `set_cancelled(flight_id, date)` — oracle-only. `Active → Cancelled`.
-- [ ] 1.13 Implement `set_to_be_settled(flight_id, date, new_status: FlightStatus)` — consumer-only. Validates `new_status ∈ {ToBeSettledOnTime, ToBeSettledDelayed, ToBeSettledCancelled}` (`InvalidToBeSettledVariant` if not). Validates current → new pairing per D5 (`InvalidStateTransition` if mismatched).
-- [ ] 1.14 Implement `set_settled(flight_id, date)` — consumer-only. Forward-only guard: `ToBeSettled* → Settled` (D7).
+- [x] 1.1 Replace `programs/oracle_aggregator/src/lib.rs` no-op with the real module: `declare_id!` preserved (`EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6`).
+- [x] 1.2 Confirm `programs/oracle_aggregator/Cargo.toml` does NOT add `anchor-spl` (D9). `idl-build = ["anchor-lang/idl-build"]` only. No `init-if-needed` feature flag.
+- [x] 1.3 Define account structs: `OracleConfig`, `FlightData`, `FlightStatus` enum (D2, D3).
+- [x] 1.4 Define module constants: `MAX_FLIGHT_ID_LEN = 16` (D1), shared `validate_flight_id` helper (mirror governance/flight_pool).
+- [x] 1.5 Define `OracleError` enum (D10).
+- [x] 1.6 Implement `initialize(authorized_oracle: Pubkey)` — owner = signer, creates `OracleConfig` PDA. `authorized_consumer = Pubkey::default()`, `is_consumer_set = false` (D8).
+- [x] 1.7 Implement `set_authorized_oracle(new_oracle: Pubkey)` — owner-only via `has_one = owner`. Rotatable; no flag.
+- [x] 1.8 Implement `set_authorized_consumer(consumer: Pubkey)` — owner-only, settable once via `is_consumer_set` flag (D4).
+- [x] 1.9 Implement `init_flight_data(flight_id, date)` — consumer-only via `has_one = authorized_consumer` AND `require!(config.is_consumer_set, ConsumerNotSet)`. Strict `init` for FlightData PDA (D6). Validates flight_id length (D1).
+- [x] 1.10 Implement `set_estimated_arrival(flight_id, date, eta)` — oracle-only via `has_one = authorized_oracle`. Forward-only guard: `NotInitiated → Active` (D7).
+- [x] 1.11 Implement `set_landed(flight_id, date, actual_arrival)` — oracle-only. `Active → Landed`.
+- [x] 1.12 Implement `set_cancelled(flight_id, date)` — oracle-only. `Active → Cancelled`.
+- [x] 1.13 Implement `set_to_be_settled(flight_id, date, new_status: FlightStatus)` — consumer-only. Validates `new_status ∈ {ToBeSettledOnTime, ToBeSettledDelayed, ToBeSettledCancelled}` (`InvalidToBeSettledVariant` if not). Validates current → new pairing per D5 (`InvalidStateTransition` if mismatched).
+- [x] 1.14 Implement `set_settled(flight_id, date)` — consumer-only. Forward-only guard: `ToBeSettled* → Settled` (D7).
 
 ### 2. IDL + typed-client bridge
 
-- [ ] 2.1 `NO_DNA=1 anchor build` clean for `oracle_aggregator_program`. `pnpm sync-idl` updates `oracle_aggregator.json` in `frontend/src/idl/` and `executor/src/idl/`.
-- [ ] 2.2 `pnpm gen-clients` regenerates Codama clients into all 3 dirs (incl. `contracts/tests/clients/`); `pnpm typecheck` passes.
+- [x] 2.1 `NO_DNA=1 anchor build` clean for `oracle_aggregator_program`. `pnpm sync-idl` updates `oracle_aggregator.json` in `frontend/src/idl/` and `executor/src/idl/`.
+- [x] 2.2 `pnpm gen-clients` regenerates Codama clients into all 3 dirs (incl. `contracts/tests/clients/`); `pnpm typecheck` passes.
 
 ### 3. Test harness
 
-- [ ] 3.1 Extend `contracts/tests/setup.ts` with `bootstrapOracleAggregator(client)` — calls `oracle_aggregator.initialize` with a fresh `authorizedOracle` keypair, returns `{ ownerSigner, oracleSigner, configPda, programAddress }` (D11).
-- [ ] 3.2 Update `contracts/tests/smoke.test.ts` `REAL_PROGRAMS` set to include `oracle_aggregator`. Smoke loop drops to 1 program (controller).
+- [x] 3.1 Extend `contracts/tests/setup.ts` with `bootstrapOracleAggregator(client)` — calls `oracle_aggregator.initialize` with a fresh `authorizedOracle` keypair, returns `{ ownerSigner, oracleSigner, configPda, programAddress }` (D11).
+- [x] 3.2 Update `contracts/tests/smoke.test.ts` `REAL_PROGRAMS` set to include `oracle_aggregator`. Smoke loop drops to 1 program (controller).
 
 ### 4. Unit tests (`contracts/tests/oracle_aggregator.test.ts`)
 
 #### 4a. Initialization + authority wiring
 
-- [ ] 4.1 `initialize` — `OracleConfig.owner = client.payer`; `authorized_oracle = arg`; `authorized_consumer = Pubkey::default()`; `is_consumer_set = false`.
-- [ ] 4.2 `set_authorized_oracle` — owner success rotates the field; non-owner reverts. (Multiple rotations succeed.)
-- [ ] 4.3 `set_authorized_consumer` — owner success once; second call reverts with `ConsumerAlreadySet`; non-owner reverts.
+- [x] 4.1 `initialize` — `OracleConfig.owner = client.payer`; `authorized_oracle = arg`; `authorized_consumer = Pubkey::default()`; `is_consumer_set = false`.
+- [x] 4.2 `set_authorized_oracle` — owner success rotates the field; non-owner reverts. (Multiple rotations succeed.)
+- [x] 4.3 `set_authorized_consumer` — owner success once; second call reverts with `ConsumerAlreadySet`; non-owner reverts.
 
 #### 4b. Forward-only state machine — happy paths
 
-- [ ] 4.4 `init_flight_data` — consumer-signed creates FlightData PDA in `NotInitiated`. Re-init reverts (PDA collision). Length cap on `flight_id` reverts (`FlightIdTooLong`).
-- [ ] 4.5 `set_estimated_arrival` — oracle-signed; `NotInitiated → Active`; `estimated_arrival_time` set.
-- [ ] 4.6 `set_landed` — oracle-signed; `Active → Landed`; `actual_arrival_time` set.
-- [ ] 4.7 `set_cancelled` — oracle-signed; `Active → Cancelled` (separate fixture from 4.6 — branch).
-- [ ] 4.8 `set_to_be_settled` happy paths: `Landed → ToBeSettledOnTime`, `Landed → ToBeSettledDelayed`, `Cancelled → ToBeSettledCancelled` (3 sub-cases).
-- [ ] 4.9 `set_settled` — consumer-signed; each `ToBeSettled*` variant transitions to `Settled`.
+- [x] 4.4 `init_flight_data` — consumer-signed creates FlightData PDA in `NotInitiated`. Re-init reverts (PDA collision). Length cap on `flight_id` reverts (`FlightIdTooLong`).
+- [x] 4.5 `set_estimated_arrival` — oracle-signed; `NotInitiated → Active`; `estimated_arrival_time` set.
+- [x] 4.6 `set_landed` — oracle-signed; `Active → Landed`; `actual_arrival_time` set.
+- [x] 4.7 `set_cancelled` — oracle-signed; `Active → Cancelled` (separate fixture from 4.6 — branch).
+- [x] 4.8 `set_to_be_settled` happy paths: `Landed → ToBeSettledOnTime`, `Landed → ToBeSettledDelayed`, `Cancelled → ToBeSettledCancelled` (3 sub-cases).
+- [x] 4.9 `set_settled` — consumer-signed; each `ToBeSettled*` variant transitions to `Settled`.
 
 #### 4c. Authorization reverts
 
-- [ ] 4.10 Oracle-only ix (`set_estimated_arrival`, `set_landed`, `set_cancelled`) revert when called by non-oracle (parameterised across at least 2 of the 3).
-- [ ] 4.11 Consumer-only ix (`init_flight_data`, `set_to_be_settled`, `set_settled`) revert when called by non-consumer (parameterised across at least 2 of the 3).
-- [ ] 4.12 Consumer-only ix revert with `ConsumerNotSet` when called BEFORE `set_authorized_consumer` (i.e., `is_consumer_set == false`).
+- [x] 4.10 Oracle-only ix (`set_estimated_arrival`, `set_landed`, `set_cancelled`) revert when called by non-oracle (parameterised across at least 2 of the 3).
+- [x] 4.11 Consumer-only ix (`init_flight_data`, `set_to_be_settled`, `set_settled`) revert when called by non-consumer (parameterised across at least 2 of the 3).
+- [x] 4.12 Consumer-only ix revert with `ConsumerNotSet` when called BEFORE `set_authorized_consumer` (i.e., `is_consumer_set == false`).
 
 #### 4d. Forward-only state-machine guards
 
-- [ ] 4.13 `set_estimated_arrival` reverts when `status != NotInitiated` (already Active).
-- [ ] 4.14 `set_landed` reverts when `status != Active` (e.g., NotInitiated, Landed).
-- [ ] 4.15 `set_cancelled` reverts when `status != Active`.
-- [ ] 4.16 `set_to_be_settled` strict pairing (D5):
+- [x] 4.13 `set_estimated_arrival` reverts when `status != NotInitiated` (already Active).
+- [x] 4.14 `set_landed` reverts when `status != Active` (e.g., NotInitiated, Landed).
+- [x] 4.15 `set_cancelled` reverts when `status != Active`.
+- [x] 4.16 `set_to_be_settled` strict pairing (D5):
   - `Landed → ToBeSettledCancelled` reverts.
   - `Cancelled → ToBeSettledOnTime` reverts.
   - `Cancelled → ToBeSettledDelayed` reverts.
   - Current ∉ {Landed, Cancelled} reverts (e.g., Active → ToBeSettledOnTime).
-- [ ] 4.17 `set_to_be_settled` reverts when `new_status` is NOT a `ToBeSettled*` variant (e.g., `FlightStatus.Active`, `FlightStatus.Settled`) — `InvalidToBeSettledVariant`.
-- [ ] 4.18 `set_settled` reverts when `status` is not in `{ToBeSettledOnTime, ToBeSettledDelayed, ToBeSettledCancelled}` (e.g., Settled, Active).
-- [ ] 4.19 Reverse-transition invariant — after `Settled`, NO setter can transition out of it. (Cover via one assertion attempting `set_settled` again on a Settled flight.)
+- [x] 4.17 `set_to_be_settled` reverts when `new_status` is NOT a `ToBeSettled*` variant (e.g., `FlightStatus.Active`, `FlightStatus.Settled`) — `InvalidToBeSettledVariant`.
+- [x] 4.18 `set_settled` reverts when `status` is not in `{ToBeSettledOnTime, ToBeSettledDelayed, ToBeSettledCancelled}` (e.g., Settled, Active).
+- [x] 4.19 Reverse-transition invariant — after `Settled`, NO setter can transition out of it. (Cover via one assertion attempting `set_settled` again on a Settled flight.)
 
 ### Gate
 
 All of the following must hold before `/complete-phase 4`:
 
-- `NO_DNA=1 anchor build` succeeds for `oracle_aggregator_program` (clean binary, no warnings).
-- `pnpm sync-idl` produces an updated `contracts/target/idl/oracle_aggregator.json`; copies land in `frontend/src/idl/`, `executor/src/idl/`, and `contracts/tests/clients/`.
-- `pnpm gen-clients` produces fresh typed Kit clients in all 3 dirs; `pnpm typecheck` passes across all workspaces.
-- `pnpm test:contracts` passes ALL tests: 1 smoke (the remaining no-op program: controller) + 17 governance + 16 vault + 16 flight_pool + 19 oracle_aggregator = ≥69 tests.
-- No regression in `governance.test.ts`, `vault.test.ts`, `flight_pool.test.ts`, or `smoke.test.ts`.
-- `Anchor.toml` oracle_aggregator program ID unchanged from Phase 1 rotation (`EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6`).
-- `programs/oracle_aggregator/Cargo.toml` does NOT pull in `anchor-spl` (D9).
+- [x] `NO_DNA=1 anchor build` succeeds for `oracle_aggregator_program` (clean binary, no warnings).
+- [x] `pnpm sync-idl` produces an updated `contracts/target/idl/oracle_aggregator.json`; copies land in `frontend/src/idl/`, `executor/src/idl/`, and `contracts/tests/clients/`.
+- [x] `pnpm gen-clients` produces fresh typed Kit clients in all 3 dirs; `pnpm typecheck` passes across all workspaces.
+- [x] `pnpm test:contracts` passes (1 smoke + 17 governance + 16 vault + 16 flight_pool + 19 oracle_aggregator = 69/69).
+- [x] No regression in `governance.test.ts`, `vault.test.ts`, `flight_pool.test.ts`, or `smoke.test.ts`.
+- [x] `Anchor.toml` oracle_aggregator program ID unchanged from Phase 1 rotation (`EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6`).
+- [x] `programs/oracle_aggregator/Cargo.toml` does NOT pull in `anchor-spl` (D9).
 
 ---
 
@@ -346,11 +346,57 @@ All of the following must hold before `/complete-phase 4`:
 
 > Populated by the agent during work. Do not edit manually.
 
+### Session 2026-05-04
+
+Starting Phase 4. Lite prime + manifest carried forward from this conversation's earlier phases.
+
+Skills/refs loaded: `solana-dev` (SKILL.md + compatibility-matrix.md + common-errors.md + security.md + programs/anchor.md + idl-codegen.md + testing.md + kit/overview.md + anchor/migrating-v0.32-to-v1.md).
+
+Project files read: README.md, CLAUDE.md, spec/{architecture.md (overview + §oracle_aggregator_program), workflow.md, progress.md, dev_steps.md (Phase 4), phases/phase-03-flight-pool-program.md (D-references)}, contracts/{programs/oracle_aggregator/{src/lib.rs (Phase 0 skeleton), Cargo.toml (already correct per D9 — no anchor-spl)}, programs/governance/src/lib.rs (style ref), programs/flight_pool/src/lib.rs (state-machine + plain-enum ref), tests/{setup.ts, flight_pool.test.ts}, Anchor.toml}. Canonical oracle_aggregator program ID confirmed: `EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6`.
+
+Phase 4 has no Cargo.toml changes (D9 — Phase 0 baseline is already correct). Proceeding to subtask group 1 (program crate).
+
+#### Implementation log
+
+- **§1 program crate** — `programs/oracle_aggregator/src/lib.rs` rewritten end-to-end. Three authority types (`owner`, `authorized_oracle`, `authorized_consumer`) with explicit handler-level checks for the five status-mutator instructions that share the `SetFlightStatus` accounts struct (oracle ix vs consumer ix branch via `require_keys_eq!` against the relevant config field). `OracleConfig` and `FlightData` accounts match architecture verbatim. `MAX_FLIGHT_ID_LEN = 16` shared across all programs. `OracleError` enum (9 variants).
+- **D14 (new)** — *Shared accounts struct for status mutators.* Five instructions (`set_estimated_arrival`, `set_landed`, `set_cancelled`, `set_to_be_settled`, `set_settled`) reuse one `SetFlightStatus` accounts struct with `authority: Signer`. Per-ix authority class (oracle vs consumer) is enforced via handler-level `require_keys_eq!` against the relevant config field, NOT via Anchor `has_one`. This keeps the IDL surface tight (1 struct vs 5) and the Codama-generated client uniform across the five setters.
+- **§2 IDL + Codama** — `pnpm sync-idl` + `pnpm gen-clients` clean. `ORACLE_AGGREGATOR_PROGRAM_ADDRESS` exported from the generated index. `FlightStatus` mapped to a plain TS enum per Phase 3 D16. PDAs: `findConfigPda` and `findFlightDataPda`. Both async and sync `getInitializeInstruction[Async]` are generated; tests use the async variant.
+- **§3 test harness** — `setup.ts` got `bootstrapOracleAggregator(client)` returning `{ ownerSigner, oracleSigner, configPda, programAddress }`. `smoke.test.ts` `REAL_PROGRAMS` set extended with `oracle_aggregator` (smoke loop now down to 1 program: controller). `generateKeyPairSigner` import added to `setup.ts` for the freshly-generated oracle keypair.
+- **§4 unit tests** — `contracts/tests/oracle_aggregator.test.ts` covers all 19 dev_steps test cases. `reachStatus(f, consumer, target)` helper drives the state machine to a target FlightStatus by replaying the right ix sequence — keeps test bodies focused on the assertion at the target state.
+
+#### Test bring-up issues hit and resolved
+
+None. **All 19 oracle_aggregator tests + 50 prior tests passed on the first integrated run** — the patterns inherited from Phases 1–3 (Codama plain-enum mapping, `expireBlockhash` between byte-identical txs, mock-keypair as consumer, strict `init` for one-shot PDAs) made the first pass clean.
+
+#### Final gate result
+
+All subtasks complete. **69/69 tests passing** (1 smoke + 17 governance + 16 vault + 16 flight_pool + 19 oracle_aggregator). Typecheck clean across all 3 workspaces. Build clean. oracle_aggregator program ID unchanged from Phase 1 (`EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6`). Cargo.toml does NOT include `anchor-spl` (D9). No regressions. Ready for user validation and `/complete-phase 4`.
+
+### Session 2026-05-04 — Completed
+
+Phase validated by user. All gate conditions met. Marking complete.
+
 ---
 
 ## Files Created / Modified
 
 > Populated by the agent during work.
+
+**Modified:**
+- `contracts/programs/oracle_aggregator/src/lib.rs` — full real implementation.
+- `contracts/tests/setup.ts` — added `bootstrapOracleAggregator` helper, `ORACLE_AGGREGATOR_PROGRAM_ADDRESS` re-export, `generateKeyPairSigner` import.
+- `contracts/tests/smoke.test.ts` — `REAL_PROGRAMS` set extended with `oracle_aggregator`.
+- `spec/progress.md` — Phase 4 row + active-phase pointer.
+
+**Created:**
+- `contracts/tests/oracle_aggregator.test.ts` — 19 unit tests covering 4.1–4.19.
+
+**Unchanged (intentional, per D9):**
+- `contracts/programs/oracle_aggregator/Cargo.toml` — Phase 0 baseline is already correct (no `anchor-spl`, no `init-if-needed`).
+
+**Regenerated (gitignored):**
+- `contracts/target/idl/oracle_aggregator.json` (and 4 others; only oracle_aggregator changed semantically).
+- `frontend/src/idl/`, `executor/src/idl/`, `frontend/src/clients/`, `executor/src/clients/`, `contracts/tests/clients/` — synced for all 5 programs.
 
 ---
 
@@ -360,8 +406,78 @@ All of the following must hold before `/complete-phase 4`:
 
 D1–D13 above are **locked at planning time** and seed this section. Add new entries below as they arise.
 
+### D14 — Shared accounts struct for status-mutator instructions
+
+The five status-mutator instructions (`set_estimated_arrival`, `set_landed`, `set_cancelled`, `set_to_be_settled`, `set_settled`) reuse a single `SetFlightStatus` accounts struct with `authority: Signer`. Per-ix authority class (oracle vs consumer) is enforced inside the handler via `require_keys_eq!(ctx.accounts.authority.key(), ctx.accounts.config.authorized_X, OracleError::UnauthorizedX)`, NOT via Anchor `has_one`. Rationale: Anchor's `has_one = X` resolves the field NAME at the accounts-struct level, so reusing the same struct for both classes would require two distinct structs (or a more complex constraint expression). Handler-level `require_keys_eq!` keeps the IDL surface tight (1 accounts struct vs 5) and the Codama-generated client uniform across the five setters. The `is_consumer_set` guard for consumer-only ix is also enforced in the handler. Pattern reusable for any program where multiple instructions take the same accounts but route through different authority classes.
+
 ---
 
 ## Completion Summary
 
 > Populated by /complete-phase. Do not edit manually.
+
+### What was built
+
+`oracle_aggregator_program` is now the canonical flight-data feed. It owns `FlightData` PDAs (one per `(flight_id, date)`), holds zero funds (no SPL CPIs anywhere), and gates writes through three distinct authorities: `owner` (initialize, rotate oracle, one-shot wire consumer), `authorized_oracle` (the FlightDataFetcher cron — `set_estimated_arrival`, `set_landed`, `set_cancelled`), and `authorized_consumer` (the controller's `ControllerConfig` PDA, set once — `init_flight_data`, `set_to_be_settled`, `set_settled`). The forward-only state machine `NotInitiated → Active → {Landed, Cancelled} → ToBeSettled* → Settled` is enforced on every transition, and `set_to_be_settled` enforces strict (current → new) pairing so a Landed flight can't be classified cancelled and vice-versa. Authority isolation is now firm: an oracle-key compromise cannot trigger settlement transitions, and a consumer-key compromise cannot rewrite raw flight status.
+
+### Key decisions locked in (D-numbers map to the phase file's Decisions Made section)
+
+- **D1** — `MAX_FLIGHT_ID_LEN = 16` carries over from Phase 1 + Phase 3. Shared `validate_flight_id` helper.
+- **D2** — Account types and PDA seeds match `architecture.md` §oracle_aggregator_program verbatim. `OracleConfig` at `[b"oracle_config"]`; `FlightData` at `[b"flight", flight_id, date]`.
+- **D3** — `FlightStatus` 8-variant payload-less enum. Codama maps it to a plain TS enum (Phase 3 D16 carries over). Tests assert `flightData.status === FlightStatus.Active`.
+- **D4** — Three authority types: `owner` (set at initialize, NOT rotatable in this phase), `authorized_oracle` (rotatable, no flag), `authorized_consumer` (one-shot via `is_consumer_set`).
+- **D5** — `set_to_be_settled` strict (current → new) pairing: `Landed → OnTime|Delayed`; `Cancelled → Cancelled`. All other pairings revert with `InvalidStateTransition`.
+- **D6** — `init_flight_data` strict `init`. Re-init reverts via PDA collision.
+- **D7** — Forward-only state-machine guards on every transition. `Settled` is terminal.
+- **D8** — `Pubkey::default()` is the unset sentinel for `authorized_consumer`; `is_consumer_set` is the canonical check, enforced by handler-level `require!(config.is_consumer_set, ConsumerNotSet)`.
+- **D9** — **NO `anchor-spl`** in Cargo.toml. First (and only) program in Phases 1–5 that doesn't touch SPL Token. Phase 0 baseline is correct as-is.
+- **D10** — `OracleError` enum with 9 variants.
+- **D11** — Test harness extension: `bootstrapOracleAggregator(client)` returns `{ ownerSigner, oracleSigner, configPda, programAddress }`. Tests use a regular keypair as the mock consumer (Phase 5 wires the real controller PDA).
+- **D12** — Codama enum + Phase 3 D16/D17 conventions reused.
+- **D13** — Out of scope: owner rotation, oracle freeze, multi-oracle aggregation, time-window enforcement on `set_estimated_arrival`.
+- **D14 (new)** — **Shared accounts struct for status mutators.** Five instructions (`set_estimated_arrival`, `set_landed`, `set_cancelled`, `set_to_be_settled`, `set_settled`) reuse a single `SetFlightStatus` accounts struct with `authority: Signer`. Per-ix authority class (oracle vs consumer) is enforced in the handler via `require_keys_eq!` against the relevant config field, NOT via Anchor `has_one`. Keeps the IDL surface tight (1 struct vs 5) and the Codama-generated client uniform. Pattern reusable for any program where multiple instructions take the same accounts but route through different authority classes.
+
+### Files created or modified — final list
+
+**Modified (committed sources):**
+- `contracts/programs/oracle_aggregator/src/lib.rs` — full real implementation.
+- `contracts/tests/setup.ts` — added `bootstrapOracleAggregator` helper, `ORACLE_AGGREGATOR_PROGRAM_ADDRESS` re-export, `generateKeyPairSigner` import.
+- `contracts/tests/smoke.test.ts` — `REAL_PROGRAMS` set extended with `oracle_aggregator`.
+- `spec/progress.md` — Phase 4 row + active-phase pointer.
+
+**Created:**
+- `contracts/tests/oracle_aggregator.test.ts` — 19 unit tests covering 4.1–4.19.
+- `spec/phases/phase-04-oracle-aggregator-program.md` — this file.
+
+**Unchanged (intentional, per D9):**
+- `contracts/programs/oracle_aggregator/Cargo.toml` — Phase 0 baseline is already correct (no `anchor-spl`, no `init-if-needed`).
+
+**Regenerated (gitignored):**
+- `contracts/target/idl/oracle_aggregator.json` (and 4 others; only oracle_aggregator changed semantically).
+- `frontend/src/idl/`, `executor/src/idl/`, `frontend/src/clients/`, `executor/src/clients/`, `contracts/tests/clients/` — synced for all 5 programs.
+
+### Notes for the next phase (Phase 5 — controller_program)
+
+- **Controller is the orchestrator.** It owns `ControllerConfig` (with refs to all four other programs + USDC mint) and `ActiveFlightList`. It holds zero user funds — every money movement is delegated to `flight_pool` (treasury) or `vault` (capital). It's the only program that CPIs into all four others.
+- **CPI signing pattern.** The controller's `ControllerConfig` PDA at `[b"controller_config"]` is the signer for CPIs to:
+  - `governance` — `is_route_whitelisted`, `get_route_terms` (read-only via `Result<T>` return data per Phase 1 D3/D10)
+  - `flight_pool` — `register_pool`, `add_buyer`, `settle_on_time`, `settle_delayed`, `settle_cancelled`
+  - `vault` — `increase_locked`, `decrease_locked`, `send_payout`, `record_premium_income`, `process_withdrawal_queue`, `snapshot`
+  - `oracle_aggregator` — `init_flight_data`, `set_to_be_settled`, `set_settled`
+  Use `CpiContext::new_with_signer(<TARGET>::id(), accounts, signer_seeds)` per Anchor v1 (signer_seeds = `[b"controller_config", &[bump]]`). Cache the bump on `ControllerConfig` per Phase 3 D-bumps-cache pattern.
+- **`buy_insurance` is the heavy hitter.** 6+ CPIs in one tx: governance read (terms + whitelist via return-data), maybe oracle.init_flight_data (first buy only), maybe flight_pool.register_pool (first buy only), flight_pool.add_buyer, vault.increase_locked. Solvency check in between. Watch the compute budget; consider `setComputeUnitLimit` in tests if needed.
+- **`classify_flights` and `execute_settlements`** loop over `ActiveFlightList` entries. Architecture sets `MAX_FLIGHTS_PER_TX ≈ 2` due to per-flight CPI overhead. Tests should explicitly exercise the multi-flight batch path.
+- **`set_authorized_keeper` is rotatable** (no `is_X_set` flag — like the oracle's `authorized_oracle`). Owner-only.
+- **`set_authorized_consumer` wiring on the oracle.** Phase 5's `controller.initialize` doesn't call `oracle.set_authorized_consumer` — it can't (the controller's CPI signer is the controller PDA, but `set_authorized_consumer` is owner-gated on the oracle). The owner of the oracle must call it manually with the controller's PDA address. Same for `vault.set_controller` and `flight_pool.set_controller`. Document this as a one-shot bring-up sequence in the Phase 5 plan.
+- **Phase 5 ID is canonical** (`G4v4i3LoLX7v3cEb3cehNGWMHbvHArRyPSEiZmg5VSot`). Don't rotate.
+- **`Result<T>` return-data reads from CPI.** Phase 1 D3/D10 readers (`get_route_terms`, `is_route_whitelisted`) use Anchor's native `Result<T>` return shape. The controller calls these via CPI and reads return data using `program::get_return_data()` after the CPI. Test this carefully — it's the trickiest CPI pattern in the project.
+- **All five programs' Codama clients are now in `contracts/tests/clients/`.** Phase 5 tests can compose multi-program flows.
+
+### Known limitations / deferred
+
+- No owner rotation for oracle (`set_owner`) — defer to multisig handover.
+- No oracle freeze / pause — audit-driven decision.
+- No multi-oracle aggregation. `authorized_oracle` is a single key; replacing with Pyth/Switchboard is out of scope.
+- No time-window enforcement on `set_estimated_arrival` (e.g., reject ETAs in the past). The cron is trusted.
+- No historical change-log of FlightData transitions — only the latest state is stored.
+- Settled FlightData PDAs persist indefinitely (no close path). This is intentional — they're historical record.

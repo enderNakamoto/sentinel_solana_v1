@@ -439,6 +439,11 @@ name = "controller"
 version = "0.0.1"
 dependencies = [
  "anchor-lang",
+ "anchor-spl",
+ "flight_pool",
+ "governance",
+ "oracle_aggregator",
+ "vault",
 ]
 
 [[package]]

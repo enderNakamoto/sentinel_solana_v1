@@ -834,6 +834,7 @@ describe('Phase 2 — vault: snapshot', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         controller,
+        rentPayer: controller, // same-keypair pattern in unit tests; D18
         day: today,
       }),
     ]);
@@ -856,6 +857,7 @@ describe('Phase 2 — vault: snapshot', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         controller,
+        rentPayer: controller, // same-keypair pattern in unit tests; D18
         day: today,
       }),
     ]);
@@ -872,6 +874,7 @@ describe('Phase 2 — vault: snapshot', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         controller,
+        rentPayer: controller, // same-keypair pattern in unit tests; D18
         day: tomorrow,
       }),
     ]);

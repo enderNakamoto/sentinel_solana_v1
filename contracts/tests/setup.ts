@@ -30,6 +30,7 @@
 
 import {
   address as kitAddress,
+  generateKeyPairSigner,
   lamports,
   type Address,
   type Decoder,
@@ -64,6 +65,23 @@ import {
   findTreasuryAuthorityPda,
   FLIGHT_POOL_PROGRAM_ADDRESS,
 } from './clients/flight_pool/src/generated/index.ts';
+
+import {
+  getInitializeInstructionAsync as getOracleInitializeInstructionAsync,
+  getSetAuthorizedConsumerInstruction,
+  findConfigPda as findOracleConfigPda,
+  ORACLE_AGGREGATOR_PROGRAM_ADDRESS,
+} from './clients/oracle_aggregator/src/generated/index.ts';
+
+import { getSetControllerInstruction as getVaultSetControllerInstruction } from './clients/vault/src/generated/index.ts';
+import { getSetControllerInstruction as getFlightPoolSetControllerInstruction } from './clients/flight_pool/src/generated/index.ts';
+
+import {
+  getInitializeInstructionAsync as getControllerInitializeInstructionAsync,
+  findControllerConfigPda,
+  findActiveFlightListPda,
+  CONTROLLER_PROGRAM_ADDRESS,
+} from './clients/controller/src/generated/index.ts';
 
 import {
   MintLayout,
@@ -473,6 +491,7 @@ export interface FlightPoolBootstrap {
   configPda: Address;
   treasuryAuthorityPda: Address;
   treasuryAta: Address;
+  programAddress: Address;
   usdcMint: Address;
 }
 
@@ -501,9 +520,156 @@ export async function bootstrapFlightPool(
     configPda,
     treasuryAuthorityPda,
     treasuryAta,
+    programAddress: FLIGHT_POOL_PROGRAM_ADDRESS,
     usdcMint,
   };
 }
 
 /** Re-export for tests that need it. */
 export { FLIGHT_POOL_PROGRAM_ADDRESS };
+
+// ─── Oracle aggregator bootstrap (Phase 4) ────────────────────────────────
+
+export interface OracleBootstrap {
+  ownerSigner: KeyPairSigner;
+  oracleSigner: KeyPairSigner;
+  configPda: Address;
+  programAddress: Address;
+}
+
+/**
+ * Initialise the oracle_aggregator program. Generates a fresh keypair as
+ * the initial `authorized_oracle`. The owner is the client's payer; the
+ * `authorized_consumer` is left at the `Pubkey::default()` sentinel until
+ * tests wire it via `set_authorized_consumer` (Phase 5 wires the real
+ * controller PDA).
+ */
+export async function bootstrapOracleAggregator(
+  client: Awaited<ReturnType<typeof makeClient>>,
+): Promise<OracleBootstrap> {
+  const oracleSigner = await generateKeyPairSigner();
+
+  const ix = await getOracleInitializeInstructionAsync({
+    owner: client.payer,
+    authorizedOracle: oracleSigner.address,
+  });
+  await client.sendTransaction([ix]);
+
+  const [configPda] = await findOracleConfigPda();
+
+  return {
+    ownerSigner: client.payer,
+    oracleSigner,
+    configPda,
+    programAddress: ORACLE_AGGREGATOR_PROGRAM_ADDRESS,
+  };
+}
+
+/** Re-export for tests that need it. */
+export { ORACLE_AGGREGATOR_PROGRAM_ADDRESS };
+
+// ─── Controller full-system bring-up (Phase 5) ────────────────────────────
+
+export interface ControllerBootstrap {
+  ownerSigner: KeyPairSigner;
+  keeperSigner: KeyPairSigner;
+  controllerConfigPda: Address;
+  activeFlightListPda: Address;
+  programAddress: Address;
+  // Sub-bootstraps (forwarded for test convenience).
+  governanceConfigPda: Address;
+  vault: VaultBootstrap;
+  flightPool: FlightPoolBootstrap;
+  oracle: OracleBootstrap;
+  usdcMint: Address;
+}
+
+/**
+ * The Phase 5 full-system bring-up. Bootstraps all four prior programs,
+ * initialises the controller, then wires the controller PDA as the
+ * authority on vault / flight_pool / oracle. After this returns, the
+ * five-program system is fully integrated and ready for `buy_insurance`,
+ * `classify_flights`, `execute_settlements` flows.
+ *
+ * Tunables default to architecture-spec values:
+ *   - solvencyRatio: 100 (fully collateralised)
+ *   - minLeadTime: 3600 (1 hour before departure)
+ *   - claimExpiryWindow: 5_184_000 (60 days)
+ */
+export async function bootstrapController(
+  client: Awaited<ReturnType<typeof makeClient>>,
+  overrides: { solvencyRatio?: number; minLeadTime?: bigint; claimExpiryWindow?: bigint } = {},
+): Promise<ControllerBootstrap> {
+  // Step 1: mock USDC mint + governance + vault + flight_pool + oracle.
+  createMockUsdcMint(client);
+  await bootstrapGovernance(client);
+  const vault = await bootstrapVault(client);
+  const flightPool = await bootstrapFlightPool(client);
+  const oracle = await bootstrapOracleAggregator(client);
+
+  const [governanceConfigPda] = await findConfigPda();
+  const [controllerConfigPda] = await findControllerConfigPda();
+  const [activeFlightListPda] = await findActiveFlightListPda();
+
+  const keeperSigner = await generateKeyPairSigner();
+
+  // Step 2: controller.initialize.
+  const initIx = await getControllerInitializeInstructionAsync({
+    owner: client.payer,
+    authorizedKeeper: keeperSigner.address,
+    governanceProgram: GOVERNANCE_PROGRAM_ADDRESS,
+    vaultProgram: VAULT_PROGRAM_ADDRESS,
+    vaultState: vault.vaultStatePda,
+    flightPoolProgram: FLIGHT_POOL_PROGRAM_ADDRESS,
+    flightPoolConfig: flightPool.configPda,
+    oracleProgram: ORACLE_AGGREGATOR_PROGRAM_ADDRESS,
+    oracleConfig: oracle.configPda,
+    usdcMint: vault.usdcMint,
+    solvencyRatio: overrides.solvencyRatio ?? 100,
+    minLeadTime: overrides.minLeadTime ?? 3_600n,
+    claimExpiryWindow: overrides.claimExpiryWindow ?? 5_184_000n,
+  });
+  await client.sendTransaction([initIx]);
+
+  // Step 3: wire vault.set_controller / flight_pool.set_controller /
+  //         oracle.set_authorized_consumer to the controller PDA. All three
+  //         are owner-only on their respective programs; client.payer is the
+  //         shared owner across all four programs in unit tests.
+  await client.sendTransaction([
+    getVaultSetControllerInstruction({
+      vaultState: vault.vaultStatePda,
+      owner: client.payer,
+      controller: controllerConfigPda,
+    }),
+  ]);
+  await client.sendTransaction([
+    getFlightPoolSetControllerInstruction({
+      config: flightPool.configPda,
+      owner: client.payer,
+      controller: controllerConfigPda,
+    }),
+  ]);
+  await client.sendTransaction([
+    getSetAuthorizedConsumerInstruction({
+      config: oracle.configPda,
+      owner: client.payer,
+      consumer: controllerConfigPda,
+    }),
+  ]);
+
+  return {
+    ownerSigner: client.payer,
+    keeperSigner,
+    controllerConfigPda,
+    activeFlightListPda,
+    programAddress: CONTROLLER_PROGRAM_ADDRESS,
+    governanceConfigPda,
+    vault,
+    flightPool,
+    oracle,
+    usdcMint: vault.usdcMint,
+  };
+}
+
+/** Re-export for tests that need it. */
+export { CONTROLLER_PROGRAM_ADDRESS };
