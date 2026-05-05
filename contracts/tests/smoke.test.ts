@@ -12,6 +12,12 @@
  *
  * Initialize discriminator: sha256("global:initialize")[0..8] — the Anchor
  * v1 default for an instruction handler named `initialize`.
+ *
+ * Phase 1 note: the `governance` program is now skipped here. Its
+ * `initialize` signature changed (3 args) and its state PDA seed is
+ * `governance_config` rather than `governance_state`. End-to-end coverage
+ * for governance lives in `governance.test.ts`. The other 4 programs
+ * remain Phase 0 no-op skeletons until their respective phases.
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -38,7 +44,13 @@ describe('Phase 0 — program smoke tests', () => {
     client = await makeClient();
   });
 
-  for (const program of PROGRAMS) {
+  // Phases 1+: programs that have real implementations (i.e. not the Phase 0
+  // no-op `initialize` signature) are excluded from the smoke loop. Each
+  // program ships its own test suite once implemented.
+  const REAL_PROGRAMS = new Set(['governance', 'vault', 'flight_pool']);
+  const NO_OP_PROGRAMS = PROGRAMS.filter((p) => !REAL_PROGRAMS.has(p.name));
+
+  for (const program of NO_OP_PROGRAMS) {
     it(`${program.name}: program loaded and initialize succeeds`, async () => {
       const programAddress = kitAddress(program.idStr);
 

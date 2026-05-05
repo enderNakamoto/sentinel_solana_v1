@@ -11,7 +11,7 @@
 
 use anchor_lang::prelude::*;
 
-declare_id!("GLSr6Ve5a34e5Pw1kS8cWX3EbjdDYkQ9eim2CvvbWgdD");
+declare_id!("EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6");
 
 #[program]
 pub mod oracle_aggregator {

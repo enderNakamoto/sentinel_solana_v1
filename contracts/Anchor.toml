@@ -5,47 +5,33 @@ anchor_version = "1.0.0"
 resolution = true
 skip-lint = false
 
-# ─────────────────────────────────────────────────────────────────
-# Program IDs — PLACEHOLDERS (must be replaced before first `anchor build`)
-#
-# Phase 0 subtask 10/39 (`scripts/keys-bootstrap.sh`) generates real
-# keypairs into `target/deploy/<name>-keypair.json`, prints addresses via
-# `anchor keys list`, and the developer pastes them into BOTH:
-#   1. The blocks below (`programs.localnet` and `programs.devnet`)
-#   2. `declare_id!("...")` at the top of each program's `src/lib.rs`
-#
-# The placeholders below are well-known mainnet addresses (Anchor template,
-# wSOL, USDC, USDT, Token Program) used purely as parseable stand-ins.
-# `anchor build` will fail until these are replaced with the generated keys.
-# ─────────────────────────────────────────────────────────────────
+[programs.devnet]
+controller = "G4v4i3LoLX7v3cEb3cehNGWMHbvHArRyPSEiZmg5VSot"
+flight_pool = "GW1yq7rswXBect6yR1RWtU7Q7AmY5wWMnq58a1JGcwVq"
+governance = "6d6QXsZRQ1fXp8wEXFTm4uXAbLWarPKX6XJLcNUY8rcT"
+oracle_aggregator = "EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6"
+vault = "3yzuTtfGYUBsdhXf4QGeq9MUGj5RDNLj3hFPtsWGkj8p"
 
 [programs.localnet]
-governance         = "Ex7rbjNscqZqsqL9b24etRAKrNegDr8Ez7ftMVietUPE"
-vault              = "72r2c1RA5xsd9SgCquJLnNom11R7jMaaMTGbcdi26L9U"
-flight_pool        = "GRQgy7DqWRmMSJbxRPrPdZ8NTqamwVtzEtfFgcC2b4kS"
-oracle_aggregator  = "GLSr6Ve5a34e5Pw1kS8cWX3EbjdDYkQ9eim2CvvbWgdD"
-controller         = "8mDGYcS1kjbYaJA8aWY8Ju7FnXZ5PYn2hCB9zBmJRGV"
-
-[programs.devnet]
-governance         = "Ex7rbjNscqZqsqL9b24etRAKrNegDr8Ez7ftMVietUPE"
-vault              = "72r2c1RA5xsd9SgCquJLnNom11R7jMaaMTGbcdi26L9U"
-flight_pool        = "GRQgy7DqWRmMSJbxRPrPdZ8NTqamwVtzEtfFgcC2b4kS"
-oracle_aggregator  = "GLSr6Ve5a34e5Pw1kS8cWX3EbjdDYkQ9eim2CvvbWgdD"
-controller         = "8mDGYcS1kjbYaJA8aWY8Ju7FnXZ5PYn2hCB9zBmJRGV"
-
-[registry]
-url = "https://api.apr.dev"
+controller = "G4v4i3LoLX7v3cEb3cehNGWMHbvHArRyPSEiZmg5VSot"
+flight_pool = "GW1yq7rswXBect6yR1RWtU7Q7AmY5wWMnq58a1JGcwVq"
+governance = "6d6QXsZRQ1fXp8wEXFTm4uXAbLWarPKX6XJLcNUY8rcT"
+oracle_aggregator = "EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6"
+vault = "3yzuTtfGYUBsdhXf4QGeq9MUGj5RDNLj3hFPtsWGkj8p"
 
 [provider]
 cluster = "localnet"
-wallet  = "~/.config/solana/id.json"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "pnpm --filter @sentinel/contracts test"
 
-# Anchor v1 defaults to surfpool for `anchor test` / `anchor localnet`.
-# Surfpool config lives in /Surfpool.toml at repo root.
+[hooks]
+
 [surfpool]
-log_level             = "info"
+startup_wait = 5000
+shutdown_wait = 2000
+rpc_port = 8899
+host = "127.0.0.1"
+log_level = "info"
 block_production_mode = "clock"
-startup_wait          = 5000

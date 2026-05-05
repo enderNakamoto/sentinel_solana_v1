@@ -39,6 +39,9 @@ const PROGRAMS = ['governance', 'vault', 'flight_pool', 'oracle_aggregator', 'co
 const OUT_DIRS = [
   resolve(REPO_ROOT, 'frontend', 'src', 'clients'),
   resolve(REPO_ROOT, 'executor', 'src', 'clients'),
+  // Tests in `contracts/tests/` consume the same Codama-typed clients to
+  // avoid hand-rolling instruction discriminators (see Phase 1 D9).
+  resolve(REPO_ROOT, 'contracts', 'tests', 'clients'),
 ] as const;
 
 async function generateForProgram(programName: string, idlPath: string) {

@@ -15,13 +15,18 @@ cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
-idl-build = ["anchor-lang/idl-build"]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-debug = []
 custom-heap = []
 custom-panic = []
 
 [dependencies]
-anchor-lang = { workspace = true }
+# `init-if-needed` enables idempotent `ClaimableBalance` PDA creation in
+# `request_withdrawal` (one PDA per underwriter, seed-bound). See Phase 2
+# §D5; the same risk profile as Phase 1 §D4 — seed-immutable identity, only
+# mutable state is `amount: u64`, auth is the request owner.
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl = { workspace = true }
 
 [lints]
 workspace = true

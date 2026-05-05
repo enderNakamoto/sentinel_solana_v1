@@ -12,7 +12,7 @@
 
 use anchor_lang::prelude::*;
 
-declare_id!("8mDGYcS1kjbYaJA8aWY8Ju7FnXZ5PYn2hCB9zBmJRGV");
+declare_id!("G4v4i3LoLX7v3cEb3cehNGWMHbvHArRyPSEiZmg5VSot");
 
 #[program]
 pub mod controller {

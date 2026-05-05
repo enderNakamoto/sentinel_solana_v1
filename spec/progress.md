@@ -11,10 +11,10 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | #  | Name                                  | Status        | Phase File                                                |
 |----|---------------------------------------|---------------|------------------------------------------------------------|
 | 0  | Project Bootstrap                     | complete      | `spec/phases/phase-00-project-bootstrap.md` (completed 2026-05-04) |
-| 1  | governance_program                    | not generated | —                                                          |
-| 2  | vault_program                         | not generated | —                                                          |
-| 3  | flight_pool_program                   | not generated | —                                                          |
-| 4  | oracle_aggregator_program             | not generated | —                                                          |
+| 1  | governance_program                    | complete      | `spec/phases/phase-01-governance-program.md` (completed 2026-05-04) |
+| 2  | vault_program                         | complete      | `spec/phases/phase-02-vault-program.md` (completed 2026-05-04) |
+| 3  | flight_pool_program                   | complete      | `spec/phases/phase-03-flight-pool-program.md` (completed 2026-05-04) |
+| 4  | oracle_aggregator_program             | planned       | `spec/phases/phase-04-oracle-aggregator-program.md`       |
 | 5  | controller_program                    | not generated | —                                                          |
 | 6  | Cross-Program Integration Tests       | not generated | —                                                          |
 | 7  | Devnet Deployment                     | not generated | —                                                          |
@@ -29,7 +29,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 
 ## Current Pointer
 
-Active phase: **Phase 1 — governance_program** (next; run `/plan-phase 1` to start)
+Active phase: **Phase 4 — oracle_aggregator_program** (planned; run `/start-phase 4` to begin)
 
 Last updated: 2026-05-04
-Last completed: Phase 0 — Project Bootstrap (2026-05-04)
+Last completed: Phase 3 — flight_pool_program (2026-05-04)

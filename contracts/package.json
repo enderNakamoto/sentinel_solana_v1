@@ -7,7 +7,7 @@
     "build": "NO_DNA=1 anchor build",
     "postbuild": "bash ../scripts/sync-idl.sh",
     "pretest": "NO_DNA=1 anchor build",
-    "test": "vitest run --config vitest.config.ts tests/smoke.test.ts",
+    "test": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf target node_modules .anchor"

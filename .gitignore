@@ -15,6 +15,7 @@ frontend/src/idl/
 frontend/src/clients/
 executor/src/idl/
 executor/src/clients/
+contracts/tests/clients/
 
 # ─── Frontend (Next.js) ───────────────────────────────────────────
 .next/

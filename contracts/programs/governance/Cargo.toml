@@ -22,7 +22,11 @@ custom-heap = []
 custom-panic = []
 
 [dependencies]
-anchor-lang = { workspace = true }
+# `init-if-needed` is required for Phase 1 idempotent re-activation of
+# `RouteAccount` and `AdminRecord` (see spec/phases/phase-01-governance-program.md
+# §D4). Risk is bounded: identity fields are seed-derived (immutable) and the
+# only mutable state is bools / Option<u64>; auth is owner / active-admin only.
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
 
 [lints]
 workspace = true
