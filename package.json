@@ -26,6 +26,7 @@
     "run-fetcher": "bash scripts/run.sh run-fetcher",
     "run-classifier": "bash scripts/run.sh run-classifier",
     "run-settler": "bash scripts/run.sh run-settler",
+    "cron-daemon": "bash scripts/run.sh run-cron",
     "build:all": "pnpm sync-idl && pnpm gen-clients && pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "clean": "pnpm -r clean && rm -rf contracts/target frontend/.next frontend/src/idl frontend/src/clients executor/dist executor/src/idl executor/src/clients .surfpool"

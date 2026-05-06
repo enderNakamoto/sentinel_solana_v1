@@ -20,7 +20,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 7  | Devnet Deployment                     | complete      | `spec/phases/phase-07-devnet-deployment.md` (completed 2026-05-05) |
 | 8  | Oracle Cron — FlightDataFetcher       | complete      | `spec/phases/phase-08-oracle-cron.md` (completed 2026-05-05) |
 | 9  | Classifier Cron — FlightClassifier    | complete      | `spec/phases/phase-09-classifier-cron.md` (completed 2026-05-05) |
-| 10 | Settlement Cron — SettlementExecutor  | not generated | —                                                          |
+| 10 | Settlement Cron — SettlementExecutor  | complete      | `spec/phases/phase-10-settlement-cron.md` (completed 2026-05-05) |
 | 11 | Frontend Bootstrap                    | not generated | —                                                          |
 | 12 | Frontend — Traveler Dashboard         | not generated | —                                                          |
 | 13 | Frontend — Underwriter Dashboard      | not generated | —                                                          |
@@ -29,7 +29,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 
 ## Current Pointer
 
-Active phase: **Phase 10 — Settlement Cron (SettlementExecutor)** (next)
+Active phase: **Phase 11 — Frontend Bootstrap** (next)
 
 Last updated: 2026-05-05
-Last completed: Phase 9 — Classifier Cron — FlightClassifier (2026-05-05)
+Last completed: Phase 10 — Settlement Cron — SettlementExecutor + Cron Backend (2026-05-05)

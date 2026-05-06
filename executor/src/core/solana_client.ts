@@ -108,6 +108,14 @@ export interface SolanaClient {
     date: bigint,
   ): Promise<{ status: FlightStatus; estimatedArrivalTime: bigint; actualArrivalTime: bigint } | null>;
 
+  /**
+   * Read the vault's `WithdrawalQueue` PDA and return the
+   * `claimable: Pubkey` field of each `WithdrawalRequest` in queue
+   * order. Used by the Phase 10 settler to populate the trailing
+   * remaining_accounts of `controller.execute_settlements`.
+   */
+  readWithdrawalQueueClaimables(): Promise<Address[]>;
+
   /** Send + confirm a single tx containing `ixs`. Signed by `signer`. */
   sendIxs(ixs: Instruction[]): Promise<string>;
 }
@@ -156,6 +164,17 @@ export async function createSolanaClient(opts: CreateSolanaClientOpts): Promise<
 
     async readFlightDataState(flightId, date) {
       return readFlightDataStateImpl(rpc, deployment, flightId, date);
+    },
+
+    async readWithdrawalQueueClaimables() {
+      const pda = deployment.pdas.withdrawalQueue as Address;
+      const { value } = await rpc
+        .getAccountInfo(pda, { encoding: 'base64' })
+        .send();
+      if (!value) return [];
+      const dataB64 = Array.isArray(value.data) ? value.data[0] : (value.data as unknown as string);
+      const buf = Buffer.from(dataB64, 'base64');
+      return decodeWithdrawalQueueClaimables(buf);
     },
 
     async sendIxs(ixs) {
@@ -234,6 +253,46 @@ function decodeActiveFlightList(buf: Buffer): ActiveFlightEntry[] {
     entries.push({ flightId, date });
   }
   return entries;
+}
+
+/**
+ * Decode the vault's `WithdrawalQueue` account and extract the
+ * `claimable: Pubkey` field from each `WithdrawalRequest` in queue order.
+ *
+ * Anchor account layout:
+ *   8 disc | u32 vec_len | n × WithdrawalRequest | u8 bump
+ *
+ * WithdrawalRequest layout (88 bytes):
+ *   32 owner | 8 shares | 8 pending_assets | 8 timestamp | 32 claimable
+ */
+function decodeWithdrawalQueueClaimables(buf: Buffer): Address[] {
+  let off = 8; // discriminator
+  const len = buf.readUInt32LE(off);
+  off += 4;
+  const claimables: Address[] = [];
+  for (let i = 0; i < len; i++) {
+    const reqOff = off + 32 + 8 + 8 + 8; // skip owner + shares + pending_assets + timestamp
+    const pkBytes = buf.slice(reqOff, reqOff + 32);
+    claimables.push(base58FromBytes(pkBytes) as Address);
+    off += 88; // total WithdrawalRequest size
+  }
+  return claimables;
+}
+
+const BASE58_ALPHABET =
+  '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function base58FromBytes(bytes: Buffer): string {
+  let leading = 0;
+  while (leading < bytes.length && bytes[leading] === 0) leading++;
+  let n = 0n;
+  for (const b of bytes) n = (n << 8n) + BigInt(b);
+  let out = '';
+  while (n > 0n) {
+    const r = Number(n % 58n);
+    n = n / 58n;
+    out = BASE58_ALPHABET[r] + out;
+  }
+  return '1'.repeat(leading) + out;
 }
 
 function decodeFlightData(buf: Buffer): {

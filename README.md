@@ -210,6 +210,66 @@ Mainnet has no mock-USDC mint authority — fund recipients via DEX or transfer.
 | Surfpool integration test skipped with warning | Surfpool not running, or no deployment artifact | `pnpm dev:surfpool` in another terminal, then `pnpm run deploy --cluster surfpool --owner <pk>`. |
 | `Cannot find package '@solana/program-client-core'` | Codama runtime dep missing | `pnpm install` (root package.json includes it). |
 
+## Running the crons (Phase 8–10)
+
+Three off-chain crons keep the protocol ticking. Each can be invoked as a one-shot via `pnpm` or run together as a `node-cron` daemon.
+
+| Cron | Frequency | Signing key | One-shot |
+|---|---|---|---|
+| **FlightDataFetcher** (Phase 8) | every 2h | `authorized_oracle` | `pnpm run-fetcher` |
+| **FlightClassifier** (Phase 9) | every 1h | `authorized_keeper` | `pnpm run-classifier` |
+| **SettlementExecutor** (Phase 10) | every 5min | `authorized_keeper` | `pnpm run-settler` |
+
+### One-shot invocation
+
+```bash
+# Set env (or copy executor/.env.example → executor/.env)
+export CLUSTER=surfpool
+export ORACLE_KEYPAIR=keys/surfpool-oracle.json
+export KEEPER_KEYPAIR=keys/surfpool-keeper.json
+export AEROAPI_KEY=...
+
+pnpm run-fetcher       # one tick of cron #1
+pnpm run-classifier    # one tick of cron #2
+pnpm run-settler       # one tick of cron #3
+```
+
+### Daemon mode (all 3 crons)
+
+```bash
+# Local
+pnpm cron-daemon
+
+# In Docker (built from the repo root)
+docker build -t sentinel-executor -f executor/Dockerfile .
+docker run --rm -p 8080:8080 \
+  -e CLUSTER=devnet \
+  -e ORACLE_KEYPAIR=/keys/devnet-oracle.json \
+  -e KEEPER_KEYPAIR=/keys/devnet-keeper.json \
+  -e AEROAPI_KEY=$AEROAPI_KEY \
+  -v $(pwd)/keys:/keys:ro \
+  -v $(pwd)/deployments:/app/deployments:ro \
+  sentinel-executor
+
+# Health check
+curl http://127.0.0.1:8080/health
+# {"ok":true,"schedules":{"fetcher":{...},"classifier":{...},"settler":{...}}}
+```
+
+The daemon shares one Solana RPC client + one AeroAPI client across all three schedules. Per-tick failures are caught + logged; the `/health` endpoint reports `ok: false` if any schedule's last run failed, letting Docker/Kubernetes orchestrators restart on persistent stuck schedules.
+
+### Cron schedule overrides (env vars)
+
+Useful for testing/staging:
+
+| Var | Default | Description |
+|---|---|---|
+| `FETCHER_CRON` | `0 */2 * * *` | Fetcher cron expression |
+| `CLASSIFIER_CRON` | `0 * * * *` | Classifier cron expression |
+| `SETTLER_CRON` | `*/5 * * * *` | Settler cron expression |
+| `RUN_AT_BOOT` | `0` | Set `1` to fire all 3 schedules once on startup |
+| `HEALTH_PORT` | `8080` | /health server port |
+
 ## Phase status
 
 See `spec/progress.md` for the live phase dashboard. Each phase has its own plan + work log under `spec/phases/`.
