@@ -19,6 +19,8 @@ contracts/tests/clients/
 scripts/clients/
 scripts/dist/
 scripts/*.bundle.mjs
+executor/src/scripts/dist/
+executor/.env
 
 # ─── Frontend (Next.js) ───────────────────────────────────────────
 .next/
