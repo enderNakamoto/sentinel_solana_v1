@@ -16,6 +16,9 @@ frontend/src/clients/
 executor/src/idl/
 executor/src/clients/
 contracts/tests/clients/
+scripts/clients/
+scripts/dist/
+scripts/*.bundle.mjs
 
 # ─── Frontend (Next.js) ───────────────────────────────────────────
 .next/
@@ -37,6 +40,11 @@ executor/dist/
 
 # ─── Keys (commit only the .pubkey side) ──────────────────────────
 keys/*.json
+keys/**/*.json
+
+# ─── Deployment artifacts (cluster + timestamped JSON) ────────────
+deployments/*.json
+!deployments/.gitkeep
 
 # ─── Editor / OS ──────────────────────────────────────────────────
 .DS_Store

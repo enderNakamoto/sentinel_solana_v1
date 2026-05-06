@@ -42,6 +42,9 @@ const OUT_DIRS = [
   // Tests in `contracts/tests/` consume the same Codama-typed clients to
   // avoid hand-rolling instruction discriminators (see Phase 1 D9).
   resolve(REPO_ROOT, 'contracts', 'tests', 'clients'),
+  // Phase 7 (deploy script) consumes the typed clients to wire all 5
+  // programs' init / set_controller / set_authorized_consumer ix.
+  resolve(REPO_ROOT, 'scripts', 'clients'),
 ] as const;
 
 async function generateForProgram(programName: string, idlPath: string) {

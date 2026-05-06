@@ -141,6 +141,75 @@ NO_DNA=1 surfpool start
 
 ---
 
+## Deploy runbook (Phase 7+)
+
+A single parameterized script handles deploy + initialize + wire-up across all 5 programs on Surfpool / devnet / testnet / mainnet.
+
+### Surfpool dev loop (recommended for local QA)
+
+```bash
+# Terminal 1: keep surfpool running
+pnpm dev:surfpool
+
+# Terminal 2: deploy + run the integration test
+pnpm bootstrap-test-actors                                # generate keys/test-actors/*
+pnpm run deploy --cluster surfpool --owner $(solana-keygen pubkey ~/.config/solana/id.json)
+pnpm test:integration:deployed                            # multi-actor lifecycle test
+```
+
+The deploy script:
+- creates the mock USDC mint at the canonical `keys/mock-usdc.pubkey` (auto-runs `spl-token create-token` on first invocation)
+- deploys all 5 programs sequentially via `solana program deploy`
+- initializes governance / vault / oracle_aggregator / flight_pool / controller in dependency order
+- wires authorities (`vault.set_controller`, `flight_pool.set_controller`, `oracle.set_authorized_consumer`)
+- emits a deployment artifact at `deployments/<cluster>-<unix-ts>.json` + `<cluster>-latest.json`
+- is fully idempotent: re-running detects existing state and skips
+
+### Devnet / testnet
+
+```bash
+# Pre-fund the deployer keypair (~10–15 SOL on devnet/testnet)
+solana airdrop 5 --url devnet --keypair ~/.config/solana/id.json
+
+# First-run: auto-creates the mock USDC mint
+pnpm run deploy --cluster devnet --owner $(solana-keygen pubkey ~/.config/solana/id.json)
+
+# Seed test actors with mock USDC
+pnpm fund-usdc --cluster devnet --recipient <pubkey> --amount 10000
+```
+
+### Mainnet (gated)
+
+```bash
+# Required: --confirm-mainnet flag + typed confirmation prompt
+pnpm run deploy --cluster mainnet \
+                --owner <funded-pubkey> \
+                --usdc EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v \
+                --confirm-mainnet
+```
+
+The script prints a cost preview (estimated ~14 SOL) and demands you type `deploy to mainnet` before any RPC call. Mainnet refuses to use the mock USDC — `--usdc <real-pubkey>` is required.
+
+### Funding scripts
+
+| Script | Cluster scope | Purpose |
+|---|---|---|
+| `pnpm fund-sol --cluster surfpool --recipient <pk> --amount <sol>` | surfpool only | Airdrop SOL via `requestAirdrop` (unlimited locally) |
+| `pnpm fund-usdc --cluster <surfpool\|localnet\|devnet\|testnet> --recipient <pk> --amount <usdc>` | dev clusters | Mint mock USDC via the committed mint authority (`keys/mock-usdc-authority.json`) |
+
+Mainnet has no mock-USDC mint authority — fund recipients via DEX or transfer.
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `--owner ... does not match the deployer keypair ...` | Different pubkey passed than the deployer keypair holds | The deployer signs init txs and becomes config.owner. Pass `--owner <deployer-pubkey>` or use `--deployer <path-to-owner-keypair>`. |
+| `Need ~X SOL, deployer ... has Y SOL on <cluster>` | Pre-flight balance check failed | Fund the deployer keypair on the target cluster (e.g. `solana airdrop 5 --url devnet`). |
+| `Mock USDC not found on <cluster>` | Mint never created on this cluster | `pnpm run deploy --cluster <cluster> --owner <pk>` auto-creates it on first run. |
+| `Mainnet deploys require --confirm-mainnet` | Safety guardrail | Re-run with `--confirm-mainnet` to see the cost preview. |
+| Surfpool integration test skipped with warning | Surfpool not running, or no deployment artifact | `pnpm dev:surfpool` in another terminal, then `pnpm run deploy --cluster surfpool --owner <pk>`. |
+| `Cannot find package '@solana/program-client-core'` | Codama runtime dep missing | `pnpm install` (root package.json includes it). |
+
 ## Phase status
 
 See `spec/progress.md` for the live phase dashboard. Each phase has its own plan + work log under `spec/phases/`.

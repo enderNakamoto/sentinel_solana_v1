@@ -18,6 +18,11 @@
     "dev:surfpool": "bash scripts/dev-surfpool.sh",
     "test:contracts": "pnpm --filter @sentinel/contracts test",
     "test:integration": "pnpm --filter @sentinel/contracts test:integration",
+    "test:integration:deployed": "pnpm --filter @sentinel/contracts test:integration:deployed",
+    "deploy": "bash scripts/run.sh deploy",
+    "fund-sol": "bash scripts/run.sh fund-sol",
+    "fund-usdc": "bash scripts/run.sh fund-usdc",
+    "bootstrap-test-actors": "bash scripts/run.sh bootstrap-test-actors",
     "build:all": "pnpm sync-idl && pnpm gen-clients && pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "clean": "pnpm -r clean && rm -rf contracts/target frontend/.next frontend/src/idl frontend/src/clients executor/dist executor/src/idl executor/src/clients .surfpool"
@@ -25,8 +30,18 @@
   "devDependencies": {
     "@codama/nodes-from-anchor": "^1.4.1",
     "@codama/renderers-js": "^2.2.0",
+    "@solana-program/system": "^0.12.0",
+    "@solana-program/token": "^0.13.0",
+    "@solana/kit": "^6.8.0",
+    "@solana/kit-plugin-rpc": "^0.11.0",
+    "@solana/kit-plugin-signer": "^0.10.0",
+    "@solana/program-client-core": "^6.8.0",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.95.0",
+    "@types/node": "^22.0.0",
     "codama": "^1.6.0",
-    "typescript": "^5.6.0",
-    "@types/node": "^22.0.0"
+    "esbuild": "^0.28.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
   }
 }
