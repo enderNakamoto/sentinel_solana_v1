@@ -19,7 +19,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 6  | Cross-Program Integration Tests       | complete      | `spec/phases/phase-06-cross-program-integration-tests.md` (completed 2026-05-04) |
 | 7  | Devnet Deployment                     | complete      | `spec/phases/phase-07-devnet-deployment.md` (completed 2026-05-05) |
 | 8  | Oracle Cron — FlightDataFetcher       | complete      | `spec/phases/phase-08-oracle-cron.md` (completed 2026-05-05) |
-| 9  | Classifier Cron — FlightClassifier    | not generated | —                                                          |
+| 9  | Classifier Cron — FlightClassifier    | complete      | `spec/phases/phase-09-classifier-cron.md` (completed 2026-05-05) |
 | 10 | Settlement Cron — SettlementExecutor  | not generated | —                                                          |
 | 11 | Frontend Bootstrap                    | not generated | —                                                          |
 | 12 | Frontend — Traveler Dashboard         | not generated | —                                                          |
@@ -29,7 +29,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 
 ## Current Pointer
 
-Active phase: **Phase 9 — Classifier Cron (FlightClassifier)** (next)
+Active phase: **Phase 10 — Settlement Cron (SettlementExecutor)** (next)
 
 Last updated: 2026-05-05
-Last completed: Phase 8 — Oracle Cron — FlightDataFetcher (2026-05-05)
+Last completed: Phase 9 — Classifier Cron — FlightClassifier (2026-05-05)
