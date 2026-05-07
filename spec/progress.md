@@ -22,7 +22,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 9  | Classifier Cron — FlightClassifier    | complete      | `spec/phases/phase-09-classifier-cron.md` (completed 2026-05-05) |
 | 10 | Settlement Cron — SettlementExecutor  | complete      | `spec/phases/phase-10-settlement-cron.md` (completed 2026-05-05) |
 | 11 | E2E Cron Validation (Surfpool)        | complete      | `spec/phases/phase-11-e2e-cron-validation.md` (completed 2026-05-06) |
-| 12 | Frontend Bootstrap                    | not generated | —                                                          |
+| 12 | Frontend Bootstrap                    | complete      | `spec/phases/phase-12-frontend-bootstrap.md` (completed 2026-05-07) |
 | 13 | Frontend — Traveler Dashboard         | not generated | —                                                          |
 | 14 | Frontend — Underwriter Dashboard      | not generated | —                                                          |
 | 15 | Frontend — Admin Panel                | not generated | —                                                          |
@@ -30,7 +30,7 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 
 ## Current Pointer
 
-Active phase: **Phase 12 — Frontend Bootstrap** (next)
+Active phase: **Phase 13 — Frontend Traveler Dashboard** (next)
 
-Last updated: 2026-05-06
-Last completed: Phase 11 — E2E Cron Validation (Surfpool) (2026-05-06)
+Last updated: 2026-05-07
+Last completed: Phase 12 — Frontend Bootstrap (2026-05-07)

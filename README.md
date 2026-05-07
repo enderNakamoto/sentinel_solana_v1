@@ -325,6 +325,68 @@ auto-start surfpool or auto-deploy.
 - Total runtime: ~38 seconds on a fresh deploy (Surfpool startup + deploy not
   counted; assume those are pre-flight).
 
+## Frontend (Phase 12+)
+
+The dApp lives in `frontend/` — Next.js 15 (App Router) + React 19 +
+**framework-kit** (`@solana/client` + `@solana/react-hooks`) + Tailwind 3.
+Wallet Standard discovery via `autoDiscover()`. **No** `@solana/wallet-adapter-*`.
+
+### Quickstart
+
+```bash
+pnpm install
+pnpm sync-idl && pnpm gen-clients          # required after any contract change
+pnpm dev:frontend                          # http://localhost:3000
+```
+
+5 routes:
+- `/` — Home (hero + protocol stats + how-it-works + live-markets preview)
+- `/markets` — Live Markets globe (drag-to-rotate, arc-rendered)
+- `/buy` — Buy Coverage (flight picker + premium calc + Cover button)
+- `/earn` — Vault (TVL chart + risk tiers + deposit / redeem)
+- `/portfolio` — Active + history policies + Claim button
+
+Wallet connect (Phantom etc.) works against devnet; mock data drives every
+on-chain stat. Phases 13–15 will swap the data layer to real RPC reads,
+file by file.
+
+### Modularity rules (locked-in for Phases 13–15)
+
+Three rules enforce that the visual phase doesn't entangle with the
+on-chain phases. Phase 13–15 work must honor these — gate-tested in
+Phase 12 and verifiable by `git grep`.
+
+**M1 — Fun mode is folder-isolated.**
+Everything under `frontend/src/theme/fun/`. Pages never inline fun-mode
+JSX; they render `<Mascots />` (a fun-mode-only component that returns
+null in serious mode) and read `useTheme().mode === 'fun'` for any
+conditional. Future fun-mode redesigns must touch only files under
+`src/theme/fun/`.
+
+**M2 — Globe is internally swappable.**
+Pages import only `frontend/src/components/globe/Globe.tsx`. The current
+implementation is `SvgGlobe.tsx`. Future swap to `ThreeGlobe.tsx` (or
+similar) replaces the default export of `Globe.tsx` and pages don't
+change. Same `GlobeProps` interface for both.
+
+**M3 — Mock data layer mirrors the future contract layer.**
+React components ALWAYS import data from `frontend/src/data/`. They
+never import `@solana/kit` or `frontend/src/clients/` directly for data
+reads — only for type imports if needed. Phases 13–15 swap function
+bodies in `src/data/index.ts` from the mock to real RPC + Codama calls,
+one function at a time.
+
+### Theme + wallet UX
+
+- Topbar mode toggle flips serious↔fun — persists in `localStorage` under
+  `sentinel.theme.mode`.
+- Topbar wallet chip — disconnected shows "Connect" → connector picker;
+  connected shows truncated address + mock balance + dropdown
+  (Copy / Disconnect).
+- Stub buttons (Cover / Deposit / Redeem / Claim) log a `TODO: <ix-name>`
+  line and fire a Phantom-style toast — proves handler wiring is in
+  place ahead of Phase 13.
+
 ## Phase status
 
 See `spec/progress.md` for the live phase dashboard. Each phase has its own plan + work log under `spec/phases/`.

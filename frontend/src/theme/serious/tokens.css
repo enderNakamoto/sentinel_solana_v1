@@ -1,0 +1,85 @@
+/*
+ * Serious mode — base CSS variables + resets.
+ * Ported from design_system/index.html.
+ *
+ * Per Phase 12 M1 (modularity rule): this file is the ONLY home for
+ * serious-mode tokens. Fun-mode lives at src/theme/fun/tokens.css.
+ * Component styles (.app, .sidebar, .card, etc.) live in app/globals.css.
+ */
+
+:root {
+  /* Backgrounds */
+  --bg: #07090e;
+  --bg-1: #0b0f17;
+  --bg-2: #10151f;
+  --bg-3: #161c28;
+  --line: #1e2533;
+  --line-2: #2a3344;
+
+  /* Foreground (ink) */
+  --ink: #eef1f7;
+  --ink-2: #b6becd;
+  --ink-3: #6b7385;
+  --ink-4: #444c5d;
+
+  /* Accents */
+  --amber: #ffb547;
+  --amber-d: #d28a1f;
+  --cyan: #5ee0d2;
+  --cyan-d: #2aa394;
+  --red: #ff5d6c;
+  --green: #7ee787;
+  --violet: #a98bff;
+
+  /* Type families. Loaded via next/font in app/layout.tsx; CSS vars
+     reference those font CSS variables (--font-geist, etc.) so we can
+     swap fonts in one place. */
+  --mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: var(--font-geist), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: var(--font-instrument-serif), 'Times New Roman', serif;
+}
+
+/* Base resets */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--amber);
+  color: #000;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}

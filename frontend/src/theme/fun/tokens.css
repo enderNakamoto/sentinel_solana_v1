@@ -1,0 +1,377 @@
+/*
+ * Fun mode — "AeroQuest" RPG theme.
+ * Ported from design_system/fun-mode.css. Activated via body.mode-fun.
+ *
+ * Per Phase 12 M1: this file is the ONLY home for fun-mode style overrides.
+ * Future fun-mode redesigns must touch only files under src/theme/fun/.
+ * Pages/components NEVER inline fun-mode-specific JSX — they conditionally
+ * render fun decorations via useTheme().mode === 'fun'.
+ *
+ * Cinzel + IM Fell English fonts come from Google Fonts via app/layout.tsx.
+ */
+
+body.mode-fun {
+  /* Sky/parchment palette */
+  --bg: #1a3d6e;
+  --bg-1: #f4e4b8;       /* parchment */
+  --bg-2: #ead394;       /* darker parchment */
+  --bg-3: #d9be73;
+  --line: #6b3a1f;       /* dark wood */
+  --line-2: #8b5a2b;     /* mid wood */
+  --ink: #2d1810;        /* dark walnut */
+  --ink-2: #4d2f1e;
+  --ink-3: #7a5236;
+  --ink-4: #a78866;
+  --amber: #d97706;      /* burnt orange / gold */
+  --amber-d: #92400e;
+  --cyan: #0891b2;       /* deep teal */
+  --cyan-d: #155e75;
+  --green: #16a34a;
+  --red: #dc2626;
+  --violet: #7c3aed;
+  --gold: #f59e0b;
+  --gold-d: #b45309;
+  --wood: #6b3a1f;
+  --wood-d: #4a2812;
+  --sky-1: #4a90d9;
+  --sky-2: #87b8e8;
+
+  /* Fun-mode swaps display fonts to Cinzel + IM Fell English. Mono uses
+     the same Cinzel for visual cohesion in fun mode (the design system
+     does the same — see design_system/fun-mode.css). */
+  --sans: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
+  --mono: 'IM Fell English', Georgia, serif;
+  --serif: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
+}
+
+/* Painterly sky background */
+body.mode-fun {
+  background:
+    radial-gradient(ellipse at 20% 80%, rgba(135, 184, 232, .55) 0%, transparent 40%),
+    radial-gradient(ellipse at 80% 20%, rgba(255, 255, 255, .18) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 90%, rgba(74, 144, 217, .5) 0%, transparent 60%),
+    linear-gradient(180deg, #6ba3d9 0%, #4a7fb5 50%, #2d4a73 100%);
+  background-attachment: fixed;
+}
+
+/* Cloud puffs across the body */
+body.mode-fun::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60px 30px at 12% 18%, rgba(255, 255, 255, .7), transparent 70%),
+    radial-gradient(80px 35px at 28% 12%, rgba(255, 255, 255, .5), transparent 70%),
+    radial-gradient(90px 40px at 78% 28%, rgba(255, 255, 255, .6), transparent 70%),
+    radial-gradient(70px 30px at 92% 65%, rgba(255, 255, 255, .45), transparent 70%),
+    radial-gradient(100px 45px at 48% 8%, rgba(255, 255, 255, .55), transparent 70%);
+  z-index: 0;
+}
+
+body.mode-fun .app {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Sidebar — wooden plank ──────────────────────────────────────────── */
+body.mode-fun .sidebar {
+  background:
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, .04) 0 1px, transparent 1px 6px),
+    linear-gradient(180deg, #6b3a1f 0%, #4a2812 100%);
+  border-right: 4px solid #2a1408;
+  box-shadow: inset -1px 0 0 #8b5a2b, 4px 0 12px rgba(0, 0, 0, .3);
+  color: #f4e4b8;
+}
+
+body.mode-fun .brand-name {
+  font-family: 'Cinzel', serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #f59e0b;
+  text-shadow: 0 2px 0 #2a1408, 0 0 12px rgba(245, 158, 11, .4);
+}
+
+body.mode-fun .brand-name em {
+  color: #f4e4b8;
+}
+
+body.mode-fun .nav-section {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  color: #d9be73;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  border-bottom: 1px solid rgba(245, 158, 11, .2);
+  padding: 16px 8px 8px;
+  margin-bottom: 4px;
+}
+
+body.mode-fun .nav-item {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  color: #f4e4b8;
+}
+
+body.mode-fun .nav-item:hover {
+  background: rgba(245, 158, 11, .15);
+  color: #fde68a;
+}
+
+body.mode-fun .nav-item.active {
+  background: linear-gradient(90deg, rgba(245, 158, 11, .25), transparent);
+  color: #fde68a;
+  border-left: 3px solid #f59e0b;
+  border-color: transparent;
+}
+
+body.mode-fun .nav-item.active .dot {
+  background: #f59e0b;
+  box-shadow: 0 0 12px #f59e0b;
+}
+
+/* ─── Topbar — bronze plate ───────────────────────────────────────────── */
+body.mode-fun .topbar {
+  background:
+    linear-gradient(180deg, rgba(245, 158, 11, .15) 0%, rgba(146, 64, 14, .25) 100%),
+    rgba(74, 40, 18, .85);
+  border-bottom: 2px solid #2a1408;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+  color: #f4e4b8;
+}
+
+body.mode-fun .crumbs {
+  font-family: 'Cinzel', serif;
+  color: #d9be73;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+body.mode-fun .crumbs strong {
+  color: #fde68a;
+  font-weight: 700;
+}
+
+body.mode-fun .ticker {
+  color: #d9be73;
+  font-family: 'IM Fell English', serif;
+}
+
+body.mode-fun .ticker .v {
+  color: #fde68a;
+}
+
+body.mode-fun .wallet {
+  background: linear-gradient(180deg, #f4e4b8 0%, #d9be73 100%);
+  border: 2px solid #2a1408;
+  border-radius: 4px;
+  color: #2a1408;
+  font-family: 'IM Fell English', serif;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 2px 0 #2a1408;
+}
+
+body.mode-fun .wallet .addr {
+  color: #2a1408;
+}
+
+body.mode-fun .wallet .bal {
+  color: #92400e;
+}
+
+/* ─── Cards — parchment ───────────────────────────────────────────────── */
+body.mode-fun .card {
+  background:
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, .015) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #f4e4b8 0%, #ead394 100%);
+  border: 2px solid #6b3a1f;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .25), inset 0 1px 0 rgba(255, 255, 255, .4);
+  color: #2d1810;
+}
+
+body.mode-fun .card-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  color: #4a2812;
+  letter-spacing: 0.08em;
+}
+
+body.mode-fun .stat-label {
+  font-family: 'Cinzel', serif;
+  color: #7a5236;
+  font-weight: 600;
+}
+
+body.mode-fun .stat-value {
+  font-family: 'Cinzel', serif;
+  color: #2d1810;
+  font-weight: 700;
+}
+
+body.mode-fun .stat-delta {
+  font-family: 'IM Fell English', serif;
+  color: #16a34a;
+}
+
+body.mode-fun .stat-delta.down {
+  color: #dc2626;
+}
+
+/* ─── Buttons — wood + brass ──────────────────────────────────────────── */
+body.mode-fun .btn {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: linear-gradient(180deg, #d9be73 0%, #a78866 100%);
+  border: 2px solid #2a1408;
+  border-radius: 4px;
+  color: #2a1408;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 2px 0 #2a1408;
+}
+
+body.mode-fun .btn:hover {
+  background: linear-gradient(180deg, #ead394 0%, #c89e57 100%);
+}
+
+body.mode-fun .btn.primary {
+  background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+  border-color: #2a1408;
+  color: #2a1408;
+}
+
+body.mode-fun .btn.primary:hover {
+  background: linear-gradient(180deg, #fde68a 0%, #f59e0b 100%);
+}
+
+body.mode-fun .btn.cyan {
+  background: linear-gradient(180deg, #67e8f9 0%, #0891b2 100%);
+  color: #052b27;
+}
+
+/* ─── Headings — Cinzel display ───────────────────────────────────────── */
+body.mode-fun h1.display,
+body.mode-fun h2.section {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  color: #fde68a;
+  text-shadow: 0 2px 0 #2a1408, 0 0 16px rgba(245, 158, 11, .3);
+}
+
+body.mode-fun h1.display em,
+body.mode-fun h2.section em {
+  font-family: 'Cinzel', serif;
+  color: #f59e0b;
+  font-style: italic;
+}
+
+body.mode-fun .h-eyebrow {
+  font-family: 'Cinzel', serif;
+  color: #fde68a;
+  font-weight: 700;
+}
+
+body.mode-fun .h-eyebrow::before {
+  background: #fde68a;
+}
+
+body.mode-fun .lede {
+  color: #f4e4b8;
+  font-family: 'IM Fell English', serif;
+  font-style: italic;
+}
+
+/* ─── Tables — parchment scroll ───────────────────────────────────────── */
+body.mode-fun table.t thead th {
+  font-family: 'Cinzel', serif;
+  background: linear-gradient(180deg, #d9be73 0%, #a78866 100%);
+  color: #2a1408;
+  border-bottom: 2px solid #6b3a1f;
+}
+
+body.mode-fun table.t tbody td {
+  background: rgba(244, 228, 184, .9);
+  color: #2d1810;
+  border-bottom: 1px solid rgba(107, 58, 31, .2);
+  font-family: 'IM Fell English', serif;
+}
+
+body.mode-fun table.t tbody tr:hover td {
+  background: rgba(234, 211, 148, .95);
+}
+
+body.mode-fun table.t .num {
+  font-family: 'IM Fell English', serif;
+  color: #2d1810;
+}
+
+body.mode-fun .carrier {
+  font-family: 'IM Fell English', serif;
+  color: #7a5236;
+}
+
+/* ─── Live pill — sigil ───────────────────────────────────────────────── */
+body.mode-fun .live-pill {
+  font-family: 'Cinzel', serif;
+  color: #fde68a;
+  font-weight: 600;
+}
+
+body.mode-fun .live-pill::before {
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+/* ─── Gem pill (fun-only badge) ───────────────────────────────────────── */
+.gem-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: linear-gradient(180deg, #c4b5fd 0%, #7c3aed 100%);
+  border: 2px solid #2a1408;
+  border-radius: 4px;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  color: #2a1408;
+  font-size: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 2px 0 #2a1408;
+}
+
+.gem-pill svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ─── Decorative mascot positioning ───────────────────────────────────── */
+.fun-mascot-pilot {
+  position: fixed;
+  bottom: 20px;
+  left: 240px; /* clear of sidebar */
+  width: 96px;
+  height: 96px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.fun-cloud-1,
+.fun-cloud-2 {
+  position: fixed;
+  pointer-events: none;
+  z-index: 2;
+  animation: drift 60s linear infinite;
+}
+
+@keyframes drift {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100px);
+  }
+}
