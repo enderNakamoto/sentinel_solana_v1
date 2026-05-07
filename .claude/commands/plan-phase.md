@@ -44,11 +44,12 @@ Phase slugs (Solana build):
 | 8  | `phase-08-oracle-cron` |
 | 9  | `phase-09-classifier-cron` |
 | 10 | `phase-10-settlement-cron` |
-| 11 | `phase-11-frontend-bootstrap` |
-| 12 | `phase-12-frontend-traveler` |
-| 13 | `phase-13-frontend-underwriter` |
-| 14 | `phase-14-frontend-admin` |
-| 15 | `phase-15-e2e-test` |
+| 11 | `phase-11-e2e-cron-validation` |
+| 12 | `phase-12-frontend-bootstrap` |
+| 13 | `phase-13-frontend-traveler` |
+| 14 | `phase-14-frontend-underwriter` |
+| 15 | `phase-15-frontend-admin` |
+| 16 | `phase-16-e2e-test` |
 
 ### 3. Build the Context Manifest
 
@@ -108,7 +109,15 @@ Determine which skills, external docs, and project files the agent will need to 
   - (AeroAPI URLs come from the `aero-api` skill itself)
 - Files: `executor/`, `executor/src/clients/` (Codama-generated), `spec/architecture.md` §Off-Chain Executor Layer
 
-**Phase 11 — Frontend Bootstrap:**
+**Phase 11 — E2E Cron Validation (Surfpool, no frontend):**
+- Skills: add `aero-api` (mock client matches the real client's contract)
+- Skill references: `testing.md`, `surfpool/overview.md`, `surfpool/cheatcodes.md`, `kit/overview.md`, `kit/advanced.md`, `idl-codegen.md`
+- Docs to fetch:
+  - https://docs.surfpool.run/ — Surfpool integration / time-travel cheatcodes
+  - https://github.com/anza-xyz/kit — Kit advanced patterns
+- Files: `executor/src/core/`, `executor/src/scripts/`, `executor/src/backends/cron/`, `executor/tests/`, `contracts/tests/integration/full-flow-deployed.test.ts`, `scripts/deploy.ts`, `spec/architecture.md` §Off-Chain Executor Layer
+
+**Phase 12 — Frontend Bootstrap:**
 - Skill references: `frontend-framework-kit.md`, `kit/overview.md`, `kit/plugins.md`, `idl-codegen.md`
 - Docs to fetch:
   - https://nextjs.org/docs/app — Next.js App Router
@@ -116,14 +125,14 @@ Determine which skills, external docs, and project files the agent will need to 
   - https://github.com/anza-xyz/kit — `@solana/client` + `@solana/react-hooks`
 - Files: `frontend/`, `frontend/src/clients/` (Codama-generated)
 
-**Phases 12–14 — Frontend dashboards (traveler, underwriter, admin):**
+**Phases 13–15 — Frontend dashboards (traveler, underwriter, admin):**
 - Skill references: `frontend-framework-kit.md`, `kit/overview.md`, `kit/plugins.md`, `idl-codegen.md`, `payments.md`
 - Docs to fetch:
   - https://nextjs.org/docs/app — Next.js App Router
   - https://tailwindcss.com/docs — Tailwind reference
 - Files: `frontend/src/`, `frontend/src/clients/`, all five program source dirs (for instruction reference)
 
-**Phase 15 — End-to-End Test:**
+**Phase 16 — End-to-End Test (Browser):**
 - Skill references: `testing.md`, `surfpool/overview.md`, `surfpool/cheatcodes.md`, `frontend-framework-kit.md`
 - Docs to fetch:
   - https://playwright.dev/docs/intro — Playwright (browser e2e)

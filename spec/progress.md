@@ -21,15 +21,16 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 8  | Oracle Cron — FlightDataFetcher       | complete      | `spec/phases/phase-08-oracle-cron.md` (completed 2026-05-05) |
 | 9  | Classifier Cron — FlightClassifier    | complete      | `spec/phases/phase-09-classifier-cron.md` (completed 2026-05-05) |
 | 10 | Settlement Cron — SettlementExecutor  | complete      | `spec/phases/phase-10-settlement-cron.md` (completed 2026-05-05) |
-| 11 | Frontend Bootstrap                    | not generated | —                                                          |
-| 12 | Frontend — Traveler Dashboard         | not generated | —                                                          |
-| 13 | Frontend — Underwriter Dashboard      | not generated | —                                                          |
-| 14 | Frontend — Admin Panel                | not generated | —                                                          |
-| 15 | End-to-End Test                       | not generated | —                                                          |
+| 11 | E2E Cron Validation (Surfpool)        | complete      | `spec/phases/phase-11-e2e-cron-validation.md` (completed 2026-05-06) |
+| 12 | Frontend Bootstrap                    | not generated | —                                                          |
+| 13 | Frontend — Traveler Dashboard         | not generated | —                                                          |
+| 14 | Frontend — Underwriter Dashboard      | not generated | —                                                          |
+| 15 | Frontend — Admin Panel                | not generated | —                                                          |
+| 16 | End-to-End Test (Browser)             | not generated | —                                                          |
 
 ## Current Pointer
 
-Active phase: **Phase 11 — Frontend Bootstrap** (next)
+Active phase: **Phase 12 — Frontend Bootstrap** (next)
 
-Last updated: 2026-05-05
-Last completed: Phase 10 — Settlement Cron — SettlementExecutor + Cron Backend (2026-05-05)
+Last updated: 2026-05-06
+Last completed: Phase 11 — E2E Cron Validation (Surfpool) (2026-05-06)

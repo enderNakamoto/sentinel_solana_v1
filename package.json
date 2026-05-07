@@ -19,6 +19,7 @@
     "test:contracts": "pnpm --filter @sentinel/contracts test",
     "test:integration": "pnpm --filter @sentinel/contracts test:integration",
     "test:integration:deployed": "pnpm --filter @sentinel/contracts test:integration:deployed",
+    "test:e2e:crons": "pnpm --filter @sentinel/contracts test:e2e:crons",
     "deploy": "bash scripts/run.sh deploy",
     "fund-sol": "bash scripts/run.sh fund-sol",
     "fund-usdc": "bash scripts/run.sh fund-usdc",

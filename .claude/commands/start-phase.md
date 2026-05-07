@@ -59,11 +59,12 @@ This gives the agent just enough context to orient before diving into phase-spec
   - 8  → `spec/phases/phase-08-oracle-cron.md`
   - 9  → `spec/phases/phase-09-classifier-cron.md`
   - 10 → `spec/phases/phase-10-settlement-cron.md`
-  - 11 → `spec/phases/phase-11-frontend-bootstrap.md`
-  - 12 → `spec/phases/phase-12-frontend-traveler.md`
-  - 13 → `spec/phases/phase-13-frontend-underwriter.md`
-  - 14 → `spec/phases/phase-14-frontend-admin.md`
-  - 15 → `spec/phases/phase-15-e2e-test.md`
+  - 11 → `spec/phases/phase-11-e2e-cron-validation.md`
+  - 12 → `spec/phases/phase-12-frontend-bootstrap.md`
+  - 13 → `spec/phases/phase-13-frontend-traveler.md`
+  - 14 → `spec/phases/phase-14-frontend-underwriter.md`
+  - 15 → `spec/phases/phase-15-frontend-admin.md`
+  - 16 → `spec/phases/phase-16-e2e-test.md`
 
 - Read the full phase file — confirm Status is `planned`
 - Read the **Pre-work Notes** — these are the user's constraints, treat as hard requirements

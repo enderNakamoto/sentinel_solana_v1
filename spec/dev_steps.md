@@ -650,7 +650,88 @@ snapshots. Also wire all three crons into the node-cron backend with health chec
 
 ---
 
-## Phase 11 — Frontend Bootstrap
+## Phase 11 — End-to-End Cron Validation (Surfpool, no frontend)
+
+**Goal:** Validate the full on-chain + cron loop on a live Surfpool deployment. Drive
+multiple parameterized scenarios through the **real cron core functions**
+(`runFetcherOnce` / `runClassifierOnce` / `runSettlerOnce`) with a mocked AeroAPI
+returning scripted flight states. Asserts that money moves correctly across the full
+protocol stack — vault, flight_pool, oracle_aggregator, controller — using the real
+runner code paths, not LiteSVM simulators. The last sanity gate before frontend work
+begins. **No contract changes** (constraint preserved from Phases 8–10).
+
+**Deliverables:**
+- `executor/src/test/mock_aero_api.ts` — `createMockAeroApi(initialState)` returns an
+  `AeroApiClient`-shaped object whose `fetchFlightsForDay(ident, dateIso)` reads from
+  an in-memory `Map<string, AeroFlight>`. State is mutated tick-by-tick by the test
+  harness (e.g., flight goes `cancelled: true` at tick 3) so a single mock client can
+  serve the full scenario timeline. Returns `null` when an ident isn't seeded (matches
+  the real client's not-found behavior).
+- `executor/src/core/aeroapi_client.ts` — extended error handling:
+  - Parse the AeroAPI 4xx error envelope `{title, reason, detail, status}` and log
+    the structured fields before returning null.
+  - 5xx + network + JSON-parse failures continue to log + return null (already
+    covered in Phase 8 — consolidate logging here).
+  - Export an `AeroApiError` type so tests can assert the parsed envelope.
+- `contracts/tests/integration/e2e-with-crons-deployed.test.ts` — Vitest integration
+  test against a live Surfpool deployment. Skips with a warning when Surfpool isn't
+  running OR no recent deployment artifact exists (same skip pattern as
+  `full-flow-deployed.test.ts`). Loops over a parameterized `Scenario[]` table; each
+  scenario describes one buyer, one flight, one mutation timeline, one expected
+  outcome.
+- `executor/tests/aeroapi_error_envelope.test.ts` — unit tests for the error envelope
+  decode (well-formed 400 JSON, malformed body, missing fields, no content-type,
+  non-JSON, 5xx).
+- README "Running the e2e cron suite" section: prereqs (`pnpm dev:surfpool` running,
+  fresh deploy), command (`pnpm test:e2e:crons`), what each scenario validates.
+
+**Test scenarios (parameterized):**
+1. **on-time landing** — cron sees `actual_in !== null` ≈ `scheduled_in`;
+   FlightStatus → Active → Landed → ToBeSettledOnTime → Settled. Vault TMA ↑ by
+   premium × buyers; locked ↓ by payoff × buyers. No payout ATA credited.
+2. **delayed beyond threshold** — `actual_in - scheduled_in > delay_hours`;
+   FlightStatus → Active → Landed → ToBeSettledDelayed → Settled. Pool treasury
+   holds payoff × buyers; locked ↓ by payoff × buyers. Buyer can claim.
+3. **cancelled before ETA-seed** — `cancelled: true` arrives while
+   FlightStatus = NotInitiated; fetcher fires the **two-ix-in-one-tx** atomic
+   path (set_estimated_arrival → set_cancelled). Settles to Cancelled. Buyer
+   can claim.
+4. **cancelled after ETA-seed** — `cancelled: true` arrives while
+   FlightStatus = Active; fetcher fires single-ix `set_cancelled`. Settles.
+5. **multi-flight in single settler tick** — 3 flights all in ToBeSettled*
+   simultaneously; settler chunks at MAX_FLIGHTS_PER_TX = 2 → two txs
+   ([2,1] split). Asserts both txs land, ActiveFlightList drains fully.
+6. **withdrawal queued during active flight** — investor queues withdrawal at
+   tick 0; settler tick post-settlement drains the queue and credits
+   `ClaimableBalance`. Investor `collect()`s. Asserts Model B
+   value-at-request-time semantics under live RPC.
+7. **status-string-ignored invariant** — flight returned with
+   `status: "Cancelled"` (string) but `cancelled: false` and `actual_in: null`.
+   Fetcher ignores the string, treats as in-flight, no on-chain state change.
+   Defends the boolean-only branching from a regression.
+
+**Tests:**
+- Unit: AeroAPI error-envelope decode (in-process, mocked fetch).
+- Integration: all 7 scenarios pass against a live Surfpool deployment.
+- Total executor test count rises from 58 → 65+ (Phase 10 baseline + envelope tests).
+- Test runtime budget: full integration suite under 5 minutes (Surfpool startup +
+  deploy not counted; assumed pre-flight).
+
+**Done when:**
+- `pnpm test:e2e:crons` runs end-to-end against a live Surfpool deployment with all
+  7 scenarios passing.
+- AeroAPI client logs the structured error envelope (title/reason/detail/status) on
+  4xx; unit tests cover the decode.
+- README has a "Running the e2e cron suite" section.
+- No contract changes.
+- Executor unit tests still pass standalone (`pnpm --filter @sentinel/executor test`).
+
+**Depends on:** Phase 10. (Phase 7's deploy script is the bootstrap; the test reads
+`deployments/surfpool-latest.json`.)
+
+---
+
+## Phase 12 — Frontend Bootstrap
 
 **Goal:** Connect a wallet, read on-chain state, render the app shell.
 
@@ -684,7 +765,7 @@ snapshots. Also wire all three crons into the node-cron backend with health chec
 
 ---
 
-## Phase 12 — Frontend: Traveler Dashboard
+## Phase 13 — Frontend: Traveler Dashboard
 
 **Goal:** Travelers can buy insurance, see their policies, and claim payouts.
 
@@ -711,11 +792,11 @@ snapshots. Also wire all three crons into the node-cron backend with health chec
 - A new wallet can buy a policy on devnet via the UI.
 - After settlement, the same wallet sees the policy and can click Claim to receive USDC.
 
-**Depends on:** Phase 11, Phase 10 (so settlements actually happen on devnet).
+**Depends on:** Phase 12, Phase 11 (so settlements actually happen on devnet).
 
 ---
 
-## Phase 13 — Frontend: Underwriter Dashboard
+## Phase 14 — Frontend: Underwriter Dashboard
 
 **Goal:** Underwriters can deposit, redeem, queue withdrawals, and collect.
 
@@ -740,11 +821,11 @@ snapshots. Also wire all three crons into the node-cron backend with health chec
 **Done when:**
 - A wallet can deposit, redeem, queue, cancel, and collect via the UI on devnet.
 
-**Depends on:** Phase 11.
+**Depends on:** Phase 12.
 
 ---
 
-## Phase 14 — Frontend: Admin Panel
+## Phase 15 — Frontend: Admin Panel
 
 **Goal:** Owner / admin can manage routes and tunables. Owner-only UI hidden for
 non-owners.
@@ -773,11 +854,11 @@ non-owners.
 - Owner wallet can perform every admin action via the UI.
 - Non-owner wallet sees the read-only view.
 
-**Depends on:** Phase 11.
+**Depends on:** Phase 12.
 
 ---
 
-## Phase 15 — End-to-End Test
+## Phase 16 — End-to-End Test (Browser)
 
 **Goal:** A scripted test that drives a real browser through a full user journey on
 a fresh devnet environment.
@@ -805,7 +886,7 @@ a fresh devnet environment.
 - The full Playwright scenario passes locally.
 - CI workflow runs green on a scheduled trigger.
 
-**Depends on:** Phases 12, 13, 14.
+**Depends on:** Phases 13, 14, 15.
 
 ---
 

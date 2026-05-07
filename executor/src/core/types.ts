@@ -82,6 +82,24 @@ export interface AeroFlightsResponse {
   [key: string]: unknown;
 }
 
+/**
+ * AeroAPI 4xx error envelope. Returned by the API on bad requests
+ * (invalid params, unknown ident, expired key, rate limit, etc.).
+ *
+ * Shape per FlightAware docs:
+ *   { "title": "string", "reason": "string", "detail": "string", "status": 0 }
+ *
+ * The `status` field on the envelope mirrors the HTTP status code; we
+ * use it for redundancy when logging — operators can correlate the
+ * envelope's `reason` with the rate-limit / quota / auth diagnosis.
+ */
+export interface AeroApiError {
+  title: string;
+  reason: string;
+  detail: string;
+  status: number;
+}
+
 // ─── Cron decision types ─────────────────────────────────────────────────
 //
 // `FetcherAction` represents the abstract action the fetcher decided to

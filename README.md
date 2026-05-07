@@ -270,6 +270,61 @@ Useful for testing/staging:
 | `RUN_AT_BOOT` | `0` | Set `1` to fire all 3 schedules once on startup |
 | `HEALTH_PORT` | `8080` | /health server port |
 
+## Running the e2e cron suite (Phase 11)
+
+End-to-end validation that drives the protocol on a live Surfpool through 8
+parameterized scenarios using the **real cron core functions** (`runFetcherOnce` /
+`runClassifierOnce` / `runSettlerOnce`) with a mocked AeroAPI. Highest-fidelity
+test we have — exercises real RPC, real Anchor programs, real Codama ixs, the
+actual runner code paths. The mock AeroAPI is the only stub.
+
+### Prerequisites
+
+Three terminals (or one with backgrounded surfpool):
+
+```bash
+# Terminal 1: keep surfpool running
+pnpm dev:surfpool
+
+# Terminal 2: bootstrap actor keys + deploy
+pnpm bootstrap-test-actors                                # idempotent
+pnpm run deploy --cluster surfpool --owner $(solana-keygen pubkey ~/.config/solana/id.json)
+
+# Terminal 3: run the e2e suite
+pnpm test:e2e:crons
+```
+
+The suite skips with a clear warning if surfpool is unreachable or no
+deployment artifact exists at `deployments/surfpool-latest.json`. It does NOT
+auto-start surfpool or auto-deploy.
+
+### What it validates
+
+| # | Scenario | Validates |
+|---|---|---|
+| S1 | on-time landing | premium realized, vault TMA ↑ premium, locked ↓ payoff, no payout |
+| S2 | delayed beyond threshold | buyer claims `PAYOFF`, vault locked ↓ |
+| S3 | cancelled before ETA-seed | atomic 2-ix-in-1-tx (NotInitiated → Active → Cancelled), claim |
+| S4 | cancelled after ETA-seed | single-ix `set_cancelled`, claim |
+| S6 | queued withdrawal | Model B value-at-request-time, queue drains during settlement, `collect()` |
+| S7 | status-string-ignored invariant | misleading `status: "Cancelled"` with `cancelled: false` ignored |
+| S8 | 4xx envelope path | structured `[aero] 4xx envelope: ...` log, skip + resume next tick |
+| S5 | multi-flight in single settler tick | `MAX_FLIGHTS_PER_TX=2` chunking → 2 batches for 3 flights |
+
+### Notes
+
+- Scenarios use timestamped flight idents (`E{runId}{i}`) to avoid PDA
+  collisions across runs. Vault/governance/route state is durable.
+- S5 runs **last** intentionally — the controller reallocs `ActiveFlightList`
+  on every buy and Anchor v1 realloc fails to balance lamports when shrinking,
+  so the suite avoids ever shrinking by keeping the multi-flight scenario at
+  the end. Phase 6 D-Phase6-2 already flagged this for a future compaction ix.
+- Surfpool clock advances slot-only by default; if the test ever needs cross-
+  day snapshot validation, use the `surfnet_setTime` cheatcode (deferred to
+  Phase 16 — browser e2e).
+- Total runtime: ~38 seconds on a fresh deploy (Surfpool startup + deploy not
+  counted; assume those are pre-flight).
+
 ## Phase status
 
 See `spec/progress.md` for the live phase dashboard. Each phase has its own plan + work log under `spec/phases/`.
