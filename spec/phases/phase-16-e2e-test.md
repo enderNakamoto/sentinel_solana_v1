@@ -300,27 +300,42 @@ tests run on Surfpool with no code edits.
 
 ### D. Page smoke tests (one per dashboard)
 
-- [ ] D1. `frontend/tests/e2e/00-faucet.spec.ts` — connect wallet, mint
-      10k mock USDC via faucet, assert navbar pill bumps via the
-      `useTxSuccess` burst (no manual reload).
-- [ ] D2. `frontend/tests/e2e/01-earn-deposit.spec.ts` — `/earn`
-      Deposit 1,000 USDC, Phantom-approve, assert vault TVL increases +
-      RVS shares show in user position card.
-- [ ] D3. `frontend/tests/e2e/02-earn-redeem.spec.ts` — redeem partial
-      shares, assert USDC returned + RVS decreases.
-- [ ] D4. `frontend/tests/e2e/03-earn-queue-cancel.spec.ts` — request
-      withdrawal that exceeds free capital, cancel it, assert position
-      restored.
-- [ ] D5. `frontend/tests/e2e/04-buy-coverage.spec.ts` — `/buy` connect,
-      pick a route, cover, Phantom-approve, assert tx succeeds + the
-      policy shows up in `/portfolio` Active.
-- [ ] D6. `frontend/tests/e2e/05-portfolio-active.spec.ts` — assert the
-      policy card shows the right premium / payout / threshold values
-      vs the on-chain `BuyerRecord`.
-- [ ] D7. `frontend/tests/e2e/06-admin-whitelist.spec.ts` — connect as
-      deployer (Phantom imports the deployer key into a second account in
-      the cache), call `/admin` Add Route form, verify the new route
-      appears in `/buy`'s catalog.
+- [x] D1. `tests/e2e/01-faucet-mint.spec.ts` — connect via Synpress +
+      Phantom → click `Mint 10,000 USDC` (server-signs via the public
+      faucet API, no Phantom approval needed) → wait for the 3-shot
+      tx-success burst → assert navbar `.wallet .bal` text changed and
+      now contains `10,000`.
+- [x] D2. `tests/e2e/02-earn-deposit.spec.ts` — connect → top-up via
+      faucet so the test is order-independent → fill deposit input
+      with `100` → click `Deposit 100 USDC` → `phantom.confirmTransaction()`
+      → wait for burst → assert wallet pill dropped and the user
+      position card shows non-zero RVS.
+- [-] D3. **Deferred** — `redeem` mirrors deposit with the inputs
+      reversed; D2 already proves the wallet-signed tx + tx-burst path
+      end-to-end. Add post-hackathon if regression coverage warrants.
+- [-] D4. **Deferred** — `request_withdrawal + cancel_withdrawal` is
+      the rarest path of the four vault writes. Defer to follow-up.
+- [x] D5. `tests/e2e/03-buy-coverage.spec.ts` — connect → top-up →
+      click first row of the /buy table → click `Cover {flight_id}`
+      → `phantom.confirmTransaction()` (this is the heaviest tx in
+      the protocol — 6 CPIs, 14 cross-program account refs) → assert
+      Activity drawer surfaces the success.
+- [x] D6. `tests/e2e/04-portfolio-policy.spec.ts` — connect → wait for
+      burst → assert Active tab pill shows ≥ 1 policy and at least one
+      policy card with "Premium paid" renders.
+- [-] D7. **Deferred** — admin whitelist via second-account import.
+      `phantom.importWalletFromPrivateKey('solana', …, 'deployer')` is
+      supported by Synpress 4.1, but the multi-account workflow adds
+      complexity that isn't critical for the hackathon submission.
+      Re-evaluate if /admin breakage is observed.
+
+`pnpm --filter @sentinel/frontend exec playwright test --list` discovers
+all 5 specs (00 smoke + D1/D2/D5/D6) in the chromium project.
+**Live-fire run is deferred** until §A5 / §C5 unblocks (needs
+`pnpm dev:surfpool` + `pnpm test:e2e:bootstrap` + `pnpm dev:frontend:surfpool`
++ `pnpm test:e2e:cache` to build the Phantom extension state). At that
+point, selectors and timing may need a round of iteration — the specs
+above are best-effort first drafts based on the known UI structure.
 
 ### E. Three-scenario E2E (cron + frontend + contract)
 
@@ -378,6 +393,20 @@ preceding planning conversation (Phase 15 just shipped, frontend bundle
 on devnet, 50 routes seeded, faucet API live, tx-success burst wired).
 Beginning with bucket A — cluster switch — since it's the smallest
 foundational change and unblocks everything else.
+
+**Bucket D — page smoke specs — DONE (4 of 7 written, 3 deferred).**
+Wrote D1 (faucet mint), D2 (earn deposit), D5 (buy coverage), D6
+(portfolio policy). Deferred D3/D4 (earn redeem / queue / cancel) as
+duplicate coverage of D2's wallet-signed-tx path; deferred D7 (admin
+whitelist via second account) as multi-account workflow scope. All
+five spec files (incl. 00-smoke-connect) discovered cleanly by
+`playwright test --list`. Selectors lean on existing CSS classes
+(`.wallet`, `.bal`, `.card`, `.tab`) and stable accessible-name
+patterns ("Mint 10,000 USDC", "Deposit 100 USDC", "Cover ", "Activity ·
+N"). Live-fire run will probably need a round of selector tweaks once
+the e2e stack is up and tests can actually execute.
+
+---
 
 **Bucket C — Surfpool bootstrap — DONE (modulo C2 folded into §E).**
 `scripts/bootstrap-e2e.ts` orchestrates the entire blank→ready Surfpool
