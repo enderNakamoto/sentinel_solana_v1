@@ -23,6 +23,7 @@
     "deploy": "bash scripts/run.sh deploy",
     "fund-sol": "bash scripts/run.sh fund-sol",
     "fund-usdc": "bash scripts/run.sh fund-usdc",
+    "seed-routes": "bash scripts/run.sh seed-routes",
     "bootstrap-test-actors": "bash scripts/run.sh bootstrap-test-actors",
     "run-fetcher": "bash scripts/run.sh run-fetcher",
     "run-classifier": "bash scripts/run.sh run-classifier",

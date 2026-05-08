@@ -24,6 +24,9 @@ import {
   readVaultState,
   type RouteRow,
 } from '@/data';
+import { MOCK_FLIGHTS } from '@/data/mock';
+import { FlightRoute } from '@/components/FlightRoute';
+import { RiskBar } from '@/components/RiskBar';
 import { getBuyInsuranceInstructionAsync } from '@/clients/controller/src/generated';
 import { findRoutePda } from '@/clients/governance/src/generated';
 import { findBuyerRecordPda } from '@/clients/flight_pool/src/generated';
@@ -47,6 +50,30 @@ export default function BuyPage() {
   const [state, setState] = useState<BuyState | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedFlight, setSelectedFlight] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 10;
+
+  // Index the mock display data by `flightId|origin|destination` so we can
+  // join carrier / depTs / risk onto each on-chain RouteRow without a second
+  // RPC fetch. The on-chain RouteAccount only stores terms, not display fields.
+  const mockByKey = useMemo(() => {
+    const m = new Map<
+      string,
+      { carrier: string; depTs: string; risk: number; premium: number; payout: number; threshold: number }
+    >();
+    for (const f of MOCK_FLIGHTS) {
+      m.set(`${f.id}|${f.from}|${f.to}`, {
+        carrier: f.carrier,
+        depTs: f.depTs,
+        risk: f.risk,
+        premium: f.premium,
+        payout: f.payout,
+        threshold: f.threshold,
+      });
+    }
+    return m;
+  }, []);
   const [date, setDate] = useState<string>(() => {
     const d = new Date();
     d.setUTCDate(d.getUTCDate() + 1);
@@ -220,57 +247,21 @@ export default function BuyPage() {
 
       {state && (
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 18 }}>
-          <Card title="Whitelisted Routes" hint={`${state.routes.length} routes seeded on devnet`}>
-            <div className="col" style={{ gap: 6 }}>
-              {state.routes.map((r) => {
-                const acct = r.account?.data;
-                const exists = !!acct;
-                const approved = acct?.approved === true;
-                const isSel = selectedFlight === r.seeds.flightId;
-                return (
-                  <button
-                    key={r.seeds.flightId}
-                    type="button"
-                    onClick={() => exists && setSelectedFlight(r.seeds.flightId)}
-                    disabled={!exists}
-                    style={{
-                      textAlign: 'left',
-                      padding: '10px 12px',
-                      borderRadius: 6,
-                      cursor: exists ? 'pointer' : 'not-allowed',
-                      background: isSel ? 'var(--bg-2)' : 'transparent',
-                      border: `1px solid ${isSel ? 'var(--cyan)' : 'var(--line)'}`,
-                      opacity: exists ? 1 : 0.5,
-                    }}
-                  >
-                    <div className="row between">
-                      <div className="row" style={{ gap: 10 }}>
-                        <span className="num" style={{ fontSize: 13 }}>
-                          {r.seeds.flightId}
-                        </span>
-                        <span className="mono muted" style={{ fontSize: 11 }}>
-                          {r.seeds.origin} → {r.seeds.destination}
-                        </span>
-                      </div>
-                      {!exists ? (
-                        <span className="badge red" style={{ fontSize: 9 }}>
-                          NOT SEEDED
-                        </span>
-                      ) : approved ? (
-                        <span className="badge green" style={{ fontSize: 9 }}>
-                          ACTIVE
-                        </span>
-                      ) : (
-                        <span className="badge amber" style={{ fontSize: 9 }}>
-                          DISABLED
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
+          <RoutesTable
+            routes={state.routes}
+            defaults={state.defaults}
+            mockByKey={mockByKey}
+            search={search}
+            setSearch={(v) => {
+              setSearch(v);
+              setPage(0);
+            }}
+            page={page}
+            setPage={setPage}
+            pageSize={PAGE_SIZE}
+            selectedFlight={selectedFlight}
+            onSelect={(id) => setSelectedFlight(id)}
+          />
 
           <Card
             title={selected ? `Cover ${selected.seeds.flightId}` : 'Pick a route'}
@@ -380,3 +371,215 @@ function KvRow({ k, v }: { k: string; v: string }) {
     </div>
   );
 }
+
+interface MockMeta {
+  carrier: string;
+  depTs: string;
+  risk: number;
+  premium: number;
+  payout: number;
+  threshold: number;
+}
+
+interface RoutesTableProps {
+  routes: RouteRow[];
+  defaults: { premium: bigint; payoff: bigint; delayHours: number };
+  mockByKey: Map<string, MockMeta>;
+  search: string;
+  setSearch: (v: string) => void;
+  page: number;
+  setPage: (p: number) => void;
+  pageSize: number;
+  selectedFlight: string | null;
+  onSelect: (flightId: string) => void;
+}
+
+function RoutesTable({
+  routes,
+  defaults,
+  mockByKey,
+  search,
+  setSearch,
+  page,
+  setPage,
+  pageSize,
+  selectedFlight,
+  onSelect,
+}: RoutesTableProps) {
+  // Filter to whitelisted (approved) routes; non-existent / disabled are
+  // excluded from the buy table — they show on /admin if you need to see them.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return routes.filter((r) => {
+      const acct = r.account?.data;
+      if (!acct?.approved) return false;
+      if (!q) return true;
+      const meta = mockByKey.get(
+        `${r.seeds.flightId}|${r.seeds.origin}|${r.seeds.destination}`,
+      );
+      const hay = [
+        r.seeds.flightId,
+        r.seeds.origin,
+        r.seeds.destination,
+        `${r.seeds.origin}→${r.seeds.destination}`,
+        `${r.seeds.origin} ${r.seeds.destination}`,
+        meta?.carrier ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [routes, search, mockByKey]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, pageCount - 1);
+  const slice = filtered.slice(
+    safePage * pageSize,
+    safePage * pageSize + pageSize,
+  );
+
+  return (
+    <Card
+      title="Whitelisted Routes"
+      hint={`${filtered.length} of ${routes.length} routes`}
+    >
+      <input
+        type="text"
+        className="input"
+        placeholder="Search by flight, route or carrier…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ marginBottom: 12 }}
+      />
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr
+              style={{
+                color: 'var(--ink-3)',
+                fontFamily: 'var(--mono)',
+                fontSize: 10,
+                letterSpacing: '.1em',
+              }}
+            >
+              <th align="left" style={tableCell}>FLIGHT</th>
+              <th align="left" style={tableCell}>ROUTE</th>
+              <th align="left" style={tableCell}>DEPARTS</th>
+              <th align="left" style={tableCell}>RISK</th>
+              <th align="right" style={tableCell}>PREMIUM</th>
+              <th align="right" style={tableCell}>PAYOUT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {slice.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ ...tableCell, padding: 24 }}>
+                  <div className="muted mono" style={{ fontSize: 11, textAlign: 'center' }}>
+                    No routes match “{search}”.
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              slice.map((r) => {
+                const acct = r.account!.data;
+                const meta = mockByKey.get(
+                  `${r.seeds.flightId}|${r.seeds.origin}|${r.seeds.destination}`,
+                );
+                const ovPrem = unwrapOption(acct.premium);
+                const ovPay = unwrapOption(acct.payoff);
+                const premiumUnits = ovPrem ?? defaults.premium;
+                const payoffUnits = ovPay ?? defaults.payoff;
+                const isSel = selectedFlight === r.seeds.flightId;
+                return (
+                  <tr
+                    key={`${r.seeds.flightId}-${r.seeds.origin}-${r.seeds.destination}`}
+                    onClick={() => onSelect(r.seeds.flightId)}
+                    style={{
+                      cursor: 'pointer',
+                      background: isSel ? 'var(--bg-2)' : 'transparent',
+                      borderLeft: `2px solid ${isSel ? 'var(--amber)' : 'transparent'}`,
+                    }}
+                  >
+                    <td style={tableCell}>
+                      <div className="num" style={{ fontSize: 13 }}>
+                        {r.seeds.flightId}
+                      </div>
+                      <div
+                        className="muted mono"
+                        style={{ fontSize: 10, marginTop: 2 }}
+                      >
+                        {meta?.carrier ?? '—'}
+                      </div>
+                    </td>
+                    <td style={tableCell}>
+                      <FlightRoute from={r.seeds.origin} to={r.seeds.destination} minWidth={110} />
+                    </td>
+                    <td style={tableCell}>
+                      <span className="muted mono" style={{ fontSize: 11 }}>
+                        {meta?.depTs ?? '—'}
+                      </span>
+                    </td>
+                    <td style={{ ...tableCell, minWidth: 120 }}>
+                      {meta ? <RiskBar risk={meta.risk} /> : <span className="muted mono">—</span>}
+                    </td>
+                    <td align="right" style={tableCell}>
+                      <span className="num">{fmtUsdc(premiumUnits)}</span>
+                    </td>
+                    <td align="right" style={tableCell}>
+                      <span className="num" style={{ color: 'var(--cyan)' }}>
+                        {fmtUsdc(payoffUnits)}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {pageCount > 1 && (
+        <div
+          className="row between"
+          style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--line)' }}
+        >
+          <span className="muted mono" style={{ fontSize: 10 }}>
+            Page {safePage + 1} / {pageCount} ·{' '}
+            {filtered.length === 0
+              ? '0 results'
+              : `${safePage * pageSize + 1}–${Math.min(
+                  (safePage + 1) * pageSize,
+                  filtered.length,
+                )} of ${filtered.length}`}
+          </span>
+          <div className="row" style={{ gap: 6 }}>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => setPage(safePage - 1)}
+              disabled={safePage === 0}
+              style={{ fontSize: 10, padding: '4px 10px' }}
+            >
+              ‹ Prev
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => setPage(safePage + 1)}
+              disabled={safePage >= pageCount - 1}
+              style={{ fontSize: 10, padding: '4px 10px' }}
+            >
+              Next ›
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+const tableCell: React.CSSProperties = {
+  borderBottom: '1px solid var(--line)',
+  padding: '8px 8px',
+};

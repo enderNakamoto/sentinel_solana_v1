@@ -17,7 +17,6 @@ import {
   readKnownRoutes,
   readAdminRecord,
   resolveRole,
-  SEED_ROUTES,
   type AdminRole,
   type RouteRow,
   type RouteSeeds,
@@ -418,7 +417,6 @@ function AddRouteForm({
   const [premium, setPremium] = useState('');
   const [payoff, setPayoff] = useState('');
   const [delay, setDelay] = useState('');
-  const [pendingSeed, setPendingSeed] = useState<RouteSeeds | null>(null);
 
   const submit = async (seeds: RouteSeeds) => {
     try {
@@ -443,8 +441,6 @@ function AddRouteForm({
       }
     } catch (e) {
       void e;
-    } finally {
-      setPendingSeed(null);
     }
   };
 
@@ -512,22 +508,6 @@ function AddRouteForm({
           }}
         >
           Whitelist Route
-        </button>
-        <button
-          type="button"
-          className="btn ghost"
-          title="Whitelist all 12 mock-catalog routes one by one"
-          onClick={async () => {
-            for (const seed of SEED_ROUTES) {
-              setPendingSeed(seed);
-              await submit(seed);
-            }
-            setPendingSeed(null);
-          }}
-        >
-          {pendingSeed
-            ? `Seeding ${pendingSeed.flightId}…`
-            : `Seed 12 mock routes`}
         </button>
       </div>
     </div>

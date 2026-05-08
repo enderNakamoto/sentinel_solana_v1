@@ -79,8 +79,10 @@ export default function MarketsPage() {
                     borderRadius: 6,
                     cursor: 'pointer',
                     background: active ? 'var(--bg-2)' : 'transparent',
+                    borderTop: 'none',
+                    borderRight: 'none',
+                    borderBottom: 'none',
                     borderLeft: `2px solid ${active ? 'var(--amber)' : 'transparent'}`,
-                    border: 'none',
                   }}
                 >
                   <div className="row between">
