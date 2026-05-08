@@ -26,11 +26,11 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 13 | Frontend — Admin Panel                | complete      | `spec/phases/phase-13-frontend-admin.md` (completed 2026-05-08) |
 | 14 | Frontend — Underwriter Dashboard      | complete      | `spec/phases/phase-14-frontend-underwriter.md` (completed 2026-05-08) |
 | 15 | Frontend — Traveler Dashboard         | complete      | `spec/phases/phase-15-frontend-traveler.md` (completed 2026-05-08) |
-| 16 | End-to-End Test (Browser)             | not generated | —                                                          |
+| 16 | End-to-End Test (Browser)             | in_progress   | `spec/phases/phase-16-e2e-test.md` (started 2026-05-08)     |
 
 ## Current Pointer
 
-Active phase: **Phase 16 — End-to-End Test (Browser)** (next)
+Active phase: **Phase 16 — End-to-End Test (Browser)** (in_progress, started 2026-05-08)
 
 Last updated: 2026-05-08
 Last completed: Phase 15 — Frontend Traveler Dashboard (2026-05-08)

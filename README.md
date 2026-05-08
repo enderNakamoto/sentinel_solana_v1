@@ -128,6 +128,38 @@ pnpm sync-idl && pnpm gen-clients
 pnpm dev:executor   # builds Kit client against $SOLANA_RPC_URL, exits 0
 ```
 
+### Frontend cluster switch (devnet ↔ Surfpool)
+
+The same frontend bundle runs against devnet (default) or a local Surfpool ledger. The switch is a single env var; all program IDs / PDAs / mock USDC mint / mock-usdc-authority stay identical across clusters because we never rotate those keypairs. Only four things differ per cluster:
+
+| Value | Devnet | Surfpool (localnet) |
+|---|---|---|
+| `NEXT_PUBLIC_SOLANA_RPC_URL` | `https://api.devnet.solana.com` | `http://127.0.0.1:8899` |
+| Oracle authority | `3GjT…DNv` | `HqE3…ULaq` |
+| Keeper authority | `EXZZ…yEJu` | `89ia…3QA6` |
+| Explorer link | `explorer.solana.com?cluster=devnet` | (suppressed — no public explorer) |
+
+**Devnet (default)** — wired to the live deployment from Phase 7:
+
+```bash
+pnpm dev:frontend
+```
+
+**Surfpool (local)** — point at `127.0.0.1:8899` with one script:
+
+```bash
+# Tab 1: local Surfnet
+pnpm dev:surfpool
+
+# Tab 2: bootstrap PDAs into the blank ledger
+pnpm deploy && pnpm seed-routes --cluster surfpool && pnpm bootstrap-test-actors
+
+# Tab 3: frontend pointed at the local ledger
+pnpm dev:frontend:surfpool
+```
+
+The faucet API route (`/api/faucet/mint`) auto-picks up `FAUCET_RPC_URL` from the same env, so server-side mints land on whichever cluster the frontend is using. The activity-log drawer (bottom-right) and BottomNav both display the active cluster name so it's obvious which environment the UI is talking to.
+
 ---
 
 ## Agent CLI conventions

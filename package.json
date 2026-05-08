@@ -14,6 +14,7 @@
     "sync-idl": "bash scripts/sync-idl.sh",
     "gen-clients": "node --experimental-strip-types scripts/gen-clients.ts",
     "dev:frontend": "pnpm --filter @sentinel/frontend dev",
+    "dev:frontend:surfpool": "NEXT_PUBLIC_SOLANA_RPC_URL=http://127.0.0.1:8899 FAUCET_RPC_URL=http://127.0.0.1:8899 pnpm --filter @sentinel/frontend dev",
     "dev:executor": "pnpm --filter @sentinel/executor dev",
     "dev:surfpool": "bash scripts/dev-surfpool.sh",
     "test:contracts": "pnpm --filter @sentinel/contracts test",

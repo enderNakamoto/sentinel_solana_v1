@@ -2,7 +2,7 @@
 
 import { useToast } from '@/components/Toast';
 import { Card } from '@/components/admin/Card';
-import { explorerLink } from '@/config/devnet';
+import { CLUSTER, KEEPER_AUTHORITY, ORACLE_AUTHORITY, explorerLink } from '@/config/devnet';
 
 interface CronCard {
   id: 'fetcher' | 'classifier' | 'settler';
@@ -186,12 +186,12 @@ export default function CronsPage() {
 
       <div className="muted mono" style={{ fontSize: 10, marginTop: 8 }}>
         Daemon: the cron daemon ships separately (`pnpm cron-daemon`).
-        See README §"Running the crons". Devnet keypair authorities:{' '}
-        <a href={explorerLink('3GjTYVmMyY3H2JomUL4e7YvVYALyskAjdWrmux7i3DNv')} target="_blank" rel="noreferrer">
+        See README §"Running the crons". {CLUSTER} keypair authorities:{' '}
+        <a href={explorerLink(ORACLE_AUTHORITY)} target="_blank" rel="noreferrer">
           oracle
         </a>
         ,{' '}
-        <a href={explorerLink('EXZZGnbBZAM8DKimCbpeW9BvF4TxcKe8pCYm5KfWyEJu')} target="_blank" rel="noreferrer">
+        <a href={explorerLink(KEEPER_AUTHORITY)} target="_blank" rel="noreferrer">
           keeper
         </a>
         .

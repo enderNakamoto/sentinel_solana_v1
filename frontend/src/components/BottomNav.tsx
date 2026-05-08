@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { CLUSTER } from '@/config/devnet';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Admin' },
@@ -35,7 +36,7 @@ export function BottomNav() {
           );
         })}
         <span className="bottom-nav-spacer" />
-        <span className="bottom-nav-cluster">devnet</span>
+        <span className="bottom-nav-cluster">{CLUSTER}</span>
       </div>
     </nav>
   );
