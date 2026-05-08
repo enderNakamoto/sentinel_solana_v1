@@ -52,7 +52,7 @@ export default function PortfolioPage() {
     show({
       kind: 'success',
       title: isFun ? `Reward collected · ${p.id}` : `Claim submitted · ${p.id}`,
-      body: `${p.payout} USDC payout · TODO: real ix in Phase 13`,
+      body: `${p.payout} USDC payout · TODO: real ix wiring`,
     });
   }
 

@@ -46,9 +46,9 @@ Phase slugs (Solana build):
 | 10 | `phase-10-settlement-cron` |
 | 11 | `phase-11-e2e-cron-validation` |
 | 12 | `phase-12-frontend-bootstrap` |
-| 13 | `phase-13-frontend-traveler` |
+| 13 | `phase-13-frontend-admin` |
 | 14 | `phase-14-frontend-underwriter` |
-| 15 | `phase-15-frontend-admin` |
+| 15 | `phase-15-frontend-traveler` |
 | 16 | `phase-16-e2e-test` |
 
 ### 3. Build the Context Manifest

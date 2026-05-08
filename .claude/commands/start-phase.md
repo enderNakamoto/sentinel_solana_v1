@@ -61,9 +61,9 @@ This gives the agent just enough context to orient before diving into phase-spec
   - 10 → `spec/phases/phase-10-settlement-cron.md`
   - 11 → `spec/phases/phase-11-e2e-cron-validation.md`
   - 12 → `spec/phases/phase-12-frontend-bootstrap.md`
-  - 13 → `spec/phases/phase-13-frontend-traveler.md`
+  - 13 → `spec/phases/phase-13-frontend-admin.md`
   - 14 → `spec/phases/phase-14-frontend-underwriter.md`
-  - 15 → `spec/phases/phase-15-frontend-admin.md`
+  - 15 → `spec/phases/phase-15-frontend-traveler.md`
   - 16 → `spec/phases/phase-16-e2e-test.md`
 
 - Read the full phase file — confirm Status is `planned`

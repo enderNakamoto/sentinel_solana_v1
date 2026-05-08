@@ -5,6 +5,7 @@ import { Providers } from './providers';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { Sidebar } from '@/components/Sidebar';
 import { Topbar } from '@/components/Topbar';
+import { BottomNav } from '@/components/BottomNav';
 import { Mascots } from '@/theme/fun/Mascots';
 import { ToastProvider } from '@/components/Toast';
 
@@ -73,9 +74,17 @@ export default function RootLayout({
             <ToastProvider>
               <div className="app">
                 <Sidebar />
-                <main style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+                <main
+                  style={{
+                    minHeight: '100vh',
+                    background: 'var(--bg)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
                   <Topbar />
-                  {children}
+                  <div style={{ flex: 1 }}>{children}</div>
+                  <BottomNav />
                 </main>
               </div>
               <Mascots />

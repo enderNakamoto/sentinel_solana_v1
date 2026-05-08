@@ -765,34 +765,40 @@ begins. **No contract changes** (constraint preserved from Phases 8–10).
 
 ---
 
-## Phase 13 — Frontend: Traveler Dashboard
+## Phase 13 — Frontend: Admin Panel
 
-**Goal:** Travelers can buy insurance, see their policies, and claim payouts.
+**Goal:** Owner / admin can manage routes and tunables. Owner-only UI hidden for
+non-owners. Sequenced first among the role dashboards because every downstream
+buy/deposit flow depends on whitelisted routes.
 
 **Deliverables:**
-- Buy insurance form: flight_id, origin, destination, date inputs.
-  - Pre-flight: read governance for resolved terms (preview premium / payoff /
-    delay_hours), check route is whitelisted, check vault solvency, check lead time.
-  - On submit: build + send `controller.buy_insurance` tx (resolves all CPI accounts
-    from PDAs — governance, oracle_aggregator, flight_pool, vault), show toast.
-- "My policies" view: `getProgramAccounts` + memcmp on BuyerRecord.buyer (against
-  `flight_pool` program) for the connected wallet. Shows flight_id, date, policy status
-  (Active / Settled / Claimed).
-- Per-policy detail card: live FlightData status (from oracle_aggregator program),
-  settlement status (from flight_pool's FlightPool), claim button if eligible (status
-  SettledDelayed/Cancelled, not yet claimed, before claim_expiry).
-- Claim transaction handler — calls `flight_pool.claim` directly (not via controller).
+- Auth guard: read `GovernanceConfig.owner` and `AdminRecord` PDAs; show panel only
+  for owner or active admin.
+- Route management:
+  - Whitelist route form (with optional override fields).
+  - Disable route button.
+  - Update route terms form (per-field "keep / override / revert to default" tri-state).
+  - List of all routes with current status + resolved terms.
+- Defaults form (owner-only): set_defaults.
+- Admin management (owner-only): add_admin, remove_admin.
+- Controller config tunables (owner-only): `set_authorized_keeper`.
+- Oracle config tunables (owner-only): `set_authorized_oracle` (calls
+  `oracle_aggregator_program`, not controller).
+- Flight pool config tunables (owner-only): `withdraw_recovered` (calls
+  `flight_pool_program`).
 
 **Tests:**
-- Component tests for the buy form (validation, button disabled states).
-- Component tests for the my-policies list (renders empty state, populated state).
-- Manual: full buy → claim flow on devnet against an oracle-driven settlement.
+- Manual: walk through every admin action on devnet (whitelist a few demo routes,
+  set defaults, add a co-admin, etc.) — proves the deployed governance program
+  is reachable end-to-end.
 
 **Done when:**
-- A new wallet can buy a policy on devnet via the UI.
-- After settlement, the same wallet sees the policy and can click Claim to receive USDC.
+- Owner wallet can perform every admin action via the UI.
+- Non-owner wallet sees the read-only view.
+- A handful of demo routes are whitelisted on devnet (live data for Phase 14/15
+  to read against).
 
-**Depends on:** Phase 12, Phase 11 (so settlements actually happen on devnet).
+**Depends on:** Phase 12.
 
 ---
 
@@ -825,36 +831,37 @@ begins. **No contract changes** (constraint preserved from Phases 8–10).
 
 ---
 
-## Phase 15 — Frontend: Admin Panel
+## Phase 15 — Frontend: Traveler Dashboard
 
-**Goal:** Owner / admin can manage routes and tunables. Owner-only UI hidden for
-non-owners.
+**Goal:** Travelers can buy insurance, see their policies, and claim payouts.
+Sequenced after Admin (Phase 13) and Underwriter (Phase 14) so the buy flow
+already has whitelisted routes + a solvent vault to land against on devnet —
+no CLI seeding required.
 
 **Deliverables:**
-- Auth guard: read `GovernanceConfig.owner` and `AdminRecord` PDAs; show panel only
-  for owner or active admin.
-- Route management:
-  - Whitelist route form (with optional override fields).
-  - Disable route button.
-  - Update route terms form (per-field "keep / override / revert to default" tri-state).
-  - List of all routes with current status + resolved terms.
-- Defaults form (owner-only): set_defaults.
-- Admin management (owner-only): add_admin, remove_admin.
-- Controller config tunables (owner-only): `set_authorized_keeper`.
-- Oracle config tunables (owner-only): `set_authorized_oracle` (calls
-  `oracle_aggregator_program`, not controller).
-- Flight pool config tunables (owner-only): `withdraw_recovered` (calls
-  `flight_pool_program`).
+- Buy insurance form: flight_id, origin, destination, date inputs.
+  - Pre-flight: read governance for resolved terms (preview premium / payoff /
+    delay_hours), check route is whitelisted, check vault solvency, check lead time.
+  - On submit: build + send `controller.buy_insurance` tx (resolves all CPI accounts
+    from PDAs — governance, oracle_aggregator, flight_pool, vault), show toast.
+- "My policies" view: `getProgramAccounts` + memcmp on BuyerRecord.buyer (against
+  `flight_pool` program) for the connected wallet. Shows flight_id, date, policy status
+  (Active / Settled / Claimed).
+- Per-policy detail card: live FlightData status (from oracle_aggregator program),
+  settlement status (from flight_pool's FlightPool), claim button if eligible (status
+  SettledDelayed/Cancelled, not yet claimed, before claim_expiry).
+- Claim transaction handler — calls `flight_pool.claim` directly (not via controller).
 
 **Tests:**
-- Component tests for route form and tri-state field control.
-- Manual: walk through every admin action on devnet.
+- Manual: full buy → claim flow on devnet against an oracle-driven settlement.
+  By Phase 15 the cron daemon (Phase 8–10) can be pointed at devnet to drive
+  the settlement leg.
 
 **Done when:**
-- Owner wallet can perform every admin action via the UI.
-- Non-owner wallet sees the read-only view.
+- A new wallet can buy a policy on devnet via the UI.
+- After settlement, the same wallet sees the policy and can click Claim to receive USDC.
 
-**Depends on:** Phase 12.
+**Depends on:** Phase 12, Phase 13 (whitelisted routes), Phase 14 (vault liquidity), Phase 11 (settlement pipeline tested).
 
 ---
 

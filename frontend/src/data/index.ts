@@ -101,3 +101,21 @@ export async function getVaultStats(): Promise<VaultStats> {
 export async function getAirports(): Promise<Record<string, Airport>> {
   return MOCK_AIRPORTS;
 }
+
+// On-chain reads for Phase 13 operator pages live in `./onchain.ts` and are
+// re-exported here so callers can `import { readGovernanceConfig } from '@/data'`.
+export {
+  readGovernanceConfig,
+  readFlightPoolConfig,
+  readOracleConfig,
+  readControllerConfig,
+  readVaultState,
+  readKnownRoutes,
+  readAdminRecord,
+  resolveRole,
+  findRouteAddress,
+  SEED_ROUTES,
+  type AdminRole,
+  type RouteRow,
+  type RouteSeeds,
+} from './onchain';
