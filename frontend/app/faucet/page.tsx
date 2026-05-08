@@ -1,53 +1,71 @@
 'use client';
 
 import { useState } from 'react';
-import { createNoopSigner, type Address } from '@solana/kit';
+import { type Address } from '@solana/kit';
 import { useWalletSession } from '@solana/react-hooks';
-import {
-  findAssociatedTokenPda,
-  getCreateAssociatedTokenIdempotentInstructionAsync,
-  getMintToInstruction,
-} from '@solana-program/token';
 import { Card } from '@/components/admin/Card';
 import { AddressBadge } from '@/components/admin/AddressBadge';
-import { useSendTx } from '@/lib/sendTx';
-import { DEPLOYER, MOCK_USDC_MINT, TOKEN_PROGRAM, explorerLink } from '@/config/devnet';
+import { useToast } from '@/components/Toast';
+import { emitTxSuccessBurst } from '@/lib/txEvents';
+import { MOCK_USDC_AUTHORITY, MOCK_USDC_MINT, explorerLink } from '@/config/devnet';
 
-const MINT_AMOUNT = 10_000n * 1_000_000n; // 10,000 USDC at 6 decimals
+interface MintResponse {
+  ok: boolean;
+  signature?: string;
+  recipient?: string;
+  amount?: number;
+  error?: string;
+  note?: string;
+}
 
 export default function FaucetPage() {
   const session = useWalletSession();
   const wallet = session?.account.address as Address | undefined;
-  const send = useSendTx();
+  const { show } = useToast();
   const [recipient, setRecipient] = useState('');
   const [pending, setPending] = useState(false);
 
-  const isDeployer = wallet === DEPLOYER;
-
   const onMint = async () => {
-    if (!wallet) return;
-    const target = (recipient || wallet) as Address;
-    const signer = createNoopSigner(wallet);
+    const target = (recipient || wallet || '').trim();
+    if (!target) {
+      show({
+        kind: 'error',
+        title: 'No recipient',
+        body: 'Enter a wallet address or connect a wallet.',
+      });
+      return;
+    }
     setPending(true);
     try {
-      const [ata] = await findAssociatedTokenPda({
-        owner: target,
-        mint: MOCK_USDC_MINT,
-        tokenProgram: TOKEN_PROGRAM,
+      const r = await fetch('/api/faucet/mint', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ recipient: target }),
       });
-      const createIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
-        payer: signer,
-        owner: target,
-        mint: MOCK_USDC_MINT,
+      const data = (await r.json()) as MintResponse;
+      if (!r.ok || !data.ok) {
+        show({
+          kind: 'error',
+          title: 'Faucet failed',
+          body: (data.error ?? 'Unknown error').slice(0, 600),
+        });
+        return;
+      }
+      show({
+        kind: 'success',
+        title: `Minted ${data.amount ?? 10_000} USDC to ${target.slice(0, 4)}…`,
+        body: data.signature
+          ? `${data.signature.slice(0, 8)}… · ${explorerLink(data.signature, 'tx')}`
+          : (data.note ?? ''),
       });
-      const mintIx = getMintToInstruction({
-        mint: MOCK_USDC_MINT,
-        token: ata,
-        mintAuthority: signer,
-        amount: MINT_AMOUNT,
-      });
-      await send([createIx, mintIx], {
-        successTitle: `Minted 10,000 USDC to ${target.slice(0, 4)}…`,
+      if (data.signature) {
+        emitTxSuccessBurst({ signature: data.signature, source: 'faucet' });
+      }
+    } catch (e) {
+      show({
+        kind: 'error',
+        title: 'Faucet request failed',
+        body: e instanceof Error ? e.message : String(e),
       });
     } finally {
       setPending(false);
@@ -65,7 +83,7 @@ export default function FaucetPage() {
 
       <Card
         title="Test USDC Faucet"
-        hint="Mint mock USDC for development & testing. Requires the deployer wallet."
+        hint="Public — anyone can mint mock USDC to any address. Mint authority signs server-side."
       >
         <div className="col" style={{ gap: 8, marginBottom: 14 }}>
           <div className="row between">
@@ -76,9 +94,9 @@ export default function FaucetPage() {
           </div>
           <div className="row between">
             <span className="muted mono" style={{ fontSize: 11 }}>
-              authority
+              mint authority
             </span>
-            <AddressBadge address={DEPLOYER} />
+            <AddressBadge address={MOCK_USDC_AUTHORITY} />
           </div>
         </div>
 
@@ -90,42 +108,25 @@ export default function FaucetPage() {
 
         <input
           className="input"
-          placeholder={wallet ? wallet : 'Connect wallet…'}
+          placeholder={wallet ? wallet : 'recipient wallet address'}
           value={recipient}
           onChange={(e) => setRecipient(e.target.value)}
           style={{ marginBottom: 10 }}
-          disabled={!session}
         />
-
-        {!session ? (
-          <div
-            className="muted mono"
-            style={{ fontSize: 11, padding: '6px 0', color: 'var(--amber)' }}
-          >
-            Connect your wallet to mint test USDC.
-          </div>
-        ) : !isDeployer ? (
-          <div
-            className="muted mono"
-            style={{ fontSize: 11, padding: '6px 0', color: 'var(--amber)' }}
-          >
-            Only the deployer wallet (
-            <code className="mono" style={{ fontSize: 10 }}>
-              {DEPLOYER.slice(0, 4)}…{DEPLOYER.slice(-4)}
-            </code>
-            ) holds the mint authority. Ask the deployer to mint test USDC for
-            you, or run your own deployment.
-          </div>
-        ) : null}
 
         <button
           type="button"
           className="btn primary"
-          disabled={!session || !isDeployer || pending}
+          disabled={pending || (!recipient && !wallet)}
           onClick={onMint}
         >
           {pending ? 'Minting…' : 'Mint 10,000 USDC'}
         </button>
+        {!recipient && !wallet && (
+          <div className="muted mono" style={{ fontSize: 11, marginTop: 8 }}>
+            Enter an address above or connect a wallet to set the recipient.
+          </div>
+        )}
       </Card>
 
       <Card

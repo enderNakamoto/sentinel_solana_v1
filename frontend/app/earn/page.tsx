@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createNoopSigner, type Address } from '@solana/kit';
+import { useCallback, useEffect, useState } from 'react';
+import type { Address, TransactionSigner } from '@solana/kit';
 import { useWalletSession } from '@solana/react-hooks';
 import {
   findAssociatedTokenPda,
@@ -22,6 +22,8 @@ import {
 } from '@/data';
 import { fmtUsdc, fmtUsdcLocal, toUsdcUnits } from '@/lib/usdc';
 import { userShareAta, userUsdcAta } from '@/lib/ata';
+import { useTxSuccess } from '@/lib/txEvents';
+import { useWalletSigner } from '@/lib/useWalletSigner';
 import {
   currentSharePrice,
   freeCapital,
@@ -58,10 +60,8 @@ export default function EarnPage() {
   const [loading, setLoading] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
-  const noopSigner = useMemo(
-    () => (wallet ? createNoopSigner(wallet) : undefined),
-    [wallet],
-  );
+  useTxSuccess(refresh);
+  const noopSigner = useWalletSigner();
 
   useEffect(() => {
     let cancelled = false;
@@ -132,15 +132,33 @@ export default function EarnPage() {
             )}
           </h1>
         </div>
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={refresh}
-          disabled={loading}
-          style={{ fontSize: 11 }}
-        >
-          {loading ? 'Loading…' : 'Refresh'}
-        </button>
+        <div className="row" style={{ gap: 10, alignItems: 'center' }}>
+          {session && (
+            <span
+              className="mono"
+              style={{
+                fontSize: 11,
+                padding: '6px 10px',
+                borderRadius: 6,
+                border: '1px solid var(--line)',
+                background: 'var(--bg-2)',
+                color: 'var(--ink-2)',
+              }}
+            >
+              <span className="muted" style={{ marginRight: 6 }}>WALLET</span>
+              {state ? `${fmtUsdcLocal(state.position.usdcBalance)} USDC` : '…'}
+            </span>
+          )}
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={refresh}
+            disabled={loading}
+            style={{ fontSize: 11 }}
+          >
+            {loading ? 'Loading…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {!session && (
@@ -284,7 +302,7 @@ function SnapshotChart({ snapshots }: { snapshots: Array<SnapshotRecord | null> 
 interface FormProps {
   state: EarnState;
   wallet: Address | undefined;
-  signer: ReturnType<typeof createNoopSigner> | undefined;
+  signer: TransactionSigner | undefined;
   send: ReturnType<typeof useSendTx>;
   onSuccess: () => void;
 }

@@ -2,19 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useWalletConnection, useWalletSession } from '@solana/react-hooks';
+import { fmtUsdcLocal } from '@/lib/usdc';
+import { useUsdcBalance } from '@/lib/useUsdcBalance';
 
 /**
  * Topbar wallet chip — Wallet Standard via framework-kit.
  *
  * Disconnected: "Connect" button → opens a modal listing all detected
- * connectors. Connected: truncated address + mock balance + dropdown
- * with "Copy address" + "Disconnect".
- *
- * Mock balance is hardcoded for Phase 12 (`412.8 USDC`); Phase 14 wires
- * the real read from the connected wallet's USDC ATA.
+ * connectors. Connected: truncated address + live mock-USDC balance +
+ * dropdown with "Copy address" + "Disconnect".
  */
-
-const MOCK_BALANCE = '412.8 USDC';
 
 function truncateAddress(address: string): string {
   if (address.length < 9) return address;
@@ -25,11 +22,18 @@ export function WalletButton() {
   const { connectors, connect, disconnect, connected, connecting } =
     useWalletConnection();
   const session = useWalletSession();
+  const { balance, loading: balanceLoading } = useUsdcBalance();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const address = session?.account.address;
+  const balanceLabel =
+    balance == null
+      ? balanceLoading
+        ? '…'
+        : '— USDC'
+      : `${fmtUsdcLocal(balance)} USDC`;
 
   // Close dropdown on outside click.
   useEffect(() => {
@@ -63,7 +67,7 @@ export function WalletButton() {
           <span className="chain" />
           <span className="addr">{truncateAddress(address)}</span>
           <span style={{ color: 'var(--ink-4)' }}>·</span>
-          <span className="bal">{MOCK_BALANCE}</span>
+          <span className="bal">{balanceLabel}</span>
         </button>
         {dropdownOpen && (
           <div className="wallet-dropdown">

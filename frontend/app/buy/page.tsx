@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createNoopSigner, unwrapOption, type Address } from '@solana/kit';
+import { unwrapOption, type Address } from '@solana/kit';
 import { useWalletSession } from '@solana/react-hooks';
 import {
   findAssociatedTokenPda,
@@ -16,6 +16,8 @@ import { fmtUsdc, fmtUsdcLocal } from '@/lib/usdc';
 import { freeCapital } from '@/lib/vault-math';
 import { setComputeUnitLimitIx } from '@/lib/compute-budget';
 import { userUsdcAta } from '@/lib/ata';
+import { useTxSuccess } from '@/lib/txEvents';
+import { useWalletSigner } from '@/lib/useWalletSigner';
 import {
   findFlightDataAddress,
   findFlightPoolAddress,
@@ -43,6 +45,7 @@ export default function BuyPage() {
   const isFun = mode === 'fun';
   const session = useWalletSession();
   const wallet = session?.account.address as Address | undefined;
+  const walletSigner = useWalletSigner();
   const rpc = useRpc();
   const send = useSendTx();
   const { show } = useToast();
@@ -81,6 +84,7 @@ export default function BuyPage() {
   });
   const [refreshTick, setRefreshTick] = useState(0);
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
+  useTxSuccess(refresh);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,9 +153,9 @@ export default function BuyPage() {
     state && resolvedTerms ? state.vault.free < resolvedTerms.payoff : false;
 
   const submit = async () => {
-    if (!wallet || !selected || !resolvedTerms || !state) return;
+    if (!wallet || !walletSigner || !selected || !resolvedTerms || !state) return;
     if (!resolvedTerms.approved) return;
-    const signer = createNoopSigner(wallet);
+    const signer = walletSigner;
 
     const [
       buyerAta,

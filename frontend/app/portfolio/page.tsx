@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { createNoopSigner, type Address } from '@solana/kit';
+import type { Address } from '@solana/kit';
 import { useWalletSession } from '@solana/react-hooks';
 import {
   findAssociatedTokenPda,
@@ -15,6 +15,8 @@ import { useSendTx } from '@/lib/sendTx';
 import { useToast } from '@/components/Toast';
 import { fmtUsdc } from '@/lib/usdc';
 import { userUsdcAta } from '@/lib/ata';
+import { useTxSuccess } from '@/lib/txEvents';
+import { useWalletSigner } from '@/lib/useWalletSigner';
 import { readMyPolicies, type MyPolicy } from '@/data';
 import { getClaimInstructionAsync } from '@/clients/flight_pool/src/generated';
 import { MOCK_USDC_MINT, PDAS, TOKEN_PROGRAM, explorerLink } from '@/config/devnet';
@@ -46,6 +48,7 @@ export default function PortfolioPage() {
   const isFun = mode === 'fun';
   const session = useWalletSession();
   const wallet = session?.account.address as Address | undefined;
+  const walletSigner = useWalletSigner();
   const rpc = useRpc();
   const send = useSendTx();
   const { show } = useToast();
@@ -54,6 +57,7 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
+  useTxSuccess(refresh);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,8 +89,8 @@ export default function PortfolioPage() {
   }, [rpc, wallet, refreshTick, show]);
 
   const handleClaim = async (p: MyPolicy) => {
-    if (!wallet) return;
-    const signer = createNoopSigner(wallet);
+    if (!wallet || !walletSigner) return;
+    const signer = walletSigner;
     const usdcAta = await userUsdcAta(wallet);
     const [poolTreasuryAta] = await findAssociatedTokenPda({
       owner: PDAS.poolTreasuryAuthority,

@@ -15,6 +15,7 @@ export const DEVNET_RPC_URL = 'https://api.devnet.solana.com';
 export const DEPLOYER = 'FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy' as Address;
 export const OWNER = DEPLOYER; // governance owner == deployer at init time
 export const MOCK_USDC_MINT = 'epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K' as Address;
+export const MOCK_USDC_AUTHORITY = 'CzJ5AL4APAggkgGDikJw2GNYScVTdevqbnzntMp7MfGn' as Address;
 
 export const ORACLE_AUTHORITY = '3GjTYVmMyY3H2JomUL4e7YvVYALyskAjdWrmux7i3DNv' as Address;
 export const KEEPER_AUTHORITY = 'EXZZGnbBZAM8DKimCbpeW9BvF4TxcKe8pCYm5KfWyEJu' as Address;

@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createNoopSigner, type Address } from '@solana/kit';
+import { useCallback, useEffect, useState } from 'react';
+import type { Address, TransactionSigner } from '@solana/kit';
 import { useWalletSession } from '@solana/react-hooks';
 import { findAssociatedTokenPda } from '@solana-program/token';
 import { Card } from '@/components/admin/Card';
 import { AddressBadge } from '@/components/admin/AddressBadge';
 import { useRpc } from '@/lib/rpc';
 import { useSendTx } from '@/lib/sendTx';
+import { useTxSuccess } from '@/lib/txEvents';
+import { useWalletSigner } from '@/lib/useWalletSigner';
 import { useToast } from '@/components/Toast';
 import {
   readGovernanceConfig,
@@ -87,10 +89,11 @@ export default function AdminPage() {
   }, [rpc, wallet, show, refreshTick]);
 
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
+  useTxSuccess(refresh);
 
   const isOwner = role === 'owner';
   const canWriteRoutes = role === 'owner' || role === 'admin';
-  const noopSigner = useMemo(() => (wallet ? createNoopSigner(wallet) : undefined), [wallet]);
+  const noopSigner = useWalletSigner();
 
   return (
     <div style={{ padding: '24px 32px', display: 'grid', gap: 18, maxWidth: 1100 }}>
@@ -182,7 +185,7 @@ interface AuthCardProps {
   keeper: Address | undefined;
   canWrite: boolean;
   wallet: Address | undefined;
-  signer: ReturnType<typeof createNoopSigner> | undefined;
+  signer: TransactionSigner | undefined;
   send: ReturnType<typeof useSendTx>;
   onSuccess: () => void;
 }
@@ -255,7 +258,7 @@ function AuthorizedAddressesCard({
 interface DefaultsCardProps {
   config: GovernanceConfig | undefined;
   canWrite: boolean;
-  signer: ReturnType<typeof createNoopSigner> | undefined;
+  signer: TransactionSigner | undefined;
   send: ReturnType<typeof useSendTx>;
   onSuccess: () => void;
 }
@@ -351,7 +354,7 @@ function DefaultsCard({ config, canWrite, signer, send, onSuccess }: DefaultsCar
 
 interface RouteCardProps {
   canWrite: boolean;
-  signer: ReturnType<typeof createNoopSigner> | undefined;
+  signer: TransactionSigner | undefined;
   send: ReturnType<typeof useSendTx>;
   onSuccess: () => void;
 }
@@ -378,7 +381,7 @@ function AddRouteForm({
   send,
   onSuccess,
 }: {
-  signer: ReturnType<typeof createNoopSigner>;
+  signer: TransactionSigner;
   send: ReturnType<typeof useSendTx>;
   onSuccess: () => void;
 }) {
@@ -490,7 +493,7 @@ function AddRouteForm({
 
 interface AdminMgmtProps {
   canWrite: boolean;
-  signer: ReturnType<typeof createNoopSigner> | undefined;
+  signer: TransactionSigner | undefined;
   send: ReturnType<typeof useSendTx>;
   rpc: ReturnType<typeof useRpc>;
 }
@@ -578,7 +581,7 @@ function AdminManagementCard({ canWrite, signer, send, rpc }: AdminMgmtProps) {
 interface FlightPoolTunablesProps {
   config: FlightPoolConfig | undefined;
   canWrite: boolean;
-  signer: ReturnType<typeof createNoopSigner> | undefined;
+  signer: TransactionSigner | undefined;
   send: ReturnType<typeof useSendTx>;
   wallet: Address | undefined;
   onSuccess: () => void;
