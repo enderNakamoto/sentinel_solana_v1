@@ -35,6 +35,13 @@ executor/dist/
 # ─── Surfpool ─────────────────────────────────────────────────────
 .surfpool/
 
+# ─── Playwright + Synpress (Phase 16) ────────────────────────────
+frontend/test-results/
+frontend/playwright-report/
+frontend/.cache-synpress/
+frontend/blob-report/
+frontend/playwright/.cache/
+
 # ─── Env files (commit only .env.example) ─────────────────────────
 .env
 .env.local

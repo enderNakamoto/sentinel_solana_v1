@@ -228,25 +228,44 @@ tests run on Surfpool with no code edits.
 
 ### B. Test infrastructure (Synpress + Playwright)
 
-- [ ] B1. Add dev deps in the `frontend/` workspace: `@playwright/test`,
-      `@synthetixio/synpress`. Run `npx playwright install chromium` in
-      the workspace.
-- [ ] B2. Create `frontend/tests/wallet-setup/basic.setup.ts` with the
-      test seed phrase + password (gitignored, shared via
-      `tests/.env.example` template).
-- [ ] B3. Build the Phantom wallet cache via `npx synpress --phantom`.
-      Document the cache location and how to rebuild it.
-- [ ] B4. Create `frontend/playwright.config.ts`: chromium-only project,
-      `webServer` boot of `pnpm dev:frontend:surfpool`, retain trace +
-      screenshot + video on failure.
-- [ ] B5. Add `pnpm test:e2e` (and `:headed`) scripts in
-      `frontend/package.json`.
-- [ ] B6. Create test fixture helpers in `frontend/tests/helpers/`:
-      - `connectWallet.ts` — drives the Phantom connector picker.
-      - `waitForBurst.ts` — waits for the `useTxSuccess` 3-shot burst
-        propagation window (max ~5s) and re-asserts.
-      - `mintFromFaucet.ts` — POSTs to `/api/faucet/mint` for the
-        traveler's wallet address.
+- [x] B1. Installed `@synthetixio/synpress@4.1.2` + `@playwright/test@1.59.1`
+      in the `frontend/` workspace; ran `playwright install chromium`.
+      Two peer-dep warnings on `@playwright/test 1.48.2 ↔ 1.59.1` are
+      benign (minor-version drift) — Synpress driving Phantom
+      successfully via the 1.59 client in our smoke run.
+- [x] B2. Created `frontend/tests/wallet-setup/basic.setup.ts` using the
+      well-known BIP-39 abandon-vector seed (no real value at any
+      derived address; safe for committing). Solana derivation path is
+      Phantom default `m/44'/501'/0'/0'`.
+- [x] B3. `pnpm --filter @sentinel/frontend test:e2e:cache` runs
+      `synpress --phantom` to build the Phantom extension cache into
+      `frontend/.cache-synpress/` (gitignored). Documented in the
+      Playwright config header.
+- [x] B4. Created `frontend/playwright.config.ts`. Chromium-only, single
+      worker (Synpress + one wallet cache rules out parallelism),
+      `baseURL=http://localhost:3000`, retain trace + screenshot + video
+      on failure, 90s test timeout (covers tx-burst + on-chain confirm).
+      No `webServer` block — tests assume `pnpm dev:frontend:surfpool` +
+      `pnpm dev:surfpool` are already running externally; CI orchestrates
+      that boot in §F.
+- [x] B5. Added `test:e2e`, `test:e2e:headed`, `test:e2e:cache` scripts
+      to `frontend/package.json`. `clean` extended to wipe
+      `.cache-synpress/`, `test-results/`, `playwright-report/`.
+- [x] B6. Helpers in `frontend/tests/helpers/`:
+      - `connectWallet.ts` — clicks topbar Connect → picks Phantom in
+        the Wallet Standard modal → drives `phantom.connectToDapp()` →
+        waits on `.wallet` chip visible.
+      - `waitForBurst.ts` — sleeps 6s by default (4s burst tail + 2s
+        fetch slack) so post-tx assertions don't race in-flight RPC
+        refetches.
+      - `mintFromFaucet.ts` — POSTs to `/api/faucet/mint` via the
+        Playwright `page.request` API (relative URL honours `baseURL`),
+        throws on non-OK response.
+- [x] Bonus: `frontend/tests/e2e/00-smoke-connect.spec.ts` — minimal
+      "wallet connects, chip renders" test to validate the entire
+      Synpress pipeline before higher-value scenarios in §D/§E land.
+- [x] Bonus: `.gitignore` extended for Phase 16 artefacts
+      (`frontend/.cache-synpress/`, `playwright-report/`, etc.).
 
 ### C. Bootstrap (out-of-browser side)
 
@@ -349,6 +368,22 @@ preceding planning conversation (Phase 15 just shipped, frontend bundle
 on devnet, 50 routes seeded, faucet API live, tx-success burst wired).
 Beginning with bucket A — cluster switch — since it's the smallest
 foundational change and unblocks everything else.
+
+**Bucket B — Synpress + Playwright infra — DONE.** Synpress 4.1.2 +
+Playwright 1.59.1 installed in `frontend/`. Wallet setup uses BIP-39
+abandon-vector seed (Solana derivation `m/44'/501'/0'/0'`).
+`playwright.config.ts` is chromium-only / single-worker / 90s timeout
+with trace+video on failure. Helpers (`connectWallet`, `waitForBurst`,
+`mintFromFaucet`) and a smoke spec (`00-smoke-connect.spec.ts`) ship
+with this bucket. `pnpm typecheck` clean. Cache is built on-demand via
+`pnpm test:e2e:cache`. Tests aren't runnable end-to-end yet — they
+need §C (Surfpool bootstrap) before there's any state to exercise.
+Discovered Synpress export shape: `defineWalletSetup`, `testWithSynpress`
+from `@synthetixio/synpress`; `Phantom`, `phantomFixtures` from
+`@synthetixio/synpress/playwright` (re-exports the
+`@synthetixio/synpress-phantom/playwright` surface).
+
+---
 
 **Bucket A — cluster switch — DONE (modulo A5 smoke deferred to §C).**
 Discovered `frontend/src/lib/cluster.ts` already auto-detects cluster
