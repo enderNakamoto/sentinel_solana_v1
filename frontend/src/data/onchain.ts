@@ -33,17 +33,36 @@ import {
   type ControllerConfig,
 } from '@/clients/controller/src/generated';
 import {
+  fetchClaimableBalance,
+  fetchMaybeClaimableBalance,
+  fetchMaybeSnapshotRecord,
   fetchVaultState,
+  fetchWithdrawalQueue,
+  findClaimablePda,
+  findSnapshotRecordPda,
+  type ClaimableBalance,
+  type SnapshotRecord,
   type VaultState,
+  type WithdrawalQueue,
+  type WithdrawalRequest,
 } from '@/clients/vault/src/generated';
-import type { Account, Address, MaybeAccount } from '@solana/kit';
+import type {
+  Account,
+  Address,
+  GetTokenAccountBalanceApi,
+  GetTokenSupplyApi,
+  MaybeAccount,
+  Rpc as KitRpc,
+} from '@solana/kit';
 import { PDAS } from '@/config/devnet';
 import { MOCK_FLIGHTS } from './mock';
 
-// The runtime RPC supports both single + multi-account fetches; widen the
-// parameter type so we can pass the same handle to all of these readers.
+// The runtime RPC supports single + multi-account fetches plus the token
+// balance / supply API surface. Intersect all required APIs so the same
+// handle works for every reader in this module.
 type Rpc = Parameters<typeof fetchGovernanceConfig>[0] &
-  Parameters<typeof fetchAllMaybeRouteAccount>[0];
+  Parameters<typeof fetchAllMaybeRouteAccount>[0] &
+  KitRpc<GetTokenAccountBalanceApi & GetTokenSupplyApi>;
 
 export async function readGovernanceConfig(
   rpc: Rpc,
@@ -151,3 +170,109 @@ export async function findRouteAddress(
   const [pda] = await findRoutePda({ flightId, origin, destination });
   return pda;
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Vault helpers (Phase 14 — underwriter dashboard)
+
+export async function readWithdrawalQueue(
+  rpc: Rpc,
+): Promise<Account<WithdrawalQueue>> {
+  return fetchWithdrawalQueue(rpc, PDAS.withdrawalQueue);
+}
+
+export async function findClaimableBalanceAddress(owner: Address): Promise<Address> {
+  const [pda] = await findClaimablePda({ collector: owner });
+  return pda;
+}
+
+export async function readClaimableBalance(
+  rpc: Rpc,
+  owner: Address,
+): Promise<bigint> {
+  const pda = await findClaimableBalanceAddress(owner);
+  const maybe = await fetchMaybeClaimableBalance(rpc, pda);
+  return maybe.exists ? (maybe.data as ClaimableBalance).amount : 0n;
+}
+
+export interface UserQueuedRequest {
+  index: number; // queue position (0-based)
+  request: WithdrawalRequest;
+}
+
+export interface UserVaultPosition {
+  rvsBalance: bigint;
+  usdcBalance: bigint;
+  claimable: bigint;
+  queued: UserQueuedRequest[];
+}
+
+/**
+ * Read everything the /earn page needs about a connected wallet in one
+ * concurrent batch. Token-balance fetches use `getTokenAccountBalance`;
+ * if the ATA doesn't exist yet we report 0 instead of throwing.
+ */
+export async function readUserVaultPosition(
+  rpc: Rpc,
+  wallet: Address,
+  userUsdcAta: Address,
+  userShareAta: Address,
+): Promise<UserVaultPosition> {
+  const [usdcBal, rvsBal, claimable, queue] = await Promise.all([
+    safeTokenAmount(rpc, userUsdcAta),
+    safeTokenAmount(rpc, userShareAta),
+    readClaimableBalance(rpc, wallet),
+    readWithdrawalQueue(rpc),
+  ]);
+  const queued: UserQueuedRequest[] = [];
+  queue.data.requests.forEach((r, i) => {
+    if (r.owner === wallet) queued.push({ index: i, request: r });
+  });
+  return { rvsBalance: rvsBal, usdcBalance: usdcBal, claimable, queued };
+}
+
+async function safeTokenAmount(rpc: Rpc, ata: Address): Promise<bigint> {
+  try {
+    const r = await rpc.getTokenAccountBalance(ata).send();
+    return BigInt(r.value.amount);
+  } catch {
+    return 0n;
+  }
+}
+
+/** RVS share-mint total supply. Required for share-price math. */
+export async function readShareSupply(rpc: Rpc): Promise<bigint> {
+  try {
+    const r = await rpc.getTokenSupply(PDAS.shareMint).send();
+    return BigInt(r.value.amount);
+  } catch {
+    return 0n;
+  }
+}
+
+/**
+ * Read the most recent N daily snapshots. Reads the present-day PDA, then
+ * walks backward fetching `Maybe`s — gaps appear as `null` so the caller
+ * can plot only existing days.
+ */
+export async function readSnapshotHistory(
+  rpc: Rpc,
+  days = 30,
+): Promise<Array<SnapshotRecord | null>> {
+  const today = BigInt(Math.floor(Date.now() / 1000 / 86400));
+  const out: Array<SnapshotRecord | null> = [];
+  const pdas = await Promise.all(
+    Array.from({ length: days }, (_, i) =>
+      findSnapshotRecordPda({ day: today - BigInt(days - 1 - i) }).then(
+        (p) => p[0],
+      ),
+    ),
+  );
+  const maybes = await Promise.all(pdas.map((p) => fetchMaybeSnapshotRecord(rpc, p)));
+  for (const m of maybes) {
+    out.push(m.exists ? (m.data as SnapshotRecord) : null);
+  }
+  return out;
+}
+
+export { fetchClaimableBalance };
+export type { ClaimableBalance, SnapshotRecord, WithdrawalQueue, WithdrawalRequest };

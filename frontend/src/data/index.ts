@@ -102,8 +102,9 @@ export async function getAirports(): Promise<Record<string, Airport>> {
   return MOCK_AIRPORTS;
 }
 
-// On-chain reads for Phase 13 operator pages live in `./onchain.ts` and are
-// re-exported here so callers can `import { readGovernanceConfig } from '@/data'`.
+// On-chain reads for the operator + role-dashboard pages live in
+// `./onchain.ts` and are re-exported here so callers can
+// `import { readGovernanceConfig } from '@/data'`.
 export {
   readGovernanceConfig,
   readFlightPoolConfig,
@@ -115,7 +116,19 @@ export {
   resolveRole,
   findRouteAddress,
   SEED_ROUTES,
+  // vault helpers
+  readWithdrawalQueue,
+  readClaimableBalance,
+  findClaimableBalanceAddress,
+  readUserVaultPosition,
+  readShareSupply,
+  readSnapshotHistory,
   type AdminRole,
   type RouteRow,
   type RouteSeeds,
+  type UserVaultPosition,
+  type UserQueuedRequest,
+  type SnapshotRecord,
+  type WithdrawalQueue,
+  type WithdrawalRequest,
 } from './onchain';

@@ -41,24 +41,7 @@ import {
   type FlightPoolConfig,
 } from '@/clients/flight_pool/src/generated';
 
-// Anchor governance stores premium / payoff in mock-USDC base units (6 decimals).
-const USDC_DECIMALS = 6;
-const USDC_DECIMAL_FACTOR = 1_000_000;
-
-function toUsdcUnits(amount: string): bigint {
-  // Naive "13.5" -> 13_500_000n; supports up to USDC_DECIMALS digits past the point.
-  const trimmed = amount.trim();
-  if (!/^\d+(\.\d{0,6})?$/.test(trimmed)) throw new Error(`Invalid USDC amount: ${amount}`);
-  const [whole, frac = ''] = trimmed.split('.');
-  const padded = (frac ?? '').padEnd(USDC_DECIMALS, '0');
-  return BigInt(whole) * BigInt(USDC_DECIMAL_FACTOR) + BigInt(padded || '0');
-}
-
-function fmtUsdc(units: bigint): string {
-  const whole = units / BigInt(USDC_DECIMAL_FACTOR);
-  const frac = units % BigInt(USDC_DECIMAL_FACTOR);
-  return `${whole}.${String(frac).padStart(USDC_DECIMALS, '0').replace(/0+$/, '') || '0'}`;
-}
+import { fmtUsdc, toUsdcUnits } from '@/lib/usdc';
 
 export default function AdminPage() {
   const session = useWalletSession();

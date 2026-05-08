@@ -24,13 +24,13 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 11 | E2E Cron Validation (Surfpool)        | complete      | `spec/phases/phase-11-e2e-cron-validation.md` (completed 2026-05-06) |
 | 12 | Frontend Bootstrap                    | complete      | `spec/phases/phase-12-frontend-bootstrap.md` (completed 2026-05-07) |
 | 13 | Frontend — Admin Panel                | complete      | `spec/phases/phase-13-frontend-admin.md` (completed 2026-05-08) |
-| 14 | Frontend — Underwriter Dashboard      | not generated | —                                                          |
+| 14 | Frontend — Underwriter Dashboard      | complete      | `spec/phases/phase-14-frontend-underwriter.md` (completed 2026-05-08) |
 | 15 | Frontend — Traveler Dashboard         | not generated | —                                                          |
 | 16 | End-to-End Test (Browser)             | not generated | —                                                          |
 
 ## Current Pointer
 
-Active phase: **Phase 14 — Frontend Underwriter Dashboard** (next)
+Active phase: **Phase 15 — Frontend Traveler Dashboard** (next)
 
 Last updated: 2026-05-08
-Last completed: Phase 13 — Frontend Admin Panel (2026-05-08)
+Last completed: Phase 14 — Frontend Underwriter Dashboard (2026-05-08)
