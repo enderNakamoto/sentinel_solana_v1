@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createNoopSigner, unwrapOption, type Address } from '@solana/kit';
+import { createNoopSigner, type Address } from '@solana/kit';
 import { useWalletSession } from '@solana/react-hooks';
 import { findAssociatedTokenPda } from '@solana-program/token';
 import { Card } from '@/components/admin/Card';
@@ -14,23 +14,17 @@ import {
   readFlightPoolConfig,
   readOracleConfig,
   readControllerConfig,
-  readKnownRoutes,
   readAdminRecord,
   resolveRole,
   type AdminRole,
-  type RouteRow,
   type RouteSeeds,
 } from '@/data';
 import { MOCK_USDC_MINT, OWNER, PDAS, TOKEN_PROGRAM } from '@/config/devnet';
 import {
   getSetDefaultsInstructionAsync,
   getWhitelistRouteInstructionAsync,
-  getDisableRouteInstructionAsync,
-  getUpdateRouteTermsInstructionAsync,
   getAddAdminInstructionAsync,
   getRemoveAdminInstructionAsync,
-  u64Update,
-  u32Update,
   type GovernanceConfig,
 } from '@/clients/governance/src/generated';
 import { getSetAuthorizedOracleInstructionAsync } from '@/clients/oracle_aggregator/src/generated';
@@ -53,7 +47,6 @@ export default function AdminPage() {
   const [poolConfig, setPoolConfig] = useState<{ data: FlightPoolConfig } | null>(null);
   const [oracleAuthority, setOracleAuthority] = useState<Address | undefined>();
   const [keeperAuthority, setKeeperAuthority] = useState<Address | undefined>();
-  const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [role, setRole] = useState<AdminRole>('visitor');
   const [loading, setLoading] = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -64,19 +57,17 @@ export default function AdminPage() {
     setLoading(true);
     (async () => {
       try {
-        const [gov, pool, oracle, ctrl, routeRows] = await Promise.all([
+        const [gov, pool, oracle, ctrl] = await Promise.all([
           readGovernanceConfig(rpc),
           readFlightPoolConfig(rpc),
           readOracleConfig(rpc),
           readControllerConfig(rpc),
-          readKnownRoutes(rpc),
         ]);
         if (cancelled) return;
         setGovConfig(gov);
         setPoolConfig(pool);
         setOracleAuthority(oracle.data.authorizedOracle);
         setKeeperAuthority(ctrl.data.authorizedKeeper);
-        setRoutes(routeRows);
         setRole(await resolveRole(rpc, wallet, gov));
       } catch (e) {
         if (!cancelled) {
@@ -151,12 +142,10 @@ export default function AdminPage() {
       />
 
       <RouteManagementCard
-        routes={routes}
         canWrite={canWriteRoutes}
         signer={noopSigner}
         send={send}
         onSuccess={refresh}
-        defaults={govConfig?.data}
       />
 
       <AdminManagementCard
@@ -361,43 +350,25 @@ function DefaultsCard({ config, canWrite, signer, send, onSuccess }: DefaultsCar
 // Route Management
 
 interface RouteCardProps {
-  routes: RouteRow[];
   canWrite: boolean;
   signer: ReturnType<typeof createNoopSigner> | undefined;
   send: ReturnType<typeof useSendTx>;
   onSuccess: () => void;
-  defaults: GovernanceConfig | undefined;
 }
 
-function RouteManagementCard({ routes, canWrite, signer, send, onSuccess, defaults }: RouteCardProps) {
+function RouteManagementCard({ canWrite, signer, send, onSuccess }: RouteCardProps) {
   return (
     <Card
-      title="Route Management"
-      hint="Whitelist routes the controller will accept. 12 mock-catalog routes seed the demo."
+      title="Add Route"
+      hint="Whitelist a new route for the controller to accept."
     >
-      {canWrite && signer && (
-        <AddRouteForm
-          signer={signer}
-          send={send}
-          onSuccess={onSuccess}
-        />
+      {canWrite && signer ? (
+        <AddRouteForm signer={signer} send={send} onSuccess={onSuccess} />
+      ) : (
+        <div className="muted mono" style={{ fontSize: 12 }}>
+          Connect an owner or admin wallet to whitelist routes.
+        </div>
       )}
-      <div style={{ marginTop: 18 }}>
-        {routes.length === 0 ? (
-          <div className="muted mono" style={{ fontSize: 12 }}>
-            No routes loaded.
-          </div>
-        ) : (
-          <RouteTable
-            rows={routes}
-            canWrite={canWrite}
-            signer={signer}
-            send={send}
-            onSuccess={onSuccess}
-            defaults={defaults}
-          />
-        )}
-      </div>
     </Card>
   );
 }
@@ -510,316 +481,6 @@ function AddRouteForm({
           Whitelist Route
         </button>
       </div>
-    </div>
-  );
-}
-
-interface RouteTableProps {
-  rows: RouteRow[];
-  canWrite: boolean;
-  signer: ReturnType<typeof createNoopSigner> | undefined;
-  send: ReturnType<typeof useSendTx>;
-  onSuccess: () => void;
-  defaults: GovernanceConfig | undefined;
-}
-
-function RouteTable({ rows, canWrite, signer, send, onSuccess, defaults }: RouteTableProps) {
-  return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-        <thead>
-          <tr style={{ color: 'var(--ink-3)', fontFamily: 'var(--mono)', fontSize: 10 }}>
-            <th align="left" style={cellStyle}>FLIGHT</th>
-            <th align="left" style={cellStyle}>ROUTE</th>
-            <th align="left" style={cellStyle}>STATUS</th>
-            <th align="right" style={cellStyle}>PREMIUM</th>
-            <th align="right" style={cellStyle}>PAYOFF</th>
-            <th align="right" style={cellStyle}>DELAY (h)</th>
-            <th align="right" style={cellStyle}>ACTIONS</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <RouteRow
-              key={`${r.seeds.flightId}-${r.seeds.origin}-${r.seeds.destination}`}
-              row={r}
-              canWrite={canWrite}
-              signer={signer}
-              send={send}
-              onSuccess={onSuccess}
-              defaults={defaults}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-const cellStyle: React.CSSProperties = {
-  borderBottom: '1px solid var(--line)',
-  padding: '6px 8px',
-};
-
-function RouteRow({
-  row,
-  canWrite,
-  signer,
-  send,
-  onSuccess,
-  defaults,
-}: {
-  row: RouteRow;
-  canWrite: boolean;
-  signer: ReturnType<typeof createNoopSigner> | undefined;
-  send: ReturnType<typeof useSendTx>;
-  onSuccess: () => void;
-  defaults: GovernanceConfig | undefined;
-}) {
-  const [editing, setEditing] = useState(false);
-  const acct = row.account?.data;
-  const exists = !!acct;
-  const approved = acct?.approved === true;
-
-  const ovPremium = acct ? unwrapOption(acct.premium) : null;
-  const ovPayoff = acct ? unwrapOption(acct.payoff) : null;
-  const ovDelay = acct ? unwrapOption(acct.delayHours) : null;
-
-  const resolvedPremium = ovPremium !== null
-    ? fmtUsdc(ovPremium)
-    : defaults
-      ? fmtUsdc(defaults.defaultPremium)
-      : '—';
-  const resolvedPayoff = ovPayoff !== null
-    ? fmtUsdc(ovPayoff)
-    : defaults
-      ? fmtUsdc(defaults.defaultPayoff)
-      : '—';
-  const resolvedDelay: string | number = ovDelay ?? defaults?.defaultDelayHours ?? '—';
-
-  const overrides = acct
-    ? [
-        ovPremium !== null ? `prem=${fmtUsdc(ovPremium)}` : null,
-        ovPayoff !== null ? `pay=${fmtUsdc(ovPayoff)}` : null,
-        ovDelay !== null ? `dly=${ovDelay}h` : null,
-      ].filter(Boolean)
-    : [];
-
-  return (
-    <>
-      <tr>
-        <td style={cellStyle}>
-          <span className="num">{row.seeds.flightId}</span>
-        </td>
-        <td style={cellStyle}>
-          <span className="mono" style={{ fontSize: 11 }}>
-            {row.seeds.origin} → {row.seeds.destination}
-          </span>
-        </td>
-        <td style={cellStyle}>
-          {!exists ? (
-            <span className="badge red" style={{ fontSize: 9 }}>
-              MISSING
-            </span>
-          ) : approved ? (
-            <span className="badge green" style={{ fontSize: 9 }}>
-              ACTIVE
-            </span>
-          ) : (
-            <span className="badge amber" style={{ fontSize: 9 }}>
-              DISABLED
-            </span>
-          )}
-        </td>
-        <td align="right" style={cellStyle}>
-          <span className="num">{resolvedPremium}</span>
-          {overrides.length > 0 && (
-            <span className="muted mono" style={{ fontSize: 9, marginLeft: 4 }}>
-              ⓘ
-            </span>
-          )}
-        </td>
-        <td align="right" style={cellStyle}>
-          <span className="num">{resolvedPayoff}</span>
-        </td>
-        <td align="right" style={cellStyle}>
-          <span className="num">{resolvedDelay}</span>
-        </td>
-        <td align="right" style={cellStyle}>
-          {canWrite && signer && exists && approved && (
-            <button
-              type="button"
-              className="btn ghost"
-              style={{ fontSize: 10, padding: '2px 8px', marginRight: 6 }}
-              onClick={async () => {
-                const ix = await getDisableRouteInstructionAsync({
-                  caller: signer,
-                  flightId: row.seeds.flightId,
-                  origin: row.seeds.origin,
-                  destination: row.seeds.destination,
-                });
-                const r = await send([ix], {
-                  successTitle: `${row.seeds.flightId} disabled`,
-                });
-                if (r.ok) onSuccess();
-              }}
-            >
-              Disable
-            </button>
-          )}
-          {canWrite && signer && exists && (
-            <button
-              type="button"
-              className="btn ghost"
-              style={{ fontSize: 10, padding: '2px 8px' }}
-              onClick={() => setEditing((v) => !v)}
-            >
-              {editing ? 'Close' : 'Update'}
-            </button>
-          )}
-        </td>
-      </tr>
-      {editing && canWrite && signer && acct && (
-        <tr>
-          <td colSpan={7} style={{ ...cellStyle, background: 'var(--bg-2)' }}>
-            <UpdateRouteForm
-              row={row}
-              signer={signer}
-              send={send}
-              onSuccess={() => {
-                setEditing(false);
-                onSuccess();
-              }}
-            />
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-type TriState = 'keep' | 'override' | 'revert';
-
-function UpdateRouteForm({
-  row,
-  signer,
-  send,
-  onSuccess,
-}: {
-  row: RouteRow;
-  signer: ReturnType<typeof createNoopSigner>;
-  send: ReturnType<typeof useSendTx>;
-  onSuccess: () => void;
-}) {
-  const acct = row.account!.data;
-  const ovPrem = unwrapOption(acct.premium);
-  const ovPay = unwrapOption(acct.payoff);
-  const ovDelay = unwrapOption(acct.delayHours);
-  const [premMode, setPremMode] = useState<TriState>('keep');
-  const [payMode, setPayMode] = useState<TriState>('keep');
-  const [delayMode, setDelayMode] = useState<TriState>('keep');
-  const [premVal, setPremVal] = useState(ovPrem !== null ? fmtUsdc(ovPrem) : '');
-  const [payVal, setPayVal] = useState(ovPay !== null ? fmtUsdc(ovPay) : '');
-  const [delayVal, setDelayVal] = useState(ovDelay !== null ? String(ovDelay) : '');
-
-  // The on-chain `update_route_terms` ix takes `U64Update` / `U32Update`
-  // tagged unions per field: `Keep | Set(value) | RevertToDefault`. Map the
-  // tri-state UI mode directly to the matching factory.
-  const u64Field = (mode: TriState, parsed: bigint | null) => {
-    if (mode === 'keep') return u64Update('Keep');
-    if (mode === 'revert') return u64Update('RevertToDefault');
-    return u64Update('Set', [parsed ?? 0n]);
-  };
-  const u32Field = (mode: TriState, parsed: number | null) => {
-    if (mode === 'keep') return u32Update('Keep');
-    if (mode === 'revert') return u32Update('RevertToDefault');
-    return u32Update('Set', [parsed ?? 0]);
-  };
-
-  const submit = async () => {
-    try {
-      const ix = await getUpdateRouteTermsInstructionAsync({
-        caller: signer,
-        flightId: row.seeds.flightId,
-        origin: row.seeds.origin,
-        destination: row.seeds.destination,
-        premium: u64Field(premMode, premVal ? toUsdcUnits(premVal) : null),
-        payoff: u64Field(payMode, payVal ? toUsdcUnits(payVal) : null),
-        delayHours: u32Field(delayMode, delayVal ? Number(delayVal) : null),
-      });
-      const r = await send([ix], { successTitle: `${row.seeds.flightId} terms updated` });
-      if (r.ok) onSuccess();
-    } catch (e) {
-      void e;
-    }
-  };
-
-  return (
-    <div className="col" style={{ gap: 8, padding: 8 }}>
-      <TriField
-        label="Premium (USDC)"
-        mode={premMode}
-        setMode={setPremMode}
-        value={premVal}
-        setValue={setPremVal}
-      />
-      <TriField
-        label="Payoff (USDC)"
-        mode={payMode}
-        setMode={setPayMode}
-        value={payVal}
-        setValue={setPayVal}
-      />
-      <TriField
-        label="Delay (hours)"
-        mode={delayMode}
-        setMode={setDelayMode}
-        value={delayVal}
-        setValue={setDelayVal}
-      />
-      <button type="button" className="btn primary" onClick={submit}>
-        Apply Update
-      </button>
-    </div>
-  );
-}
-
-function TriField({
-  label,
-  mode,
-  setMode,
-  value,
-  setValue,
-}: {
-  label: string;
-  mode: TriState;
-  setMode: (m: TriState) => void;
-  value: string;
-  setValue: (v: string) => void;
-}) {
-  return (
-    <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-      <span style={{ flex: '0 0 130px', fontSize: 11, color: 'var(--ink-2)' }}>{label}</span>
-      <div className="row" style={{ gap: 4 }}>
-        {(['keep', 'override', 'revert'] as TriState[]).map((m) => (
-          <button
-            type="button"
-            key={m}
-            className={`btn ${mode === m ? 'cyan' : 'ghost'}`}
-            style={{ fontSize: 10, padding: '4px 10px' }}
-            onClick={() => setMode(m)}
-          >
-            {m}
-          </button>
-        ))}
-      </div>
-      <input
-        className="input"
-        disabled={mode !== 'override'}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        style={{ flex: '1 1 140px' }}
-      />
     </div>
   );
 }
