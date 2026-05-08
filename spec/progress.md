@@ -25,12 +25,12 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 12 | Frontend Bootstrap                    | complete      | `spec/phases/phase-12-frontend-bootstrap.md` (completed 2026-05-07) |
 | 13 | Frontend — Admin Panel                | complete      | `spec/phases/phase-13-frontend-admin.md` (completed 2026-05-08) |
 | 14 | Frontend — Underwriter Dashboard      | complete      | `spec/phases/phase-14-frontend-underwriter.md` (completed 2026-05-08) |
-| 15 | Frontend — Traveler Dashboard         | not generated | —                                                          |
+| 15 | Frontend — Traveler Dashboard         | complete      | `spec/phases/phase-15-frontend-traveler.md` (completed 2026-05-08) |
 | 16 | End-to-End Test (Browser)             | not generated | —                                                          |
 
 ## Current Pointer
 
-Active phase: **Phase 15 — Frontend Traveler Dashboard** (next)
+Active phase: **Phase 16 — End-to-End Test (Browser)** (next)
 
 Last updated: 2026-05-08
-Last completed: Phase 14 — Frontend Underwriter Dashboard (2026-05-08)
+Last completed: Phase 15 — Frontend Traveler Dashboard (2026-05-08)

@@ -14,6 +14,7 @@ import {
   fetchAllMaybeRouteAccount,
   fetchGovernanceConfig,
   fetchMaybeAdminRecord,
+  fetchMaybeRouteAccount,
   findAdminRecordPda,
   findRoutePda,
   type AdminRecord,
@@ -21,11 +22,22 @@ import {
   type RouteAccount,
 } from '@/clients/governance/src/generated';
 import {
+  BUYER_RECORD_DISCRIMINATOR,
+  fetchAllMaybeBuyerRecord,
+  fetchAllMaybeFlightPool,
   fetchFlightPoolConfig,
+  fetchMaybeFlightPool,
+  findPoolPda,
+  findBuyerRecordPda,
+  type BuyerRecord,
+  type FlightPool,
   type FlightPoolConfig,
 } from '@/clients/flight_pool/src/generated';
 import {
+  fetchMaybeFlightData,
   fetchOracleConfig,
+  findFlightDataPda,
+  type FlightData,
   type OracleConfig,
 } from '@/clients/oracle_aggregator/src/generated';
 import {
@@ -54,15 +66,20 @@ import type {
   MaybeAccount,
   Rpc as KitRpc,
 } from '@solana/kit';
-import { PDAS } from '@/config/devnet';
+import { PDAS, PROGRAMS } from '@/config/devnet';
 import { MOCK_FLIGHTS } from './mock';
+import { getBase58Decoder } from '@solana/kit';
 
 // The runtime RPC supports single + multi-account fetches plus the token
 // balance / supply API surface. Intersect all required APIs so the same
 // handle works for every reader in this module.
 type Rpc = Parameters<typeof fetchGovernanceConfig>[0] &
   Parameters<typeof fetchAllMaybeRouteAccount>[0] &
-  KitRpc<GetTokenAccountBalanceApi & GetTokenSupplyApi>;
+  KitRpc<
+    GetTokenAccountBalanceApi &
+      GetTokenSupplyApi &
+      import('@solana/kit').GetProgramAccountsApi
+  >;
 
 export async function readGovernanceConfig(
   rpc: Rpc,
@@ -276,3 +293,108 @@ export async function readSnapshotHistory(
 
 export { fetchClaimableBalance };
 export type { ClaimableBalance, SnapshotRecord, WithdrawalQueue, WithdrawalRequest };
+
+// ─────────────────────────────────────────────────────────────────────────
+// Traveler helpers (Phase 15)
+
+export async function readRoute(
+  rpc: Rpc,
+  flightId: string,
+  origin: string,
+  destination: string,
+): Promise<RouteAccount | undefined> {
+  const [pda] = await findRoutePda({ flightId, origin, destination });
+  const maybe = await fetchMaybeRouteAccount(rpc, pda);
+  return maybe.exists ? maybe.data : undefined;
+}
+
+export async function findFlightPoolAddress(
+  flightId: string,
+  date: bigint,
+): Promise<Address> {
+  const [pda] = await findPoolPda({ flightId, date });
+  return pda;
+}
+
+export async function findFlightDataAddress(
+  flightId: string,
+  date: bigint,
+): Promise<Address> {
+  const [pda] = await findFlightDataPda({ flightId, date });
+  return pda;
+}
+
+export interface MyPolicy {
+  buyerRecord: BuyerRecord;
+  buyerRecordAddress: Address;
+  pool: FlightPool;
+  poolAddress: Address;
+  flightData: FlightData | undefined;
+}
+
+/**
+ * Read every BuyerRecord owned by `wallet` via getProgramAccounts +
+ * memcmp on `buyer @ offset 8` (Anchor discriminator + first field).
+ * Joins with the parent FlightPool and the FlightData oracle status so
+ * the UI can compute eligibility for claim.
+ */
+export async function readMyPolicies(
+  rpc: Rpc,
+  wallet: Address,
+): Promise<MyPolicy[]> {
+  const { getAddressEncoder } = await import('@solana/kit');
+  const walletBytes = getAddressEncoder().encode(wallet);
+  const walletB58 = getBase58Decoder().decode(walletBytes);
+  const discB58 = getBase58Decoder().decode(
+    new Uint8Array(BUYER_RECORD_DISCRIMINATOR),
+  );
+
+  // The `bytes` filter field is typed as Base58EncodedBytes (a branded
+  // string). The decoder above returns a plain string — cast through to
+  // satisfy the RPC type. The RPC layer accepts the base58 string literally.
+  type Base58 = import('@solana/kit').Base58EncodedBytes;
+  const accounts = await rpc
+    .getProgramAccounts(PROGRAMS.flight_pool, {
+      encoding: 'base64',
+      filters: [
+        { memcmp: { offset: 0n, bytes: discB58 as Base58, encoding: 'base58' } },
+        { memcmp: { offset: 8n, bytes: walletB58 as Base58, encoding: 'base58' } },
+      ],
+    })
+    .send();
+
+  if (accounts.length === 0) return [];
+
+  // Re-fetch each BuyerRecord by address through the typed helper for clean decoding.
+  const buyerAddrs = accounts.map((a) => a.pubkey);
+  const records = await fetchAllMaybeBuyerRecord(rpc, buyerAddrs);
+  const present = records
+    .map((r, i) => (r.exists ? { addr: buyerAddrs[i] as Address, rec: r.data } : null))
+    .filter((x): x is { addr: Address; rec: BuyerRecord } => x !== null);
+
+  if (present.length === 0) return [];
+
+  const poolAddrs = present.map((p) => p.rec.pool);
+  const pools = await fetchAllMaybeFlightPool(rpc, poolAddrs);
+
+  const out: MyPolicy[] = [];
+  for (let i = 0; i < present.length; i++) {
+    const p = pools[i];
+    if (!p?.exists) continue;
+    const pool = p.data as FlightPool;
+    const fdAddr = await findFlightDataAddress(pool.flightId, pool.date);
+    const fdMaybe = await fetchMaybeFlightData(rpc, fdAddr);
+    const presentItem = present[i]!;
+    out.push({
+      buyerRecord: presentItem.rec,
+      buyerRecordAddress: presentItem.addr,
+      pool,
+      poolAddress: poolAddrs[i] as Address,
+      flightData: fdMaybe.exists ? (fdMaybe.data as FlightData) : undefined,
+    });
+  }
+  return out;
+}
+
+export type { BuyerRecord, FlightData, FlightPool };
+export { fetchMaybeFlightPool, fetchMaybeFlightData, findBuyerRecordPda };

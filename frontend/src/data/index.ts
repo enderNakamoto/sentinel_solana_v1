@@ -131,4 +131,13 @@ export {
   type SnapshotRecord,
   type WithdrawalQueue,
   type WithdrawalRequest,
+  // traveler helpers
+  readRoute,
+  readMyPolicies,
+  findFlightPoolAddress,
+  findFlightDataAddress,
+  type MyPolicy,
+  type FlightPool,
+  type FlightData,
+  type BuyerRecord,
 } from './onchain';
