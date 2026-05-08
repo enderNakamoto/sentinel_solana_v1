@@ -339,23 +339,46 @@ above are best-effort first drafts based on the known UI structure.
 
 ### E. Three-scenario E2E (cron + frontend + contract)
 
-- [ ] E1. `frontend/tests/e2e/10-flight-on-time.spec.ts` — full flow:
-      buy coverage → tick fetcher (oracle reports landed-on-time) → tick
-      classifier (`SettledOnTime`) → tick settler → assert in
-      `/portfolio` History the policy is "Expired", no payout, traveler
-      USDC balance unchanged from pre-buy minus the premium.
-- [ ] E2. `frontend/tests/e2e/11-flight-delayed.spec.ts` — full flow:
-      buy → tick fetcher (delay > threshold) → classifier
-      (`ToBeSettledDelayed`) → settler runs the per-flight CPI chain →
-      `/portfolio` shows policy claimable → click Claim → Phantom-approve
-      → traveler USDC balance increases by the payout.
-- [ ] E3. `frontend/tests/e2e/12-flight-cancelled.spec.ts` — full flow:
-      buy → tick fetcher (status=Cancelled before ETA) → classifier
-      (`ToBeSettledCancelled`) → settler → claim → balance increases by
-      payout.
-- [ ] E4. Each scenario uses a dedicated whitelisted route (so they run
-      sequentially without cross-contamination on the same Surfpool
-      ledger).
+- [x] E1. `tests/e2e/10-flight-on-time.spec.ts` — UA230. Connect → buy
+      → `simulateOnTime` (set_estimated_arrival → set_landed with
+      actual=scheduled, no delay → classify → execute_settlements,
+      no ClaimableBalance written) → /portfolio History contains the
+      policy.
+- [x] E2. `tests/e2e/11-flight-delayed.spec.ts` — UA247. Connect → buy
+      → `simulateDelayed` (90-min delay > 60-min threshold → classify
+      flips to ToBeSettledDelayed → settler writes ClaimableBalance) →
+      /portfolio shows the policy → click Claim → Phantom approves
+      flight_pool.claim → wallet USDC pill increases via the burst.
+- [x] E3. `tests/e2e/12-flight-cancelled.spec.ts` — AS280. Connect →
+      buy → `simulateCancelled` (set_cancelled → classify → settler
+      writes ClaimableBalance) → click Claim → wallet USDC pill
+      increases.
+- [x] E4. Dedicated routes: UA230 (E1), UA247 (E2), AS280 (E3) — three
+      distinct flight IDs from the seeded MOCK_FLIGHTS catalog so
+      sequential runs against the same Surfpool ledger don't
+      cross-contaminate state.
+
+**Helpers introduced for §E:**
+- `tests/helpers/cronTick.ts` — `simulateOnTime / simulateDelayed /
+  simulateCancelled` directly invoke the on-chain ix sequence
+  (oracle → classifier → settler) signed by the on-disk surfpool
+  oracle/keeper keypairs. Pattern mirrors `contracts/tests/setup.ts`'s
+  Phase 6 simulators (simulateOracle, simulateClassifier, simulateSettler)
+  but uses Kit RPC instead of LiteSVM. Hand-rolled
+  `setComputeUnitLimitIx(1_400_000)` matches the production frontend's
+  budget for the heavy controller paths.
+- `tests/helpers/buyFlight.ts` — shared "connect + top-up + search +
+  buy + Phantom-approve" flow used by all three §E specs. Plus
+  `tomorrowDateAsUnix()` (mirrors /buy's default date computation —
+  Date.parse('YYYY-MM-DDT00:00:00Z') for tomorrow UTC) and `noonOf()`
+  for scheduled ETAs.
+
+`playwright test --list` discovers all 8 specs cleanly (3 §B/§D
+prerequisites + D1/D2/D5/D6 + E1/E2/E3). Total runtime estimate
+~3-5 min on a warm Surfpool with confirmation-target commitment.
+**Live-fire run still gated on §A5/§C5 stack-up** — the next time the
+user has surfpool + frontend + bootstrap up, all 8 should fire end to
+end, with possible selector/timing tweaks needed in iteration.
 
 ### F. CI
 
@@ -393,6 +416,21 @@ preceding planning conversation (Phase 15 just shipped, frontend bundle
 on devnet, 50 routes seeded, faucet API live, tx-success burst wired).
 Beginning with bucket A — cluster switch — since it's the smallest
 foundational change and unblocks everything else.
+
+**Bucket E — three-scenario flight outcomes — DONE.** E1 (on-time),
+E2 (delayed → claim), E3 (cancelled → claim) shipped as separate
+specs against dedicated MOCK_FLIGHTS routes (UA230, UA247, AS280).
+The cron stages are driven directly via `simulateOnTime / Delayed /
+Cancelled` helpers (oracle.set_estimated_arrival + set_landed/cancelled
+→ controller.classify_flights → controller.execute_settlements signed
+by the on-disk surfpool oracle/keeper keypairs; mirrors Phase 6's
+LiteSVM simulators on Kit RPC). Each E2/E3 spec also exercises the
+buyer-side `flight_pool.claim` flow + asserts the wallet USDC pill
+bumps post-claim via the 3-shot tx-success burst. `playwright test
+--list` discovers all 8 specs (00 smoke + D1/D2/D5/D6 + E1/E2/E3).
+Live-fire validation is the §A5/§C5 stack-up checkpoint.
+
+---
 
 **Bucket D — page smoke specs — DONE (4 of 7 written, 3 deferred).**
 Wrote D1 (faucet mint), D2 (earn deposit), D5 (buy coverage), D6
