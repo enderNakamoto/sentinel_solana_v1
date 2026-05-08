@@ -216,13 +216,24 @@ export default function BuyPage() {
           <div className="h-eyebrow">{isFun ? 'Cover a flight' : 'Buy Coverage'}</div>
           <h1
             style={{
-              fontSize: 36,
+              fontSize: 44,
               fontWeight: 400,
               letterSpacing: '-0.03em',
               margin: 0,
             }}
           >
-            {isFun ? 'Plot a quest.' : 'Pick a route. Cover the delay.'}
+            {isFun ? (
+              <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--amber)' }}>
+                Plot a quest.
+              </span>
+            ) : (
+              <>
+                Pick a route.{' '}
+                <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--amber)' }}>
+                  Cover the delay.
+                </span>
+              </>
+            )}
           </h1>
         </div>
         <button

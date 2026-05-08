@@ -119,13 +119,16 @@ export default function PortfolioPage() {
           <div className="h-eyebrow">{isFun ? 'Adventurer log' : 'Portfolio'}</div>
           <h1
             style={{
-              fontSize: 36,
+              fontSize: 44,
               fontWeight: 400,
               letterSpacing: '-0.03em',
               margin: 0,
             }}
           >
-            {isFun ? 'Your quests + rewards.' : 'Your policies + claims.'}
+            Your{' '}
+            <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--amber)' }}>
+              {isFun ? 'quests + rewards.' : 'policies + claims.'}
+            </span>
           </h1>
         </div>
         <button

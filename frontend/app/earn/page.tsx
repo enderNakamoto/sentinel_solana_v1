@@ -112,13 +112,24 @@ export default function EarnPage() {
           <div className="h-eyebrow">{isFun ? 'Underwriter chest' : 'Earn'}</div>
           <h1
             style={{
-              fontSize: 36,
+              fontSize: 44,
               fontWeight: 400,
               letterSpacing: '-0.03em',
               margin: 0,
             }}
           >
-            {isFun ? 'Underwrite the skies.' : 'Underwrite delays. Earn premiums.'}
+            {isFun ? (
+              <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--ink-2)' }}>
+                Underwrite the skies.
+              </span>
+            ) : (
+              <>
+                Underwrite delays.{' '}
+                <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--ink-2)' }}>
+                  Earn premiums.
+                </span>
+              </>
+            )}
           </h1>
         </div>
         <button
