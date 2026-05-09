@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:cache": "synpress --phantom",
+    "test:e2e:cache": "synpress --phantom tests/wallet-setup",
     "clean": "rm -rf .next out node_modules src/idl src/clients .cache-synpress test-results playwright-report"
   },
   "dependencies": {

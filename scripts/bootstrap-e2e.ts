@@ -83,7 +83,29 @@ const TRAVELER_AIRDROP_SOL = 5;
 const UNDERWRITER_AIRDROP_SOL = 5;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..');
+const REPO_ROOT = findRepoRoot(__dirname);
+
+// `__dirname` is `scripts/dist/` after esbuild bundling, so resolve(.., '..')
+// would land on `scripts/`. Walk up looking for the workspace root
+// `package.json` whose name is `sentinel-solana`.
+function findRepoRoot(start: string): string {
+  let cur = start;
+  for (let i = 0; i < 8; i++) {
+    const pkgPath = resolve(cur, 'package.json');
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { name?: string };
+        if (pkg.name === 'sentinel-solana') return cur;
+      } catch {
+        /* keep walking */
+      }
+    }
+    const parent = resolve(cur, '..');
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return process.cwd();
+}
 
 const UNDERWRITER_KEYPAIR_PATH = resolve(
   REPO_ROOT,
@@ -111,8 +133,12 @@ async function ensureSurfpoolReachable(): Promise<Rpc<SolanaRpcApi>> {
 // ─── Steps 2/3/4: shell out to existing pnpm scripts ─────────────────────
 
 function runPnpm(scriptName: string, args: string[] = []): void {
-  console.log(`[bootstrap-e2e] $ pnpm ${scriptName} ${args.join(' ')}`.trim());
-  execSync(`pnpm ${scriptName} ${args.join(' ')}`.trim(), {
+  // pnpm 9 has builtin commands like `deploy` that shadow workspace
+  // scripts of the same name. Use `pnpm run <name>` to force the
+  // workspace-script lookup; trailing args pass through directly.
+  const cmd = `pnpm run ${scriptName} ${args.join(' ')}`.trim();
+  console.log(`[bootstrap-e2e] $ ${cmd}`);
+  execSync(cmd, {
     cwd: REPO_ROOT,
     stdio: 'inherit',
     env: { ...process.env, NO_DNA: '1' },
@@ -263,9 +289,26 @@ async function main() {
   const rpc = await ensureSurfpoolReachable();
 
   // Steps 2–4. Each is idempotent and exits 0 on no-op.
-  runPnpm('deploy', ['--cluster', 'surfpool']);
+  // Reuse the devnet-deployer keypair for surfpool too — single owner
+  // address (FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy) keeps
+  // governance constants identical across clusters.
+  const DEVNET_DEPLOYER_OWNER = 'FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy';
+  const DEVNET_DEPLOYER_KEY = 'keys/devnet-deployer.json';
+  runPnpm('deploy', [
+    '--cluster',
+    'surfpool',
+    '--owner',
+    DEVNET_DEPLOYER_OWNER,
+    '--deployer',
+    DEVNET_DEPLOYER_KEY,
+  ]);
   runPnpm('bootstrap-test-actors');
-  runPnpm('seed-routes', ['--cluster', 'surfpool']);
+  runPnpm('seed-routes', [
+    '--cluster',
+    'surfpool',
+    '--deployer',
+    DEVNET_DEPLOYER_KEY,
+  ]);
 
   const traveler = deriveTravelerAddress();
   console.log(
