@@ -25,6 +25,8 @@
     "fund-sol": "bash scripts/run.sh fund-sol",
     "fund-usdc": "bash scripts/run.sh fund-usdc",
     "seed-routes": "bash scripts/run.sh seed-routes",
+    "rotate-keeper": "bash scripts/run.sh rotate-keeper",
+    "rotate-oracle": "bash scripts/run.sh rotate-oracle",
     "bootstrap-test-actors": "bash scripts/run.sh bootstrap-test-actors",
     "bootstrap-e2e": "bash scripts/run.sh bootstrap-e2e",
     "test:e2e:bootstrap": "bash scripts/run.sh bootstrap-e2e",

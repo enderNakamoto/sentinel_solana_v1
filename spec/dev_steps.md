@@ -897,6 +897,120 @@ a fresh devnet environment.
 
 ---
 
+## Phase 17 — Cron Control Panel (Classifier + Settler)
+
+**Goal:** Replace the mock `/crons` page with a real operator control surface
+that triggers the FlightClassifier and SettlementExecutor crons on demand,
+records each run to a persistent log, and surfaces last-run state + the live
+ActiveFlightList. The FlightDataFetcher (oracle) cron is explicitly
+out-of-scope — it ships in Phase 18 once the AeroAPI trust model is settled.
+
+**Deliverables:**
+- `frontend/app/api/cron/[id]/trigger/route.ts` — public-unauth POST handler
+  that wraps `runClassifierOnce` / `runSettlerOnce` from `@sentinel/executor`
+  and writes a structured run record to a JSONL log.
+- `frontend/app/api/cron/runs/route.ts` — GET handler returning the last N
+  records, optionally filtered by cron id.
+- `frontend/app/api/cron/active-flights/route.ts` — GET handler returning
+  the on-chain `ActiveFlightList` plus each entry's `FlightStatus`.
+- `/crons` page rewritten to poll those routes, show last-run state per
+  cron, expose a Trigger button per cron (disabled for fetcher),
+  and render the ActiveFlightList live.
+- Cluster-aware keypair loading (`CRON_KEEPER_BASE58 / CRON_KEEPER_PATH`)
+  with sensible fallbacks.
+- README runbook + JSONL/Vercel caveat documented.
+
+**Done when:**
+- Both triggers succeed end-to-end against either devnet or surfpool.
+- `/crons` reflects the post-tick state without a page reload (uses the
+  Phase 16 tx-success burst).
+- Fetcher card is visibly gated with a "Phase 18 — pending oracle
+  integration" indicator.
+
+**Depends on:** Phases 9, 10, 13, 16.
+
+---
+
+## Phase 18 — FlightDataFetcher Oracle Integration (Centralized)
+
+**Status: scope locked — centralised TypeScript cron.** A maintained
+off-chain cron signs as `authorized_oracle` after fetching AeroAPI.
+Lowest friction, weakest trust. The decentralised / TEE-attested
+variants (Switchboard On-Demand v2 with SGX, Acurast mobile TEE,
+Pyth-style adapter) are deferred to **Phase 19**. The on-chain surface
+stays unchanged — `OracleConfig.authorized_oracle` is already a swap
+point that Phase 19 can reuse.
+
+**Operational shape:** the oracle signer keypair is the **deployer**
+(`FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy`) so all three crons
+(fetcher, classifier, settler) share one secret + one balance on the
+deploy box. A one-shot `pnpm rotate-oracle --cluster devnet` rotates
+`authorized_oracle` to the deployer pubkey (mirror of Phase 17's
+`pnpm rotate-keeper`).
+
+**Demo posture:** mock mode is first-class. Env flag
+`AEROAPI_MOCK=1` + `AEROAPI_MOCK_SCENARIO=on_time|delayed|cancelled_pre_eta|cancelled_post_eta|not_found`
+swaps the live AeroAPI client for a deterministic stub keyed off the
+active flight's on-chain `date`. Real mode requires `AEROAPI_KEY`.
+
+**Deliverables:**
+- `scripts/rotate-oracle.ts` — owner-signed `set_authorized_oracle` rotation
+  (mirror of `scripts/rotate-keeper.ts`). Idempotent.
+- `pnpm rotate-oracle` entry in root `package.json`.
+- `frontend/src/lib/cron-runs.ts` — `CronId` union extended with
+  `'fetcher'`; rotation cap applied per-cron across all three buckets.
+- `frontend/app/api/cron/[id]/trigger/route.ts` — fetcher branch
+  replaces the current 400 gate. Builds AeroAPI client (live or mock)
+  per env, runs `runFetcherOnce`, reuses Phase 17's mutex / capture /
+  JSONL persistence patterns.
+- `frontend/app/crons/page.tsx` — fetcher card ungated, signer = deployer,
+  same activity feed shape as classifier + settler.
+- README §"Cron control panel" updated with the fetcher row + AeroAPI
+  env vars + `pnpm rotate-oracle` runbook.
+
+**Done when:**
+- `pnpm rotate-oracle --cluster devnet` confirms; post-tx
+  `OracleConfig.authorized_oracle` equals the deployer pubkey.
+- `pnpm -r typecheck` clean across all 3 workspaces.
+- Mock-mode trigger from `/crons` advances at least one active flight
+  through a `FlightStatus` transition; activity feed shows a green
+  `OK · n acted, n skipped · X.Ys` row signed by the deployer.
+- Real-mode trigger (with `AEROAPI_KEY`) hits live AeroAPI for at
+  least one active flight without surfacing a red banner from
+  transient HTTP errors (the AeroAPI client's "never throw, log + skip"
+  contract holds end-to-end).
+
+**Depends on:** Phases 4, 7, 8, 11, 17.
+
+---
+
+## Phase 19 — Trust-Hardened Oracle (open)
+
+**Status: planning open.** Phase 18 ships a centralised oracle as a
+hackathon-grade default; Phase 19 swaps it for a stronger trust model.
+Two candidate architectures:
+
+1. **TEE-attested oracle.** SGX (Switchboard On-Demand v2) or mobile
+   TEE (Acurast) worker calls AeroAPI inside an enclave; on-chain
+   attestation proves the published image ran. Strongest trust model.
+   Likely additive (TEE-protected keypair as `authorized_oracle`,
+   no program change) but a program-level Switchboard-feed read is
+   the maximally-strong variant.
+2. **Decentralised oracle network adapter.** If FlightAware-grade flight
+   data ever becomes available as a Pyth/Chainlink-style feed, the
+   protocol switches to a feed-account read. Requires a program change.
+
+**Deliverables (TBD when trust model is locked):**
+- TEE worker image (or feed adapter) + deployment runbook.
+- Rotation tx that flips `authorized_oracle` to the new signer (or
+  the program upgrade for option 2).
+- README + architecture.md updated to reflect the chosen trust model.
+
+**Depends on:** Phase 18 (the operational surface is already in place;
+Phase 19 swaps the signer/feed underneath it).
+
+---
+
 ## Cross-cutting notes
 
 - **Phase boundaries are firm:** a phase is "done" only when its `Done when` checklist

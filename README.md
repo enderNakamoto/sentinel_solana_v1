@@ -160,6 +160,51 @@ pnpm dev:frontend:surfpool
 
 The faucet API route (`/api/faucet/mint`) auto-picks up `FAUCET_RPC_URL` from the same env, so server-side mints land on whichever cluster the frontend is using. The activity-log drawer (bottom-right) and BottomNav both display the active cluster name so it's obvious which environment the UI is talking to.
 
+### Cron control panel (Phases 17 + 18)
+
+`/crons` exposes manual triggers for **all three** crons (FlightDataFetcher, FlightClassifier, SettlementExecutor) against whichever cluster the frontend is currently configured for. The page polls run history every 10s and shows the live `ActiveFlightList` so it's obvious what the next tick would do.
+
+Three API routes back the page:
+
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/cron/[id]/trigger` | POST | Run one tick. `id ∈ {fetcher, classifier, settler}`. Returns `{ ok, summary, signatures, logs }`. The same `runFetcherOnce / runClassifierOnce / runSettlerOnce` helpers from `executor/src/core/` are reused — no duplicated cron logic. |
+| `/api/cron/runs` | GET | Recent run history. Optional `?cron=<id>&limit=N`. Reads `frontend/.cache-cron-runs.jsonl`. |
+| `/api/cron/active-flights` | GET | Reads the on-chain `ActiveFlightList` PDA + each entry's `FlightStatus`. |
+
+**Server-side keypair (all three crons)** — the routes load the cron signer keypair via this priority order:
+
+1. `CRON_KEEPER_BASE58` — base58-encoded 64-byte secret key (prod / hosted deploys).
+2. `CRON_KEEPER_PATH` — explicit path to a JSON keypair file, resolved from the repo root.
+3. Cluster default — `keys/surfpool-deployer.json` if `NEXT_PUBLIC_SOLANA_RPC_URL` points at `127.0.0.1`, else `keys/devnet-deployer.json`. The deployer is the controller + oracle owner; running both `NO_DNA=1 pnpm rotate-keeper --cluster <cluster>` and `NO_DNA=1 pnpm rotate-oracle --cluster <cluster>` once flips `ControllerConfig.authorized_keeper` and `OracleConfig.authorized_oracle` to the deployer pubkey so this single signer is accepted by `controller.{classify_flights,execute_settlements}` and `oracle_aggregator.{set_estimated_arrival,set_landed,set_cancelled}`. Override either with `--keeper <pubkey-or-path>` / `--oracle <pubkey-or-path>` to point at a different signer.
+
+**FlightDataFetcher (Phase 18) — AeroAPI env vars + UI toggle:**
+
+| Var | Required | Purpose |
+|---|---|---|
+| `AEROAPI_KEY` | live mode | FlightAware AeroAPI key — sets the `x-apikey` header. Drop into `frontend/.env.local` (gitignored). |
+| `AEROAPI_MOCK` | mock mode | Set to `1` to default the fetcher into mock mode (the in-process stub). |
+| `AEROAPI_MOCK_SCENARIO` | optional | Default mock scenario: `on_time` (default), `delayed`, `cancelled`, `scheduled`, `not_found`. |
+
+**Per-request override** — the `/crons` fetcher card has a Live/Mock toggle (and a scenario dropdown when Mock is selected). Clicking *Trigger now* appends `?mode=mock|live&scenario=...` to the request, so the operator can flip between paths **without restarting the dev server**. The Live button is disabled when no `AEROAPI_KEY` is detected. Programmatic equivalent:
+
+```bash
+# Force live mode (requires AEROAPI_KEY in env)
+curl -X POST 'http://localhost:3000/api/cron/fetcher/trigger?mode=live'
+
+# Force mock mode with the cancelled scenario
+curl -X POST 'http://localhost:3000/api/cron/fetcher/trigger?mode=mock&scenario=cancelled'
+```
+
+The fetcher route returns `400` if neither `AEROAPI_KEY` nor a mock override is configured, with an actionable error message.
+
+**Phase 19 (open) — trust-hardened oracle.** The current Phase 18 posture is **centralised**: a single off-chain cron signs as `authorized_oracle` from the same Render/Railway box. Phase 19 will swap this for a TEE-attested oracle (Switchboard On-Demand v2 SGX, Acurast mobile TEE) or a decentralised feed adapter. The on-chain surface stays unchanged — `OracleConfig.authorized_oracle` is already a swap-friendly indirection.
+
+**Caveats / posture:**
+- Trigger endpoints are **public-unauth** — same posture as `/api/faucet/mint`. Acceptable for devnet/demo. Mainnet rollout would need a shared-secret header or session check.
+- Run logs persist to a JSONL file (`frontend/.cache-cron-runs.jsonl`, gitignored, bounded to 100 records per cron). On Vercel/serverless deploys the filesystem is ephemeral, so the log resets on each cold start / redeploy. For longer-term retention, swap the `appendRun` / `readRecentRuns` impl in `frontend/src/lib/cron-runs.ts` for KV/Postgres behind the same interface.
+- Triggers run synchronously — concurrent button-mashing is rejected with HTTP 409. The `pnpm cron-daemon` background process remains the answer for "real" automated cadence; the UI is for ad-hoc operator pokes + auditing.
+
 ---
 
 ## Agent CLI conventions

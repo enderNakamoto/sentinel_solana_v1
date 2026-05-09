@@ -27,6 +27,9 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 14 | Frontend — Underwriter Dashboard      | complete      | `spec/phases/phase-14-frontend-underwriter.md` (completed 2026-05-08) |
 | 15 | Frontend — Traveler Dashboard         | complete      | `spec/phases/phase-15-frontend-traveler.md` (completed 2026-05-08) |
 | 16 | End-to-End Test (Browser)             | in_progress   | `spec/phases/phase-16-e2e-test.md` (started 2026-05-08)     |
+| 17 | Cron Control Panel (Classifier + Settler) | in_progress | `spec/phases/phase-17-cron-control-panel.md` (started 2026-05-08) |
+| 18 | FlightDataFetcher (Centralised Oracle) | in_progress   | `spec/phases/phase-18-fetcher-oracle-centralized.md` (started 2026-05-08) |
+| 19 | Trust-Hardened Oracle (TEE / decentralised) | not generated | — (planning open: Switchboard SGX / Acurast / feed adapter) |
 
 ## Current Pointer
 

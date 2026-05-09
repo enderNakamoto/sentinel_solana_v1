@@ -215,15 +215,25 @@ export async function runFetcherOnce(opts: RunFetcherOnceOpts): Promise<RunFetch
 }
 
 /**
- * Convert a `bigint` Unix-day index (the on-chain `FlightPool.date` field)
- * to an ISO `YYYY-MM-DD` calendar date for AeroAPI.
+ * Convert the on-chain `FlightPool.date` field to an ISO `YYYY-MM-DD`
+ * calendar date for AeroAPI.
  *
- * On-chain `date` is days-since-Unix-epoch (per the controller's
- * `flight_departure = date * SECONDS_PER_DAY`). To go to YYYY-MM-DD,
- * multiply by 86400 to get the day-start Unix seconds, build a Date,
- * and emit the date portion in UTC.
+ * Two encodings are tolerated because the contract treats `date` as an
+ * opaque PDA-seed component, and two callers chose differently:
+ *   - Phase 11 e2e + bootstrap-test-actors: days-since-Unix-epoch
+ *     (e.g. `20582`).
+ *   - Frontend `/buy`: Unix seconds (e.g. `1778284800`).
+ *
+ * Threshold: any value above 1_000_000 is treated as seconds. 1M days
+ * = year 4707; 1M seconds = Jan 12 1970. Both real-world flight dates
+ * fall comfortably on opposite sides of this line.
  */
 export function unixDayToIso(day: bigint): string {
-  const ms = Number(day) * 86_400 * 1000;
-  return new Date(ms).toISOString().slice(0, 10);
+  const n = Number(day);
+  const ms = n > 1_000_000 ? n * 1000 : n * 86_400 * 1000;
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) {
+    throw new Error(`unixDayToIso: bigint ${day} produced an invalid Date`);
+  }
+  return d.toISOString().slice(0, 10);
 }

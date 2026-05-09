@@ -180,15 +180,37 @@ function PoliciesTable({
   policies: MyPolicy[];
   onClaim: (p: MyPolicy) => Promise<void>;
 }) {
-  const active = policies.filter((p) => p.buyerRecord.hasPolicy && !p.buyerRecord.claimed);
-  const history = policies.filter((p) => p.buyerRecord.claimed);
+  // A policy is "active" when it still needs the buyer's attention OR
+  // hasn't been settled yet:
+  //   - pool.status === Active  → cron hasn't run / classified / settled
+  //   - pool.status === SettledDelayed / SettledCancelled with an
+  //     unclaimed, unexpired payoff → user must click Claim
+  // Everything else is history (on-time settlements, claimed payouts,
+  // expired claim windows). Note `BuyerRecord.claimed` never flips for
+  // on-time outcomes (no payout to claim), so it can't be the predicate
+  // for active vs history on its own.
+  const now = Date.now();
+  const isActive = (p: MyPolicy): boolean => {
+    if (!p.buyerRecord.hasPolicy) return false;
+    const status = statusName(p.pool.status as unknown as number);
+    if (status === 'Active') return true;
+    if (status === 'SettledDelayed' || status === 'SettledCancelled') {
+      const expiryMs = Number(p.pool.claimExpiry) * 1000;
+      const expired = expiryMs > 0 && now > expiryMs;
+      return !p.buyerRecord.claimed && !expired;
+    }
+    return false;
+  };
+
+  const active = policies.filter(isActive);
+  const history = policies.filter((p) => p.buyerRecord.hasPolicy && !isActive(p));
 
   return (
     <>
-      <Card title={`Active · ${active.length}`} hint="Live policies pending settlement.">
+      <Card title={`Active · ${active.length}`} hint="Pending settlement or unclaimed payout.">
         <PolicyList policies={active} onClaim={onClaim} />
       </Card>
-      <Card title={`History · ${history.length}`} hint="Settled or claimed policies.">
+      <Card title={`History · ${history.length}`} hint="Settled, claimed, or expired.">
         <PolicyList policies={history} onClaim={onClaim} />
       </Card>
     </>

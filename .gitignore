@@ -42,6 +42,9 @@ frontend/.cache-synpress/
 frontend/blob-report/
 frontend/playwright/.cache/
 
+# ─── Cron control panel (Phase 17) ───────────────────────────────
+frontend/.cache-cron-runs.jsonl
+
 # ─── Env files (commit only .env.example) ─────────────────────────
 .env
 .env.local

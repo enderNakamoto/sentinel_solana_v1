@@ -6,6 +6,7 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -18,7 +19,8 @@
     "paths": {
       "@/*": ["src/*"],
       "@/clients/*": ["src/clients/*"],
-      "@/idl/*": ["src/idl/*"]
+      "@/idl/*": ["src/idl/*"],
+      "@executor/*": ["../executor/src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
