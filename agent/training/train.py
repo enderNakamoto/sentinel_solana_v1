@@ -1,11 +1,14 @@
 """Train the XGBoost flight-delay classifier and persist serving artifacts.
 
-This is a port of the modelling cells in `refrence_models/model_1.ipynb`
-(notebook cells `0bb9cbd0`, `3136bf30`, `87b7ce66`, `13ec2e3c`, `2ef52595`).
-The notebook fits OneHotEncoder on `train + Kaggle_test` concatenated; this
-script fits OHE on training data only and relies on
-`handle_unknown="ignore"` for serving-time unseen categories. This is
-expected to shift validation ROC AUC by less than 0.005 vs the notebook.
+Source dataset: Kaggle "Flight Delays Fall 2018" competition
+(https://www.kaggle.com/competitions/flight-delays-fall-2018).
+
+This script ports the canonical XGBoost modelling pipeline for the
+dataset. The original Kaggle notebook fits OneHotEncoder on
+`train + Kaggle_test` concatenated; this script fits OHE on training
+data only and relies on `handle_unknown="ignore"` for serving-time
+unseen categories. This is expected to shift validation ROC AUC by less
+than 0.005 vs the notebook reference (~0.7497 / ~0.7540 valid / test).
 
 Run:
     cd agent && python -m training.train
@@ -116,7 +119,7 @@ def main() -> None:
     print()
     print(f"[train] Validation ROC AUC:    {valid_auc:.4f}")
     print(f"[train] Internal test ROC AUC: {test_auc:.4f}")
-    print("[train] Notebook reference (cells 2ef52595/ed3361da): ~0.7497 / ~0.7540")
+    print("[train] Notebook reference (Kaggle 2008 XGBoost): ~0.7497 / ~0.7540")
     print()
 
     # Persist artifacts.
