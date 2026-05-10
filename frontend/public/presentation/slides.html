@@ -509,8 +509,9 @@
         <!-- Executor (off-chain, single block) -->
         <rect x="340" y="16" width="280" height="68" rx="12"
               fill="#0d0d1f" stroke="#a98bff" stroke-width="2"/>
-        <text x="480" y="40" fill="#a98bff" font-size="12" font-family="monospace" text-anchor="middle">EXECUTOR (CRON JOBS)</text>
-        <text x="480" y="62" fill="#eef1f7" font-size="17" font-weight="800" text-anchor="middle">Fetcher + Classifier + Settler + Repricer</text>
+        <text x="480" y="38" fill="#a98bff" font-size="11" font-family="monospace" text-anchor="middle">EXECUTOR (CRON JOBS)</text>
+        <text x="480" y="58" fill="#eef1f7" font-size="14" font-weight="700" text-anchor="middle">Fetch &middot; Classify &middot; Settle &middot; Reprice</text>
+        <text x="480" y="76" fill="#b6becd" font-size="10" text-anchor="middle">4 keepers run the pipeline</text>
 
         <!-- Controller -->
         <rect x="350" y="160" width="260" height="72" rx="12"
@@ -620,8 +621,8 @@
         <rect x="30" y="30" width="220" height="56" rx="10" fill="rgba(255,181,71,0.06)" stroke="#ffb547" stroke-width="1.5"/>
         <text x="140" y="52" fill="#ffb547" font-size="10" font-family="monospace" text-anchor="middle">GOVERNANCE PROGRAM</text>
         <text x="140" y="72" fill="#eef1f7" font-size="14" font-weight="700" text-anchor="middle">Route Whitelisted</text>
-        <text x="268" y="58" fill="#ffb547" font-size="11" font-family="monospace">AA &middot; JFK&rarr;LAX</text>
-        <text x="268" y="74" fill="#b6becd" font-size="10">premium: $12 &middot; payoff: $150 &middot; delay: 3h</text>
+        <text x="268" y="58" fill="#ffb547" font-size="10" font-family="monospace">AA &middot; JFK&rarr;LAX</text>
+        <text x="268" y="74" fill="#b6becd" font-size="9">premium $12 &middot; payoff $150 &middot; delay 3h</text>
 
         <!-- STEP 2: Traveler buys -->
         <text x="30" y="114" fill="#b6becd" font-size="10" font-family="monospace">STEP 2 &mdash; PURCHASE</text>
@@ -647,7 +648,7 @@
         <path d="M 380 168 L 380 198" stroke="#7ee787" stroke-width="1.5" marker-end="url(#mf-arr-green)"/>
         <text x="392" y="188" fill="#7ee787" font-size="9" font-weight="700">NO</text>
         <rect x="320" y="200" width="180" height="50" rx="10" fill="rgba(126,231,135,0.06)" stroke="#7ee787" stroke-width="2"/>
-        <text x="410" y="218" fill="#7ee787" font-size="9" font-family="monospace" text-anchor="middle">REGISTER FLIGHT POOL PDA</text>
+        <text x="410" y="218" fill="#7ee787" font-size="9" font-family="monospace" text-anchor="middle">REGISTER PDA</text>
         <text x="410" y="236" fill="#eef1f7" font-size="14" font-weight="700" text-anchor="middle">New FlightPool</text>
 
         <path d="M 420 148 L 502 148" stroke="#5ee0d2" stroke-width="1.5" marker-end="url(#mf-arr-blue)"/>
@@ -683,7 +684,7 @@
 
         <path d="M 692 242 L 728 242" stroke="#5ee0d2" stroke-width="1.5" marker-end="url(#mf-arr-blue)" class="flowing-line"/>
         <rect x="730" y="220" width="200" height="44" rx="8" fill="rgba(94,224,210,0.06)" stroke="#5ee0d2" stroke-width="2"/>
-        <text x="830" y="236" fill="#5ee0d2" font-size="9" font-family="monospace" text-anchor="middle">set_estimated_arrival()</text>
+        <text x="830" y="236" fill="#5ee0d2" font-size="8" font-family="monospace" text-anchor="middle">set_estimated_arrival()</text>
         <text x="830" y="254" fill="#eef1f7" font-size="12" font-weight="700" text-anchor="middle">ETA written on-chain</text>
 
         <path d="M 785 158 L 785 200 L 830 218" stroke="#5ee0d2" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#mf-arr-blue)" class="flowing-line"/>
@@ -696,20 +697,20 @@
 
         <!-- Bottom flow -->
         <rect x="30" y="325" width="900" height="34" rx="8" fill="rgba(15,18,24,0.7)" stroke="#1e2533" stroke-width="1"/>
-        <text x="480" y="346" fill="#b6becd" font-size="11" text-anchor="middle">
-          <tspan fill="#ffb547" font-weight="700">Whitelist route</tspan>
-          <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#5ee0d2" font-weight="700">buy_insurance()</tspan>
-          <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#7ee787" font-weight="700">Register PDA</tspan>
-          <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#a98bff" font-weight="700">Register</tspan>
-          <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#ff5d6c" font-weight="700">Lock capital</tspan>
-          <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#5ee0d2" font-weight="700">Fetch ETA</tspan>
-          <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#7ee787" font-weight="700">Active</tspan>
+        <text x="480" y="346" fill="#b6becd" font-size="10" text-anchor="middle">
+          <tspan fill="#ffb547" font-weight="700">Whitelist</tspan>
+          <tspan dx="4">&#8594;</tspan>
+          <tspan dx="4" fill="#5ee0d2" font-weight="700">buy_insurance()</tspan>
+          <tspan dx="4">&#8594;</tspan>
+          <tspan dx="4" fill="#7ee787" font-weight="700">Register PDA</tspan>
+          <tspan dx="4">&#8594;</tspan>
+          <tspan dx="4" fill="#a98bff" font-weight="700">Init oracle</tspan>
+          <tspan dx="4">&#8594;</tspan>
+          <tspan dx="4" fill="#ff5d6c" font-weight="700">Lock capital</tspan>
+          <tspan dx="4">&#8594;</tspan>
+          <tspan dx="4" fill="#5ee0d2" font-weight="700">Fetch ETA</tspan>
+          <tspan dx="4">&#8594;</tspan>
+          <tspan dx="4" fill="#7ee787" font-weight="700">Active</tspan>
         </text>
 
         <defs>
@@ -829,7 +830,7 @@
         <text x="280" y="90" fill="#6b7385" font-size="12" font-weight="700">BA200</text>
         <text x="350" y="90" fill="#6b7385" font-size="10">NotInitiated</text>
         <text x="490" y="90" fill="#5a6478" font-size="10">ETA: &mdash;</text>
-        <text x="590" y="90" fill="#5a6478" font-size="10" font-style="italic">waiting for Fetcher to get ETA</text>
+        <text x="555" y="90" fill="#5a6478" font-size="9" font-style="italic">waiting for ETA</text>
 
         <!-- Entry 2: Active, ETA in future (waiting) -->
         <rect x="232" y="118" width="486" height="38" rx="6" fill="rgba(94,224,210,0.05)" stroke="rgba(94,224,210,0.3)" stroke-width="1.5">
@@ -840,7 +841,7 @@
         <text x="280" y="134" fill="#5ee0d2" font-size="12" font-weight="700">DL789</text>
         <text x="348" y="134" fill="#5ee0d2" font-size="10" font-weight="600">Active</text>
         <text x="490" y="134" fill="#5ee0d2" font-size="10">ETA: 18:00</text>
-        <text x="590" y="134" fill="#5a6478" font-size="10" font-style="italic">ETA not passed yet &mdash; waiting</text>
+        <text x="555" y="134" fill="#5a6478" font-size="9" font-style="italic">before ETA &mdash; waiting</text>
 
         <!-- Entry 3: Active, ETA+1h passed → API CALL -->
         <rect x="232" y="162" width="486" height="38" rx="6" fill="rgba(94,224,210,0.08)" stroke="#5ee0d2" stroke-width="2">
@@ -851,7 +852,7 @@
         <text x="280" y="178" fill="#5ee0d2" font-size="12" font-weight="700">AA123</text>
         <text x="348" y="178" fill="#5ee0d2" font-size="10" font-weight="600">Active</text>
         <text x="490" y="178" fill="#5ee0d2" font-size="10">ETA: 14:30</text>
-        <text x="590" y="178" fill="#eef1f7" font-size="10" font-weight="700">&#9654; CALLS API (ETA+1h passed)</text>
+        <text x="555" y="178" fill="#eef1f7" font-size="9" font-weight="700">&#9654; calls API (ETA+1h)</text>
 
         <!-- Entry 4: Landed (fetcher wrote actual arrival) -->
         <rect x="232" y="206" width="486" height="38" rx="6" fill="rgba(126,231,135,0.05)" stroke="rgba(126,231,135,0.3)" stroke-width="1.5"/>
@@ -860,7 +861,7 @@
         <text x="280" y="222" fill="#7ee787" font-size="12" font-weight="700">UA456</text>
         <text x="348" y="222" fill="#7ee787" font-size="10" font-weight="600">Landed</text>
         <text x="490" y="222" fill="#7ee787" font-size="10">actual: 16:45</text>
-        <text x="590" y="222" fill="#5a6478" font-size="10" font-style="italic">ready for Classifier</text>
+        <text x="555" y="222" fill="#5a6478" font-size="9" font-style="italic">ready for Classifier</text>
 
         <!-- Entry 5: ToBeSettled (classified, ready for settlement) -->
         <rect x="232" y="250" width="486" height="38" rx="6" fill="rgba(255,181,71,0.05)" stroke="rgba(255,181,71,0.3)" stroke-width="1.5"/>
@@ -868,7 +869,7 @@
         <text x="254" y="273" fill="#ffb547" font-size="10" text-anchor="middle">5</text>
         <text x="280" y="266" fill="#ffb547" font-size="12" font-weight="700">AF300</text>
         <text x="358" y="266" fill="#ffb547" font-size="10" font-weight="600">ToBeSettledDelayed</text>
-        <text x="590" y="266" fill="#5a6478" font-size="10" font-style="italic">ready for Settler</text>
+        <text x="555" y="266" fill="#5a6478" font-size="9" font-style="italic">ready for Settler</text>
 
         <!-- ═══ RIGHT: How flights exit ═══ -->
 
@@ -1147,83 +1148,76 @@
   <!-- ══════════════════════════════════════════════════ -->
   <section class="slide" id="s-agent">
     <div style="max-width:1060px; width:100%">
-      <div style="text-align:center; margin-bottom:20px">
-        <div class="tag" style="background:rgba(169,139,255,0.12); color:var(--stellar); margin-bottom:8px">Pricing Intelligence</div>
-        <h2 style="margin-top:10px">Routes price <em>themselves.</em></h2>
-        <p class="lead" style="margin:8px auto 0; text-align:center; max-width:780px">An <strong style="color:var(--white)">XGBoost</strong> classifier sets the base premium from <strong style="color:var(--white)">BTS</strong> historical delay data; a <strong style="color:var(--white)">Grok</strong> agent layers live disruption signals on top. The RouteRepricer cron applies the result via <code style="color:var(--white);font-family:monospace">governance.update_route_terms</code>.</p>
+      <div style="text-align:center; margin-bottom:22px">
+        <div class="tag" style="background:rgba(169,139,255,0.12); color:var(--stellar); margin-bottom:8px">The Pricing Brain</div>
+        <h2 style="margin-top:10px">Two layers. <em>Both</em> matter.</h2>
+        <p class="lead" style="margin:10px auto 0; text-align:center; max-width:760px; font-size:16px">A flight from JFK to LAX next Tuesday is fundamentally different from JFK to Tehran during a war. One number can't price both. So we use two layers &mdash; one looks backward, one looks forward.</p>
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:22px">
 
-        <!-- LEFT: XGBoost on BTS -->
-        <div class="card" style="border-color:rgba(94,224,210,0.35); padding:22px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:12px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128202;</div>
+        <!-- LEFT: The starting point — XGBoost on BTS -->
+        <div class="card" style="border-color:rgba(94,224,210,0.35); padding:24px">
+          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.14);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128218;</div>
             <div>
-              <div style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--blue); font-family:'JetBrains Mono',monospace">Base Layer</div>
-              <div style="font-size:18px; font-weight:800; color:var(--blue)">XGBoost on BTS data</div>
+              <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--blue); font-family:'JetBrains Mono',monospace">Layer 1 &mdash; The starting point</div>
+              <div style="font-size:19px; font-weight:800; color:var(--blue); margin-top:2px">What history says</div>
             </div>
           </div>
-          <div style="font-size:14px; color:#b6becd; line-height:1.55; margin-bottom:12px">
-            Trained on the U.S. Bureau of Transportation Statistics on-time-performance dataset. Predicts <code style="color:var(--white);font-family:monospace">P(delay &ge; 15min)</code> per (carrier, route, time, distance, day-of-week). Validation ROC AUC <strong style="color:var(--white)">0.7505</strong>; ported 1:1 from the reference notebook.
+          <div style="font-size:15px; color:#b6becd; line-height:1.6; margin-bottom:14px">
+            We trained an <strong style="color:var(--white)">XGBoost classifier</strong> on millions of past US flights from the Bureau of Transportation Statistics (<strong style="color:var(--white)">BTS</strong>). Tell it the carrier, route, time of day, and day of week &mdash; it tells you the chance the flight runs late.
           </div>
-          <div style="background:#0d1420; border:1px solid #1e2533; border-radius:8px; padding:12px; font-family:'JetBrains Mono',monospace; font-size:11px; color:#b6becd; line-height:1.55">
-            <div style="color:var(--blue)">POST /price</div>
-            <div style="color:#6b7385">{ flight_id, carrier, origin, dest,</div>
-            <div style="color:#6b7385">&nbsp;&nbsp;dep_hhmm, distance_mi, month, dow }</div>
-            <div style="color:#6b7385; margin-top:6px">&rarr; { p_delay: 0.31,</div>
-            <div style="color:#7ee787">&nbsp;&nbsp;&nbsp;&nbsp;premium_usdc: 2.24,</div>
-            <div style="color:#7ee787">&nbsp;&nbsp;&nbsp;&nbsp;premium_base_units: 2_240_000 }</div>
+          <div style="background:rgba(94,224,210,0.06); border:1px solid rgba(94,224,210,0.25); border-radius:8px; padding:14px 16px; line-height:1.6">
+            <div style="font-size:13px; color:#b6becd"><strong style="color:var(--blue)">Example.</strong> "Delta JFK&rarr;LAX, 9 AM weekday."</div>
+            <div style="font-size:13px; color:#b6becd; margin-top:6px">XGBoost says: 19% chance of being late.</div>
+            <div style="font-size:13px; color:var(--white); margin-top:10px; font-weight:600">Starting premium: <span style="color:var(--blue); font-family:'JetBrains Mono',monospace">$1.76</span> for a $10 payout.</div>
           </div>
-          <div style="margin-top:10px; font-size:11.5px; color:var(--muted); font-family:'JetBrains Mono',monospace">
-            premium = clamp(1 + 4&middot;p_delay, 1, 5) USDC
+          <div style="margin-top:12px; font-size:12px; color:var(--muted); line-height:1.5">
+            That's the fair baseline based on history alone &mdash; clamped to a $1&ndash;$5 range so cheap flights aren't free and expensive ones don't cost more than the payout itself.
           </div>
         </div>
 
-        <!-- RIGHT: Grok with Live Search -->
-        <div class="card" style="border-color:rgba(169,139,255,0.4); padding:22px; background:rgba(169,139,255,0.04)">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:12px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(169,139,255,0.18);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9889;</div>
+        <!-- RIGHT: The live signal — Grok agent -->
+        <div class="card" style="border-color:rgba(169,139,255,0.4); padding:24px; background:rgba(169,139,255,0.04)">
+          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(169,139,255,0.2);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#127758;</div>
             <div>
-              <div style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--stellar); font-family:'JetBrains Mono',monospace">Signal Layer</div>
-              <div style="font-size:18px; font-weight:800; color:var(--stellar)">Grok with Live Search</div>
+              <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--stellar); font-family:'JetBrains Mono',monospace">Layer 2 &mdash; What's happening now</div>
+              <div style="font-size:19px; font-weight:800; color:var(--stellar); margin-top:2px">What the world says today</div>
             </div>
           </div>
-          <div style="font-size:14px; color:#b6becd; line-height:1.55; margin-bottom:12px">
-            xAI Grok queries real-time news + weather for each route. Returns structured JSON via <code style="color:var(--white);font-family:monospace">response_format: json_schema</code> &mdash; a multiplier on the base premium plus a kill-switch when conditions are unsafe.
+          <div style="font-size:15px; color:#b6becd; line-height:1.6; margin-bottom:14px">
+            History doesn't know about today's hurricane, today's ATC strike, or today's war. So every day we ask <strong style="color:var(--white)">Grok</strong> &mdash; with live web search &mdash; what's happening on each route. It either nudges the premium up&hellip; or pulls the route entirely.
           </div>
-          <div style="background:#0d1420; border:1px solid #1e2533; border-radius:8px; padding:12px; font-family:'JetBrains Mono',monospace; font-size:11px; color:#b6becd; line-height:1.55">
-            <div style="color:var(--stellar)">prompt:</div>
-            <div style="color:#6b7385">&nbsp;&nbsp;"Will JFK&rarr;LAX face major</div>
-            <div style="color:#6b7385">&nbsp;&nbsp;&nbsp;weather/ATC disruption</div>
-            <div style="color:#6b7385">&nbsp;&nbsp;&nbsp;in next 24h?"</div>
-            <div style="color:var(--stellar); margin-top:6px">response_format:</div>
-            <div style="color:#7ee787">&nbsp;&nbsp;{ multiplier: 1.4,</div>
-            <div style="color:#ff5d6c">&nbsp;&nbsp;&nbsp;&nbsp;disable_route: false,</div>
-            <div style="color:#6b7385">&nbsp;&nbsp;&nbsp;&nbsp;reason: "winter storm" }</div>
+          <div style="background:rgba(169,139,255,0.06); border:1px solid rgba(169,139,255,0.25); border-radius:8px; padding:14px 16px; line-height:1.6">
+            <div style="font-size:13px; color:#b6becd"><strong style="color:var(--stellar)">Storm coming.</strong> JFK&rarr;LAX, blizzard forecast.</div>
+            <div style="font-size:13px; color:#b6becd; margin-top:4px">Grok: bump premium &times;1.4. <span style="color:var(--white); font-family:'JetBrains Mono',monospace">$1.76 &rarr; $2.46</span></div>
+            <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(169,139,255,0.18)"></div>
+            <div style="font-size:13px; color:#b6becd"><strong style="color:var(--red)">War zone.</strong> JFK&rarr;Tehran, active conflict.</div>
+            <div style="font-size:13px; color:#b6becd; margin-top:4px">Grok: <span style="color:var(--red); font-weight:700">disable route.</span> No new policies.</div>
           </div>
-          <div style="margin-top:10px; font-size:11.5px; color:var(--muted); font-family:'JetBrains Mono',monospace">
-            multiplier &isin; [0.8, 1.5] &middot; re-clamp $1&ndash;$5
+          <div style="margin-top:12px; font-size:12px; color:var(--muted); line-height:1.5">
+            Auto re-enables when the storm passes or the conflict cools. The cron only re-opens routes it disabled itself &mdash; never overrides a human admin's decision.
           </div>
         </div>
       </div>
 
       <!-- Bottom flow strip -->
-      <div style="margin-top:18px; padding:16px 20px; border:1px solid var(--border); border-radius:10px; background:rgba(15,18,24,0.5)">
-        <div style="font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); font-family:'JetBrains Mono',monospace; margin-bottom:10px">Daily execution</div>
-        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-family:'JetBrains Mono',monospace; font-size:13px">
+      <div style="margin-top:20px; padding:16px 22px; border:1px solid var(--border); border-radius:10px; background:rgba(15,18,24,0.5)">
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-family:'JetBrains Mono',monospace; font-size:13px">
           <span style="color:var(--blue); font-weight:700">BTS data</span>
           <span style="color:#6b7385">&rarr;</span>
           <span style="color:var(--blue); font-weight:700">XGBoost</span>
           <span style="color:#6b7385">&rarr;</span>
-          <span style="color:var(--stellar); font-weight:700">Grok agent</span>
+          <span style="color:var(--stellar); font-weight:700">Grok (live search)</span>
           <span style="color:#6b7385">&rarr;</span>
           <span style="color:var(--green); font-weight:700">RouteRepricer cron</span>
           <span style="color:#6b7385">&rarr;</span>
-          <span style="color:var(--yellow); font-weight:700">governance.update_route_terms</span>
+          <span style="color:var(--yellow); font-weight:700">on-chain governance update</span>
         </div>
         <div style="margin-top:10px; font-size:13px; color:var(--muted); line-height:1.55">
-          Idempotent: only re-enables routes the cron itself disabled. Drift threshold 100k base units (~$0.10) avoids tx spam. Disable on storm; auto re-enable when conditions clear.
+          Runs daily. Premium reflects both the long-run risk of the route <em>and</em> the conditions of the day &mdash; without ever leaving the $1&ndash;$5 band, or paying out more than $10.
         </div>
       </div>
     </div>

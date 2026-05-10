@@ -117,9 +117,7 @@ function ParamSlider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-1.5 rounded-full appearance-none cursor-pointer
-          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
-          [&::-webkit-slider-thumb]:rounded-full"
+        className="mc-slider w-full h-1.5 rounded-full appearance-none cursor-pointer"
         style={{
           accentColor: 'var(--cyan)',
           background: 'var(--line)',
@@ -299,6 +297,19 @@ export default function MonteCarloSimulator({
 
   return (
     <div className="w-full" style={{ color: 'var(--ink)' }}>
+      <style>{`
+        .mc-slider::-webkit-slider-thumb {
+          appearance: none; -webkit-appearance: none;
+          width: 16px; height: 16px; border-radius: 50%;
+          background: var(--cyan); border: 2px solid var(--bg-1);
+          box-shadow: 0 0 0 1px var(--cyan); cursor: pointer;
+        }
+        .mc-slider::-moz-range-thumb {
+          width: 16px; height: 16px; border-radius: 50%;
+          background: var(--cyan); border: 2px solid var(--bg-1);
+          box-shadow: 0 0 0 1px var(--cyan); cursor: pointer;
+        }
+      `}</style>
       {/* ─── Hero ─── */}
       {showHero && (
         <section className="max-w-6xl mx-auto px-6 pt-10 pb-8">
