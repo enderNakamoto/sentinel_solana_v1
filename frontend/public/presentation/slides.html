@@ -604,50 +604,51 @@
   <!-- ══════════════════════════════════════════════════ -->
   <section class="slide" id="s-oracle">
     <div style="max-width:1060px; width:100%">
-      <div style="text-align:center; margin-bottom:28px">
-        <div class="tag" style="background:rgba(126,231,135,0.1); color:var(--green); margin-bottom:8px">Oracle &amp; Executor</div>
-        <h2 style="margin-top:10px">Oracle Infrastructure &amp; Modular Executor</h2>
+      <div style="text-align:center; margin-bottom:24px">
+        <div class="tag" style="background:rgba(169,139,255,0.12); color:var(--stellar); margin-bottom:8px">Decentralised Oracle</div>
+        <h2 style="margin-top:10px">The Oracle runs on a <em>phone.</em></h2>
+        <p class="lead" style="margin:10px auto 0; text-align:center; max-width:760px">Sentinel's flight data oracle is deployed on <strong style="color:var(--white)">Acurast</strong> &mdash; a decentralised confidential compute network where the workers are real Android phones running attested TEEs.</p>
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
+      <div style="display:grid; grid-template-columns:1.1fr 1fr; gap:24px; margin-top:8px">
+
+        <div class="card" style="border-color:rgba(169,139,255,0.35); padding:24px; background:rgba(169,139,255,0.04)">
+          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(169,139,255,0.18);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">&#128241;</div>
+            <div style="font-size:19px; font-weight:800; color:var(--stellar)">Phone-as-TEE worker</div>
+          </div>
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
+            The Fetcher cron is a JS deployment shipped to Acurast's processor network. Each processor is a real Android phone with hardware-attested TrustZone execution &mdash; the operator cannot read, modify, or forge the oracle's signing key. The job runs, signs, and posts to Solana from inside the TEE.
+          </div>
+        </div>
 
         <div class="card" style="border-color:rgba(94,224,210,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128225;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--blue)">OracleAggregator Contract</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128274;</div>
+            <div style="font-size:19px; font-weight:800; color:var(--blue)">Attested signing key</div>
           </div>
           <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            Single source of truth for all flight data. Stores status, ETA, and actual arrival times. Decoupled from the Controller &mdash; any oracle can write, any contract can read.
+            <code style="color:var(--white);font-family:monospace">authorized_oracle</code> on <code style="color:var(--white);font-family:monospace">oracle_aggregator_program</code> is the Acurast deployment's TEE-resident keypair. Solana only accepts writes from a key that provably lives inside attested hardware.
           </div>
         </div>
 
         <div class="card" style="border-color:rgba(126,231,135,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(126,231,135,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9992;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--green)">Robust Flight State Machine</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(126,231,135,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#127760;</div>
+            <div style="font-size:19px; font-weight:800; color:var(--green)">No central operator</div>
           </div>
           <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            8-state deterministic lifecycle validated on-chain. Every transition is enforced &mdash; no invalid jumps, no ambiguity. Flights move from Active through to Settled with full auditability.
-          </div>
-        </div>
-
-        <div class="card" style="border-color:rgba(169,139,255,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(169,139,255,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--stellar)">Modular Executor Pipeline</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            4 independent cron jobs (keepers) that toggle flight states: fetch, classify, settle, and extend TTL. Each is swappable and independently deployable.
+            Anyone with an old Android phone can become a processor. The Acurast marketplace matches our deployment to a quorum of devices &mdash; Sentinel pays per execution, not per server. No AWS, no single keeper to bribe.
           </div>
         </div>
 
         <div class="card" style="border-color:rgba(255,181,71,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,181,71,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128737;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--yellow)">TEE-Hardened Oracle (Roadmap)</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,181,71,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
+            <div style="font-size:19px; font-weight:800; color:var(--yellow)">Same code, swappable host</div>
           </div>
           <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            Future hardening: TEE-attested signer (Switchboard On-Demand SGX) replaces the centralised cron with no on-chain changes &mdash; <code style="color:var(--white);font-family:monospace">authorized_oracle</code> is already a swap-friendly indirection.
+            The Fetcher's TS source is identical whether it runs locally, in CI, or on Acurast. <code style="color:var(--white);font-family:monospace">authorized_oracle</code> is a swap-friendly indirection &mdash; rotate the key, redeploy the Acurast job, no on-chain change required.
           </div>
         </div>
 
@@ -747,13 +748,14 @@
         <text x="860" y="60" fill="#ff5d6c" font-size="9" font-family="monospace" text-anchor="middle">execute_settlements()</text>
         <text x="860" y="76" fill="#ff5d6c" font-size="11" font-weight="700" text-anchor="middle">Removed from active list</text>
 
-        <!-- ═══ LEFT SIDE: Fetcher reads list ═══ -->
-        <rect x="20" y="130" width="150" height="56" rx="8" fill="rgba(94,224,210,0.06)" stroke="#5ee0d2" stroke-width="1.5"/>
-        <text x="95" y="150" fill="#5ee0d2" font-size="9" font-family="monospace" text-anchor="middle">CRON &middot; every 2h</text>
-        <text x="95" y="168" fill="#eef1f7" font-size="14" font-weight="700" text-anchor="middle">Fetcher</text>
+        <!-- ═══ LEFT SIDE: Fetcher reads list (deployed on Acurast TEE) ═══ -->
+        <rect x="20" y="130" width="150" height="56" rx="8" fill="rgba(169,139,255,0.08)" stroke="#a98bff" stroke-width="1.5"/>
+        <text x="95" y="148" fill="#a98bff" font-size="9" font-family="monospace" text-anchor="middle">ACURAST TEE &middot; 2h</text>
+        <text x="95" y="166" fill="#eef1f7" font-size="14" font-weight="700" text-anchor="middle">Fetcher</text>
+        <text x="95" y="180" fill="#b6becd" font-size="9" text-anchor="middle">&#128241; runs on phone</text>
 
         <!-- Arrow: Fetcher reads list -->
-        <path d="M 172 158 L 208 158" stroke="#5ee0d2" stroke-width="1.2" marker-end="url(#arr-blue)"/>
+        <path d="M 172 158 L 208 158" stroke="#a98bff" stroke-width="1.2" marker-end="url(#arr-stellar)"/>
 
         <!-- AeroAPI call annotation -->
         <rect x="20" y="200" width="150" height="40" rx="8" fill="#0d1420" stroke="#2a3040" stroke-width="1.2"/>
@@ -812,28 +814,32 @@
     </div>
     <div style="display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:20px; max-width:1060px; width:100%; height:auto">
 
-      <!-- Q1: FlightDataFetcher -->
-      <div class="card" style="border-color:rgba(94,224,210,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
+      <!-- Q1: FlightDataFetcher (deployed on Acurast TEE) -->
+      <div class="card" style="border-color:rgba(169,139,255,0.35); padding:24px; display:flex; flex-direction:column; gap:14px; background:rgba(169,139,255,0.04)">
         <div style="display:flex; align-items:center; justify-content:space-between">
           <div>
-            <div class="cron-freq" style="background:rgba(94,224,210,0.12); color:var(--blue); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 2h</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap">
+              <div class="cron-freq" style="background:rgba(94,224,210,0.12); color:var(--blue); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 2h</div>
+              <div class="cron-freq" style="background:rgba(169,139,255,0.18); color:var(--stellar); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">&#128241; ACURAST TEE</div>
+            </div>
             <div style="font-size:20px; font-weight:800; color:var(--blue); margin-top:8px">FlightDataFetcher</div>
           </div>
         </div>
         <svg viewBox="0 0 320 80" fill="none" style="width:100%;height:auto">
           <rect x="0" y="20" width="80" height="40" rx="8" fill="#0d1420" stroke="#2a3040" stroke-width="1.2"/>
           <text x="40" y="44" fill="#b6becd" font-size="11" font-weight="700" text-anchor="middle">AeroAPI</text>
-          <path d="M 82 40 L 128 40" stroke="#5ee0d2" stroke-width="1.5" marker-end="url(#arr-blue)" class="flowing-line"/>
-          <text x="105" y="34" fill="#5ee0d2" font-size="9" font-family="monospace" text-anchor="middle">HTTP</text>
-          <rect x="130" y="15" width="90" height="50" rx="8" fill="rgba(94,224,210,0.08)" stroke="#5ee0d2" stroke-width="1.5"/>
-          <text x="175" y="36" fill="#5ee0d2" font-size="10" font-weight="700" text-anchor="middle">Fetcher</text>
-          <text x="175" y="50" fill="#b6becd" font-size="9" text-anchor="middle">ETA + actual</text>
-          <path d="M 222 40 L 258 40" stroke="#5ee0d2" stroke-width="1.5" marker-end="url(#arr-blue)" class="flowing-line"/>
-          <text x="240" y="34" fill="#5ee0d2" font-size="9" font-family="monospace" text-anchor="middle">write</text>
+          <path d="M 82 40 L 128 40" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+          <text x="105" y="34" fill="#a98bff" font-size="9" font-family="monospace" text-anchor="middle">HTTP</text>
+          <rect x="130" y="15" width="90" height="50" rx="8" fill="rgba(169,139,255,0.1)" stroke="#a98bff" stroke-width="1.5"/>
+          <text x="175" y="32" fill="#a98bff" font-size="10" font-weight="700" text-anchor="middle">Fetcher</text>
+          <text x="175" y="46" fill="#b6becd" font-size="8" text-anchor="middle">ACURAST TEE</text>
+          <text x="175" y="58" fill="#b6becd" font-size="8" text-anchor="middle">&#128241; on phone</text>
+          <path d="M 222 40 L 258 40" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+          <text x="240" y="34" fill="#a98bff" font-size="9" font-family="monospace" text-anchor="middle">attest</text>
           <rect x="260" y="20" width="55" height="40" rx="8" fill="#12171f" stroke="#1e2533" stroke-width="1.2"/>
           <text x="288" y="44" fill="#b6becd" font-size="9" font-weight="700" text-anchor="middle">Oracle</text>
         </svg>
-        <div style="font-size:13px; color:var(--muted); line-height:1.5">Pulls flight data from FlightAware, writes arrival times on-chain.</div>
+        <div style="font-size:13px; color:var(--muted); line-height:1.5">Pulls flight data from FlightAware. Runs inside an attested TEE on the Acurast phone-processor network &mdash; signs with a key the operator can't extract.</div>
       </div>
 
       <!-- Q2: FlightClassifier -->
@@ -1002,62 +1008,6 @@
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <!-- SLIDE s-market — DELIVERABLE 02: Market + Governance  -->
-  <!-- ══════════════════════════════════════════════════ -->
-  <section class="slide" id="s-market">
-    <div style="max-width:1060px; width:100%">
-      <div style="text-align:center; margin-bottom:28px">
-        <div class="tag" style="background:rgba(126,231,135,0.1); color:var(--green); margin-bottom:8px">Markets &amp; Governance</div>
-        <h2 style="margin-top:10px">Automated Market Creation &amp; Modular Governance</h2>
-      </div>
-
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
-
-        <div class="card" style="border-color:rgba(94,224,210,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--blue)">controller.buy_insurance()</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            On first purchase for a flight, the controller auto-registers a new FlightPool PDA, initialises the OracleAggregator feed, and locks collateral from the vault_program &mdash; all in one transaction via 6 chained CPIs.
-          </div>
-        </div>
-
-        <div class="card" style="border-color:rgba(255,181,71,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,181,71,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128220;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--yellow)">governance_program</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            Modular program that whitelists routes with terms &mdash; premium, payout, and delay threshold per airline route. The controller reads these via cross-program invocation and enforces them on every purchase.
-          </div>
-        </div>
-
-        <div class="card" style="border-color:rgba(126,231,135,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(126,231,135,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128187;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--green)">React Frontend Integration</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            Flight search, route selection, premium payment, and purchase confirmation &mdash; all wired end-to-end to Solana programs via @solana/kit + Codama-generated typed clients.
-          </div>
-        </div>
-
-        <div class="card" style="border-color:rgba(169,139,255,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(169,139,255,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128279;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--stellar)">Auto-Sync Deployment</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            Frontend reads program IDs from <code style="color:var(--white);font-family:monospace">deployments/devnet-latest.json</code> on every build. Redeploy regenerates the file &mdash; no manual config edits.
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ══════════════════════════════════════════════════ -->
   <!-- SLIDE s-market-flow — Market Creation Flow            -->
   <!-- ══════════════════════════════════════════════════ -->
   <section class="slide" id="s-market-flow">
@@ -1181,62 +1131,6 @@
             <path d="M0,0 L0,6 L8,3 Z" fill="#6b7385"/></marker>
         </defs>
       </svg>
-    </div>
-  </section>
-
-  <!-- ══════════════════════════════════════════════════ -->
-  <!-- SLIDE s-testnet — Devnet + Test Coverage              -->
-  <!-- ══════════════════════════════════════════════════ -->
-  <section class="slide" id="s-testnet">
-    <div style="max-width:1060px; width:100%">
-      <div style="text-align:center; margin-bottom:28px">
-        <div class="tag" style="background:rgba(126,231,135,0.1); color:var(--green); margin-bottom:8px">Devnet</div>
-        <h2 style="margin-top:10px">Devnet Live &amp; Full Test Coverage</h2>
-      </div>
-
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
-
-        <div class="card" style="border-color:rgba(94,224,210,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128270;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--blue)">Unit Tests</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            <strong style="color:var(--white)">88 LiteSVM tests</strong> across all 5 programs &mdash; controller, vault, flight_pool, oracle_aggregator, governance. Every instruction tested with auth + edge cases.
-          </div>
-        </div>
-
-        <div class="card" style="border-color:rgba(126,231,135,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(126,231,135,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128279;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--green)">Integration Tests</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            Cross-program lifecycle on Surfpool: deploy &rarr; whitelist &rarr; deposit &rarr; buy_insurance &rarr; oracle write &rarr; classify &rarr; settle &rarr; claim/collect. 9 e2e flows + live devnet deploy.
-          </div>
-        </div>
-
-        <div class="card" style="border-color:rgba(255,181,71,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,181,71,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--yellow)">Executor Tests</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            <strong style="color:var(--white)">77 executor unit tests</strong> + 8 Surfpool e2e scenarios drive the real fetch / classify / settle / reprice crons against a parameterised mock AeroAPI &mdash; same response shape as the live API.
-          </div>
-        </div>
-
-        <div class="card" style="border-color:rgba(192,132,252,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(192,132,252,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128295;</div>
-            <div style="font-size:19px; font-weight:800; color:#c084fc">Automated Frontend Tests</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            Headless Playwright + <strong style="color:#c084fc">Synpress</strong> drive a real Phantom wallet against the live frontend. Every page smoke-tested; three flight-outcome flows (on-time, delayed, cancelled) covered end-to-end.
-          </div>
-        </div>
-
-      </div>
     </div>
   </section>
 
@@ -1404,18 +1298,16 @@
   // 1 = s1 (problem + fix)
   // 2 = s3 (architecture)
   // 3 = s4 (two sides)
-  // 4 = s-oracle (oracle + executor)
+  // 4 = s-oracle (Acurast TEE oracle on phones)
   // 5 = s-oracle-flow (oracle aggregator lifecycle)
   // 6 = s-crons (cron jobs)
   // 7 = s-states (state machine)
-  // 8 = s-market (markets + governance)
-  // 9 = s-market-flow (buy flow diagram)
-  // 10 = s-testnet (devnet + test coverage)
-  // 11 = s5 (solvency + FIFO) ← queue animation
-  // 12 = s-quant (Monte Carlo iframe)
+  // 8 = s-market-flow (buy flow diagram)
+  // 9 = s5 (solvency + FIFO) ← queue animation
+  // 10 = s-quant (Monte Carlo iframe)
 
   function onSlideEnter(idx) {
-    if (idx === 11) animateQueue();  // s5 = Solvency + FIFO
+    if (idx === 9) animateQueue();  // s5 = Solvency + FIFO
   }
 
   let queueAnimating = false;
