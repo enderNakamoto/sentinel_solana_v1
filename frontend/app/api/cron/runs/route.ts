@@ -22,7 +22,8 @@ export async function GET(req: Request) {
     if (
       cronParam !== 'classifier' &&
       cronParam !== 'settler' &&
-      cronParam !== 'fetcher'
+      cronParam !== 'fetcher' &&
+      cronParam !== 'repricer'
     ) {
       return NextResponse.json(
         { ok: false, error: `Unknown cron id: ${cronParam}` },

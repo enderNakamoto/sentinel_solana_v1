@@ -16,7 +16,25 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-export type CronId = 'classifier' | 'settler' | 'fetcher';
+export type CronId = 'classifier' | 'settler' | 'fetcher' | 'repricer';
+
+/** Per-route decision detail recorded by the Phase 23 repricer cron. */
+export interface RepricerDecision {
+  routePda: string;
+  flightId: string;
+  origin: string;
+  destination: string;
+  carrier: string;
+  baselinePremiumBaseUnits: string;
+  baselinePremiumUsdc: number;
+  grokAction: string;
+  grokMultiplier: number;
+  grokReason: string;
+  action: unknown; // SerializedRouteAction from executor — kept as unknown here
+                   // so this lib stays decoupled from executor types.
+  txSignature?: string;
+  error?: string;
+}
 
 export interface CronRunRecord {
   /** Random per-record identifier (lets the UI key list items stably). */
@@ -33,6 +51,7 @@ export interface CronRunRecord {
    * Single concise human-readable summary line. Per the Phase 17 spec
    * this is what the activity feed renders by default — keep it tight.
    *  - OK: "3 acted, 5 skipped"  /  "0 settleable"
+   *  - REPRICER: "5 noop · 2 update · 1 disable · 0 reenable"
    *  - FAILED: "tx failed: insufficient funds for rent"
    */
   summary: string;
@@ -42,6 +61,16 @@ export interface CronRunRecord {
   logs: string;
   /** Concise error message when ok=false (mirror of summary's tail). */
   error?: string;
+
+  // ─── Phase 23 repricer-specific fields (optional on every record) ──
+  /** Per-route decisions; populated for repricer runs only. */
+  decisions?: RepricerDecision[];
+  /** Histogram of action kinds; populated for repricer runs only. */
+  histogram?: { noop: number; update: number; disable: number; reenable: number };
+  /** Routes newly disabled by THIS run — drives the re-enable gate. */
+  newlyDisabledPdas?: string[];
+  /** True when the run was a dry-run (no on-chain txs sent). */
+  dryRun?: boolean;
 }
 
 const RECORDS_PER_CRON = 100;
@@ -112,14 +141,20 @@ export function appendRun(record: CronRunRecord): void {
     classifier: [],
     settler: [],
     fetcher: [],
+    repricer: [],
   };
   for (const r of all) {
-    if (r.cron === 'classifier' || r.cron === 'settler' || r.cron === 'fetcher') {
+    if (
+      r.cron === 'classifier' ||
+      r.cron === 'settler' ||
+      r.cron === 'fetcher' ||
+      r.cron === 'repricer'
+    ) {
       keptByCron[r.cron].push(r);
     }
   }
   let didTrim = false;
-  for (const cronId of ['classifier', 'settler', 'fetcher'] as const) {
+  for (const cronId of ['classifier', 'settler', 'fetcher', 'repricer'] as const) {
     if (keptByCron[cronId].length > RECORDS_PER_CRON) {
       keptByCron[cronId] = keptByCron[cronId].slice(-RECORDS_PER_CRON);
       didTrim = true;
@@ -130,6 +165,7 @@ export function appendRun(record: CronRunRecord): void {
       ...keptByCron.classifier,
       ...keptByCron.settler,
       ...keptByCron.fetcher,
+      ...keptByCron.repricer,
     ].sort((a, b) => a.ts.localeCompare(b.ts));
     writeFileSync(path, merged.map((r) => JSON.stringify(r)).join('\n') + '\n');
   }
@@ -147,6 +183,22 @@ export function readRecentRuns(
   const all = readAllLines(path);
   const filtered = cron ? all.filter((r) => r.cron === cron) : all;
   return filtered.slice(-limit).reverse();
+}
+
+/**
+ * Walk recent repricer records and return the union of all
+ * `newlyDisabledPdas` — used by the next run's re-enable gate
+ * (D23-1: only re-enable routes that this cron previously disabled).
+ */
+export function readDisabledByRepricer(maxRecords = 50): Set<string> {
+  const recent = readRecentRuns('repricer', maxRecords);
+  const acc = new Set<string>();
+  for (const r of recent) {
+    if (Array.isArray(r.newlyDisabledPdas)) {
+      for (const pda of r.newlyDisabledPdas) acc.add(pda);
+    }
+  }
+  return acc;
 }
 
 /** Generate a short random id for a record. */

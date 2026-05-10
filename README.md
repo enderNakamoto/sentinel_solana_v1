@@ -162,15 +162,23 @@ pnpm dev:frontend:surfpool
 
 The faucet API route (`/api/faucet/mint`) auto-picks up `FAUCET_RPC_URL` from the same env, so server-side mints land on whichever cluster the frontend is using. The activity-log drawer (bottom-right) and BottomNav both display the active cluster name so it's obvious which environment the UI is talking to.
 
-### Cron control panel (Phases 17 + 18)
+### Cron control panel (Phases 17 + 18 + 23)
 
-`/crons` exposes manual triggers for **all three** crons (FlightDataFetcher, FlightClassifier, SettlementExecutor) against whichever cluster the frontend is currently configured for. The page polls run history every 10s and shows the live `ActiveFlightList` so it's obvious what the next tick would do.
+`/crons` exposes manual triggers for **all four** crons against whichever cluster the frontend is currently configured for. The page polls run history every 10s and shows the live `ActiveFlightList` so it's obvious what the next tick would do.
 
-Three API routes back the page:
+The four crons:
+- **FlightDataFetcher** — AeroAPI → `oracle_aggregator_program` (Phase 8/18).
+- **FlightClassifier** — `controller.classify_flights` (Phase 9/17).
+- **SettlementExecutor** — `controller.execute_settlements` (Phase 10/17).
+- **RouteRepricer** *(new in Phase 23)* — for each whitelisted route: Phase 22 agent baseline premium + Grok geopolitical signal → `update_route_terms` / `disable_route` / idempotent `whitelist_route` re-enable.
+
+API routes:
 
 | Route | Method | Purpose |
 |---|---|---|
 | `/api/cron/[id]/trigger` | POST | Run one tick. `id ∈ {fetcher, classifier, settler}`. Returns `{ ok, summary, signatures, logs }`. The same `runFetcherOnce / runClassifierOnce / runSettlerOnce` helpers from `executor/src/core/` are reused — no duplicated cron logic. |
+| `/api/cron/repricer/trigger` | POST | Run one repricer tick. Returns the same envelope plus `{ decisions, histogram, newlyDisabledPdas, dryRun }`. Sibling to `[id]/trigger` because the per-route iteration shape is materially different. |
+| `/api/cron/repricer/config` | GET | Reports `liveAvailable` (XAI_API_KEY set), `agentReachable` (1s healthcheck), `agentBaseUrl`, `defaultMode`, `defaultGrokVerdict`. |
 | `/api/cron/runs` | GET | Recent run history. Optional `?cron=<id>&limit=N`. Reads `frontend/.cache-cron-runs.jsonl`. |
 | `/api/cron/active-flights` | GET | Reads the on-chain `ActiveFlightList` PDA + each entry's `FlightStatus`. |
 
@@ -199,6 +207,30 @@ curl -X POST 'http://localhost:3000/api/cron/fetcher/trigger?mode=mock&scenario=
 ```
 
 The fetcher route returns `400` if neither `AEROAPI_KEY` nor a mock override is configured, with an actionable error message.
+
+**RouteRepricer (Phase 23) — agent + Grok env vars + UI toggle:**
+
+| Var | Required | Purpose |
+|---|---|---|
+| `AGENT_BASE_URL` | live agent | Phase 22 agent endpoint (e.g. `http://localhost:8000`). The repricer pre-flights `GET ${AGENT_BASE_URL}/healthz` before iterating routes; 503 on failure. |
+| `XAI_API_KEY` | live grok | xAI Grok API key — sets the `Authorization: Bearer …` header. Drop into `frontend/.env.local` (gitignored). Live mode uses `model: "grok-4"` + Live Search (`sources: [{ type: "news" }]`) + structured JSON outputs. |
+| `AGENT_MOCK` | mock agent | Set to `1` to bypass HTTP and use a fixed-premium fixture. Useful for grok-only demos. |
+| `AGENT_MOCK_PREMIUM_USDC` | optional | Fixed premium returned in mock-agent mode. Default `2.5`. |
+| `GROK_MOCK` | mock grok | Set to `1` to bypass xAI and use a pinned verdict fixture. |
+| `GROK_MOCK_VERDICT` | optional | Mock verdict spec: `ok` (default), `raise:1.5`, `raise:2.0`, `disable`. |
+| `REPRICER_DRY_RUN` | optional | Set to `1` to globally force dry-run (decide actions, skip on-chain txs). The `/crons` UI also exposes a per-request 💭 dry-run checkbox. |
+
+**Per-request override** — the `/crons` repricer card has a Live/Mock toggle, a verdict dropdown when Mock is selected, and a 💭 dry-run checkbox. Clicking *Trigger now* appends `?mode=mock|live&dryRun=1` to the request, so the operator can flip without restarting. Live mode requires both `XAI_API_KEY` and a reachable `AGENT_BASE_URL`. Programmatic equivalent:
+
+```bash
+# Force live mode (requires XAI_API_KEY + reachable AGENT_BASE_URL)
+curl -X POST 'http://localhost:3000/api/cron/repricer/trigger?mode=live'
+
+# Mock mode + dry-run + force a "disable all routes" verdict for the demo
+GROK_MOCK_VERDICT=disable curl -X POST 'http://localhost:3000/api/cron/repricer/trigger?mode=mock&dryRun=1'
+```
+
+The repricer route returns `400` if neither path is configured, `503` if `AGENT_BASE_URL` is set but unreachable, `409` if another tick is in flight. Grok failures (5xx, timeout, invalid JSON) silently fall back to a safe-default verdict — they never block the run. The activity feed renders the per-route decision list (route, baseline, Grok action, on-chain action, tx signature, Grok reason) in "View log" so the demo can show *why* each route moved.
 
 **Phase 19 (open) — trust-hardened oracle.** The current Phase 18 posture is **centralised**: a single off-chain cron signs as `authorized_oracle` from the same Render/Railway box. Phase 19 will swap this for a TEE-attested oracle (Switchboard On-Demand v2 SGX, Acurast mobile TEE) or a decentralised feed adapter. The on-chain surface stays unchanged — `OracleConfig.authorized_oracle` is already a swap-friendly indirection.
 

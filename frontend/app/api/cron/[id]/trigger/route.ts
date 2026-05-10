@@ -64,10 +64,14 @@ export const runtime = 'nodejs';
 
 // ─── Per-cron mutex (process-local) ──────────────────────────────────────
 
+// Phase 23 added 'repricer' to CronId. The repricer trigger is a sibling
+// route at /api/cron/repricer/trigger (NOT this one), so this map's
+// 'repricer' slot is unused — present only to satisfy the typed Record.
 const RUNNING: Record<CronId, boolean> = {
   classifier: false,
   settler: false,
   fetcher: false,
+  repricer: false,
 };
 
 // ─── Compute-budget hand-roll ────────────────────────────────────────────

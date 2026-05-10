@@ -7,13 +7,14 @@ claims; **travelers** pay a premium to receive a fixed payoff if their flight is
 beyond a configurable threshold (per-route `delay_hours`). All programs are written in
 **Rust** using the **Anchor** framework and compiled to Solana BPF bytecode.
 
-The system requires three off-chain cron jobs to keep ticking:
+The system requires four off-chain cron jobs to keep ticking:
 
 | Cron | Name | Frequency | Purpose |
 |------|------|-----------|---------|
 | #1 | **FlightDataFetcher** | Every 2 hours | Fetches flight data from AeroAPI, writes estimated/actual arrival times to `FlightData` accounts on `oracle_aggregator_program`. Signed by `authorized_oracle`. |
 | #2 | **FlightClassifier** | Every 1 hour | Calls `controller_program.classify_flights()` — reads FlightData + FlightPool, decides `ToBeSettled*`, writes via CPI to oracle. No money movement. Signed by `authorized_keeper`. |
 | #3 | **SettlementExecutor** | Every 5 minutes | Calls `controller_program.execute_settlements()` — executes money movement, transitions FlightData to `Settled` via CPI to oracle, drains withdrawal queue, snapshots share price. Signed by `authorized_keeper`. |
+| #4 | **RouteRepricer** *(Phase 23)* | On-demand (daily target) | For each whitelisted `RouteAccount`: fetches a baseline premium from the Phase 22 agent (XGBoost on Kaggle 2008 flight delays), asks Grok (xAI Live Search) for a geopolitical risk verdict, then applies `update_route_terms` / `disable_route` / idempotent `whitelist_route` re-enable. Signed by `GovernanceConfig.owner`. Centralised POC. |
 
 These run inside a modular **Executor Backend** that is fully swappable. The programs
 enforce authorization via Anchor `Signer` checks against stored authorized addresses — they
@@ -757,8 +758,10 @@ with `ControllerConfig` PDA seeds.
 
 ## Off-Chain Executor Layer (Modular)
 
-The protocol needs three off-chain cron jobs. All are **backend-agnostic** — the programs
-enforce authorization via Anchor `Signer` checks against stored authorized addresses.
+The protocol needs four off-chain cron jobs. All are **backend-agnostic** — the
+programs enforce authorization via Anchor `Signer` checks against stored
+authorized addresses (`authorized_oracle`, `authorized_keeper`,
+`GovernanceConfig.owner`).
 
 ### Cron Job Summary
 
@@ -767,6 +770,20 @@ enforce authorization via Anchor `Signer` checks against stored authorized addre
 | #1 | **FlightDataFetcher** | Every 2 hours | `oracle_aggregator_program` (`set_estimated_arrival`, `set_landed`, `set_cancelled`) | `authorized_oracle` |
 | #2 | **FlightClassifier** | Every 1 hour | `controller_program.classify_flights()` (CPIs to oracle to write `set_to_be_settled`) | `authorized_keeper` |
 | #3 | **SettlementExecutor** | Every 5 minutes | `controller_program.execute_settlements()` (CPIs to vault, flight_pool, oracle) | `authorized_keeper` |
+| #4 | **RouteRepricer** *(Phase 23)* | On-demand (daily target) | `governance_program` (`update_route_terms`, `disable_route`, idempotent `whitelist_route`) | `GovernanceConfig.owner` |
+
+**Cron #4 trust assumption:** the RouteRepricer is a centralised POC. It depends
+on two off-chain services it talks to before signing:
+- The **Phase 22 premium-pricing agent** (`agent/`, FastAPI + XGBoost) for a
+  baseline premium per route.
+- **xAI Grok** (Live Search news mode + structured JSON outputs) for a
+  geopolitical risk verdict (`ok` / `raise:<mult>` / `disable`).
+
+The cron never throws on either dependency — agent failures skip the route,
+Grok failures fall back to the safe-default verdict (`ok`, multiplier 1.0).
+Re-enabling a previously-disabled route is gated to routes that THIS cron
+disabled (tracked in the JSONL log) so the cron cannot unilaterally
+override a manual `/admin` operator decision.
 
 ### Cron #1 — FlightDataFetcher (Oracle, every 2 hours)
 
