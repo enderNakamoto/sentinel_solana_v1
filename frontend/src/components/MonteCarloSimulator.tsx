@@ -1,0 +1,1012 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+
+import {
+  DEFAULT_PARAMS,
+  computeYieldAtP,
+  runSimulation,
+  type SimulationParams,
+} from '@/lib/monteCarlo';
+
+// Frontend palette literals — Recharts SVG attributes don't resolve CSS
+// vars, so the chart needs concrete hex. Everything outside the chart
+// uses var(--*) tokens via inline style.
+const COLOR = {
+  cyan: '#5ee0d2',
+  green: '#7ee787',
+  amber: '#ffb547',
+  red: '#ff5d6c',
+  line: '#1e2533',
+  ink: '#eef1f7',
+  ink2: '#b6becd',
+  ink3: '#6b7385',
+  bg1: '#0b0f17',
+} as const;
+
+// ─── Sub-components ──────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  color,
+  subtext,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  subtext?: string;
+}) {
+  return (
+    <div
+      className="rounded-xl p-5"
+      style={{
+        background: 'var(--bg-1)',
+        border: '1px solid var(--line)',
+      }}
+    >
+      <p
+        className="text-[11px] uppercase mb-1.5"
+        style={{
+          letterSpacing: '0.15em',
+          color: 'var(--ink-3)',
+        }}
+      >
+        {label}
+      </p>
+      <p
+        className="text-2xl font-bold"
+        style={{ color, fontFamily: 'var(--mono)' }}
+      >
+        {value}
+      </p>
+      {subtext && (
+        <p className="text-xs mt-1" style={{ color: 'var(--ink-3)' }}>
+          {subtext}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ParamSlider({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  format,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  format: (v: number) => string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-baseline">
+        <label className="text-xs" style={{ color: 'var(--ink-3)' }}>
+          {label}
+        </label>
+        <span
+          className="text-sm"
+          style={{ color: 'var(--ink)', fontFamily: 'var(--mono)' }}
+        >
+          {format(value)}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full h-1.5 rounded-full appearance-none cursor-pointer
+          [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
+          [&::-webkit-slider-thumb]:rounded-full"
+        style={{
+          accentColor: 'var(--cyan)',
+          background: 'var(--line)',
+        }}
+      />
+    </div>
+  );
+}
+
+function FormulaCard({
+  tag,
+  formula,
+  description,
+  color,
+}: {
+  tag: string;
+  formula: string;
+  description: string;
+  color: 'cyan' | 'green' | 'amber';
+}) {
+  // Soft tinted backgrounds keyed off the accent.
+  const tints: Record<typeof color, { bg: string; border: string; ink: string }> = {
+    cyan: {
+      bg: 'rgba(94,224,210,0.06)',
+      border: 'rgba(94,224,210,0.30)',
+      ink: 'var(--cyan)',
+    },
+    green: {
+      bg: 'rgba(126,231,135,0.06)',
+      border: 'rgba(126,231,135,0.30)',
+      ink: 'var(--green)',
+    },
+    amber: {
+      bg: 'rgba(255,181,71,0.06)',
+      border: 'rgba(255,181,71,0.30)',
+      ink: 'var(--amber)',
+    },
+  };
+  const t = tints[color];
+  return (
+    <div
+      className="rounded-xl border p-6"
+      style={{ background: t.bg, borderColor: t.border }}
+    >
+      <p
+        className="text-[11px] uppercase mb-3"
+        style={{ letterSpacing: '0.15em', color: t.ink }}
+      >
+        {tag}
+      </p>
+      <p
+        className="text-lg"
+        style={{ color: 'var(--ink)', fontFamily: 'var(--mono)' }}
+      >
+        {formula}
+      </p>
+      <p className="text-sm mt-3" style={{ color: 'var(--ink-3)' }}>
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function InsightCard({
+  title,
+  body,
+  color,
+}: {
+  title: string;
+  body: string;
+  color: 'cyan' | 'green' | 'amber' | 'red';
+}) {
+  const tints: Record<typeof color, { bg: string; border: string }> = {
+    cyan: { bg: 'rgba(94,224,210,0.06)', border: 'rgba(94,224,210,0.30)' },
+    green: { bg: 'rgba(126,231,135,0.06)', border: 'rgba(126,231,135,0.30)' },
+    amber: { bg: 'rgba(255,181,71,0.06)', border: 'rgba(255,181,71,0.30)' },
+    red: { bg: 'rgba(255,93,108,0.06)', border: 'rgba(255,93,108,0.30)' },
+  };
+  const t = tints[color];
+  return (
+    <div
+      className="rounded-xl border p-5"
+      style={{ background: t.bg, borderColor: t.border }}
+    >
+      <p
+        className="text-sm font-semibold mb-2"
+        style={{ color: 'var(--ink)' }}
+      >
+        {title}
+      </p>
+      <p
+        className="text-sm leading-relaxed"
+        style={{ color: 'var(--ink-3)' }}
+      >
+        {body}
+      </p>
+    </div>
+  );
+}
+
+function ChartTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: { binCenter: number; count: number } }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const data = payload[0].payload;
+  return (
+    <div
+      className="rounded-lg px-3 py-2 text-xs shadow-lg"
+      style={{
+        background: 'var(--bg-1)',
+        border: '1px solid var(--line)',
+      }}
+    >
+      <p style={{ color: 'var(--ink)', fontFamily: 'var(--mono)' }}>
+        Yield: {data.binCenter.toFixed(1)}%
+      </p>
+      <p style={{ color: 'var(--ink-3)' }}>{data.count} simulations</p>
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────────────────
+
+interface MonteCarloSimulatorProps {
+  /** Show the long-form Methodology / How It Works / Insights blocks. Default true. */
+  expanded?: boolean;
+  /** Show the top hero (eyebrow + h1 + lead). Default true. */
+  showHero?: boolean;
+}
+
+export default function MonteCarloSimulator({
+  expanded = true,
+  showHero = true,
+}: MonteCarloSimulatorProps = {}) {
+  const [params, setParams] = useState<SimulationParams>(DEFAULT_PARAMS);
+  const [protocolFeeRate, setProtocolFeeRate] = useState(0.05);
+  const [protocolCapital, setProtocolCapital] = useState(50000);
+
+  const update = (key: keyof SimulationParams, value: number) => {
+    setParams((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const result = useMemo(() => runSimulation(params), [params]);
+
+  const protocolEarnings = useMemo(() => {
+    const totalPremiums = params.numPolicies * params.premium;
+    const feeIncome = totalPremiums * protocolFeeRate;
+    const vaultYieldPct = result.meanYield / 100;
+    const vaultIncome = protocolCapital * vaultYieldPct;
+    const totalEarnings = feeIncome + vaultIncome;
+    return { totalPremiums, feeIncome, vaultIncome, totalEarnings, vaultYieldPct };
+  }, [params, protocolFeeRate, protocolCapital, result.meanYield]);
+
+  const sensitivityPoints = [0.01, 0.03, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3].filter(
+    (p) => p <= params.pMax + 0.05,
+  );
+
+  const sensitivityData = useMemo(
+    () =>
+      sensitivityPoints.map((p) => ({
+        delay: p,
+        yield: computeYieldAtP(
+          params.premium,
+          params.payout,
+          params.numPolicies,
+          params.capital,
+          p,
+        ),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [params],
+  );
+
+  return (
+    <div className="w-full" style={{ color: 'var(--ink)' }}>
+      {/* ─── Hero ─── */}
+      {showHero && (
+        <section className="max-w-6xl mx-auto px-6 pt-10 pb-8">
+          <p
+            className="text-[11px] uppercase mb-3"
+            style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+          >
+            Quantitative Analysis
+          </p>
+          <h1
+            className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4"
+            style={{ color: 'var(--ink)' }}
+          >
+            Monte Carlo Simulation
+          </h1>
+          <p
+            className="text-base md:text-lg leading-relaxed max-w-2xl"
+            style={{ color: 'var(--ink-2)' }}
+          >
+            Modeling underwriter yield and protocol earnings for parametric flight
+            delay insurance. Adjust the parameters below to explore how premiums,
+            payouts, policy volume, and delay probabilities affect returns.
+          </p>
+        </section>
+      )}
+
+      {/* ─── Key Stats ─── */}
+      <section className="max-w-6xl mx-auto px-6 pb-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard
+            label="Average Yield"
+            value={`${result.meanYield >= 0 ? '+' : ''}${result.meanYield.toFixed(1)}%`}
+            color="var(--cyan)"
+            subtext="Mean across all trials"
+          />
+          <StatCard
+            label="Worst Case (5th %ile)"
+            value={`${result.percentile5 >= 0 ? '+' : ''}${result.percentile5.toFixed(1)}%`}
+            color={result.percentile5 >= 0 ? 'var(--amber)' : 'var(--red)'}
+            subtext="5% of outcomes are worse"
+          />
+          <StatCard
+            label="Best Case (95th %ile)"
+            value={`+${result.percentile95.toFixed(1)}%`}
+            color="var(--green)"
+            subtext="5% of outcomes are better"
+          />
+          <StatCard
+            label="Profit Probability"
+            value={`${result.profitProbability.toFixed(1)}%`}
+            color={
+              result.profitProbability >= 90
+                ? 'var(--green)'
+                : result.profitProbability >= 50
+                  ? 'var(--amber)'
+                  : 'var(--red)'
+            }
+            subtext="Chance of positive return"
+          />
+        </div>
+      </section>
+
+      {/* ─── Interactive Panel ─── */}
+      <section className="max-w-6xl mx-auto px-6 pb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+          {/* Controls */}
+          <div
+            className="rounded-xl p-5 space-y-6"
+            style={{
+              background: 'var(--bg-1)',
+              border: '1px solid var(--line)',
+            }}
+          >
+            <div>
+              <p
+                className="text-[11px] uppercase mb-4"
+                style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+              >
+                Policy Terms
+              </p>
+              <div className="space-y-4">
+                <ParamSlider
+                  label="Premium (π)"
+                  value={params.premium}
+                  onChange={(v) => update('premium', v)}
+                  min={1}
+                  max={50}
+                  step={1}
+                  format={(v) => `$${v}`}
+                />
+                <ParamSlider
+                  label="Payout (λ)"
+                  value={params.payout}
+                  onChange={(v) => update('payout', v)}
+                  min={50}
+                  max={500}
+                  step={10}
+                  format={(v) => `$${v}`}
+                />
+              </div>
+            </div>
+
+            <div>
+              <p
+                className="text-[11px] uppercase mb-4"
+                style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+              >
+                Scale
+              </p>
+              <div className="space-y-4">
+                <ParamSlider
+                  label="Policies Sold (M)"
+                  value={params.numPolicies}
+                  onChange={(v) => update('numPolicies', v)}
+                  min={100}
+                  max={50000}
+                  step={100}
+                  format={(v) => v.toLocaleString()}
+                />
+                <ParamSlider
+                  label="Capital (C)"
+                  value={params.capital}
+                  onChange={(v) => update('capital', v)}
+                  min={10000}
+                  max={1000000}
+                  step={10000}
+                  format={(v) => `$${v.toLocaleString()}`}
+                />
+              </div>
+            </div>
+
+            <div>
+              <p
+                className="text-[11px] uppercase mb-4"
+                style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+              >
+                Delay Probability Range
+              </p>
+              <div className="space-y-4">
+                <ParamSlider
+                  label="Min Delay Rate"
+                  value={params.pMin}
+                  onChange={(v) => update('pMin', v)}
+                  min={0.01}
+                  max={0.15}
+                  step={0.01}
+                  format={(v) => `${(v * 100).toFixed(0)}%`}
+                />
+                <ParamSlider
+                  label="Max Delay Rate"
+                  value={params.pMax}
+                  onChange={(v) => update('pMax', v)}
+                  min={0.1}
+                  max={0.4}
+                  step={0.01}
+                  format={(v) => `${(v * 100).toFixed(0)}%`}
+                />
+              </div>
+            </div>
+
+            <div
+              className="pt-2"
+              style={{ borderTop: '1px solid var(--line)' }}
+            >
+              <div className="flex justify-between items-baseline">
+                <span className="text-xs" style={{ color: 'var(--ink-3)' }}>
+                  Break-even delay rate
+                </span>
+                <span
+                  className="text-sm"
+                  style={{ color: 'var(--amber)', fontFamily: 'var(--mono)' }}
+                >
+                  p* = {(result.breakEvenP * 100).toFixed(0)}%
+                </span>
+              </div>
+              <p
+                className="text-[10px] mt-1"
+                style={{ color: 'var(--ink-3)' }}
+              >
+                Above this rate, underwriters lose money
+              </p>
+            </div>
+          </div>
+
+          {/* Chart */}
+          <div
+            className="rounded-xl p-5"
+            style={{
+              background: 'var(--bg-1)',
+              border: '1px solid var(--line)',
+            }}
+          >
+            <p
+              className="text-[11px] uppercase mb-4"
+              style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+            >
+              Distribution of Simulated Yields ({params.numSimulations.toLocaleString()} trials)
+            </p>
+            <ResponsiveContainer width="100%" height={380}>
+              <BarChart
+                data={result.histogram}
+                margin={{ top: 10, right: 20, bottom: 20, left: 10 }}
+              >
+                <CartesianGrid stroke={COLOR.line} strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="binCenter"
+                  tick={{ fill: COLOR.ink3, fontSize: 10 }}
+                  tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+                  interval={Math.max(0, Math.floor(result.histogram.length / 8) - 1)}
+                  axisLine={{ stroke: COLOR.line }}
+                  tickLine={{ stroke: COLOR.line }}
+                  label={{
+                    value: 'Yield (%)',
+                    position: 'insideBottom',
+                    offset: -10,
+                    fill: COLOR.ink3,
+                    fontSize: 11,
+                  }}
+                />
+                <YAxis
+                  tick={{ fill: COLOR.ink3, fontSize: 10 }}
+                  axisLine={{ stroke: COLOR.line }}
+                  tickLine={{ stroke: COLOR.line }}
+                  label={{
+                    value: 'Frequency',
+                    angle: -90,
+                    position: 'insideLeft',
+                    offset: 10,
+                    fill: COLOR.ink3,
+                    fontSize: 11,
+                  }}
+                />
+                <Tooltip
+                  content={<ChartTooltip />}
+                  cursor={{ fill: 'rgba(94,224,210,0.08)' }}
+                />
+                <ReferenceLine
+                  x={result.histogram.reduce((closest, bin) =>
+                    Math.abs(bin.binCenter - result.meanYield) <
+                    Math.abs(closest.binCenter - result.meanYield)
+                      ? bin
+                      : closest,
+                  ).binCenter}
+                  stroke={COLOR.red}
+                  strokeDasharray="6 3"
+                  strokeWidth={2}
+                  label={{
+                    value: `Mean: ${result.meanYield.toFixed(0)}%`,
+                    position: 'top',
+                    fill: COLOR.red,
+                    fontSize: 11,
+                  }}
+                />
+                <ReferenceLine
+                  x={result.histogram.reduce((closest, bin) =>
+                    Math.abs(bin.binCenter - result.percentile5) <
+                    Math.abs(closest.binCenter - result.percentile5)
+                      ? bin
+                      : closest,
+                  ).binCenter}
+                  stroke={COLOR.amber}
+                  strokeDasharray="4 4"
+                  strokeWidth={1.5}
+                  label={{
+                    value: `5th: ${result.percentile5.toFixed(0)}%`,
+                    position: 'top',
+                    fill: COLOR.amber,
+                    fontSize: 10,
+                  }}
+                />
+                <ReferenceLine
+                  x={result.histogram.reduce((closest, bin) =>
+                    Math.abs(bin.binCenter - result.percentile95) <
+                    Math.abs(closest.binCenter - result.percentile95)
+                      ? bin
+                      : closest,
+                  ).binCenter}
+                  stroke={COLOR.green}
+                  strokeDasharray="4 4"
+                  strokeWidth={1.5}
+                  label={{
+                    value: `95th: ${result.percentile95.toFixed(0)}%`,
+                    position: 'top',
+                    fill: COLOR.green,
+                    fontSize: 10,
+                  }}
+                />
+                <Bar dataKey="count" radius={[2, 2, 0, 0]}>
+                  {result.histogram.map((entry, idx) => (
+                    <Cell
+                      key={idx}
+                      fill={
+                        entry.binCenter >= 0
+                          ? 'rgba(94,224,210,0.7)'
+                          : 'rgba(255,93,108,0.7)'
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Protocol Earnings Explorer ─── */}
+      <section className="max-w-6xl mx-auto px-6 pb-12">
+        <p
+          className="text-[11px] uppercase mb-4"
+          style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+        >
+          Protocol Earnings Explorer
+        </p>
+        <div
+          className="rounded-xl p-6"
+          style={{
+            background: 'var(--bg-1)',
+            border: '1px solid var(--line)',
+          }}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
+            <div className="space-y-5">
+              <ParamSlider
+                label="Protocol Fee Rate"
+                value={protocolFeeRate}
+                onChange={setProtocolFeeRate}
+                min={0.01}
+                max={0.2}
+                step={0.01}
+                format={(v) => `${(v * 100).toFixed(0)}%`}
+              />
+              <ParamSlider
+                label="Protocol Capital in Vault"
+                value={protocolCapital}
+                onChange={setProtocolCapital}
+                min={10000}
+                max={500000}
+                step={5000}
+                format={(v) => `$${v.toLocaleString()}`}
+              />
+              <div
+                className="pt-3"
+                style={{ borderTop: '1px solid var(--line)' }}
+              >
+                <div className="flex justify-between items-baseline mb-1">
+                  <span className="text-xs" style={{ color: 'var(--ink-3)' }}>
+                    Vault Yield (mean)
+                  </span>
+                  <span
+                    className="text-sm"
+                    style={{
+                      color: result.meanYield >= 0 ? 'var(--green)' : 'var(--red)',
+                      fontFamily: 'var(--mono)',
+                    }}
+                  >
+                    {result.meanYield >= 0 ? '+' : ''}
+                    {result.meanYield.toFixed(1)}%
+                  </span>
+                </div>
+                <p
+                  className="text-[10px]"
+                  style={{ color: 'var(--ink-3)' }}
+                >
+                  From Monte Carlo simulation above
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <StatCard
+                  label="Premium Fee Income"
+                  value={`$${Math.round(protocolEarnings.feeIncome).toLocaleString()}`}
+                  color="var(--cyan)"
+                  subtext={`${(protocolFeeRate * 100).toFixed(0)}% of $${protocolEarnings.totalPremiums.toLocaleString()}`}
+                />
+                <StatCard
+                  label="Vault Yield Income"
+                  value={`${protocolEarnings.vaultIncome >= 0 ? '' : '-'}$${Math.abs(Math.round(protocolEarnings.vaultIncome)).toLocaleString()}`}
+                  color={
+                    protocolEarnings.vaultIncome >= 0
+                      ? 'var(--green)'
+                      : 'var(--red)'
+                  }
+                  subtext={`${result.meanYield.toFixed(1)}% on $${protocolCapital.toLocaleString()}`}
+                />
+                <StatCard
+                  label="Total Protocol Earnings"
+                  value={`${protocolEarnings.totalEarnings >= 0 ? '' : '-'}$${Math.abs(Math.round(protocolEarnings.totalEarnings)).toLocaleString()}`}
+                  color={
+                    protocolEarnings.totalEarnings >= 0
+                      ? 'var(--green)'
+                      : 'var(--red)'
+                  }
+                  subtext="Fee + Vault yield"
+                />
+                <StatCard
+                  label="Earnings Split"
+                  value={
+                    protocolEarnings.totalEarnings > 0
+                      ? `${((protocolEarnings.feeIncome / protocolEarnings.totalEarnings) * 100).toFixed(0)}% / ${((protocolEarnings.vaultIncome / protocolEarnings.totalEarnings) * 100).toFixed(0)}%`
+                      : '—'
+                  }
+                  color="var(--amber)"
+                  subtext="Fee vs Vault"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div
+                  className="flex justify-between text-[10px] uppercase"
+                  style={{
+                    color: 'var(--ink-3)',
+                    letterSpacing: '0.1em',
+                  }}
+                >
+                  <span>Earnings Composition</span>
+                  <span>
+                    Total: $
+                    {Math.abs(Math.round(protocolEarnings.totalEarnings)).toLocaleString()}
+                  </span>
+                </div>
+                {protocolEarnings.totalEarnings > 0 ? (
+                  <div
+                    className="h-6 rounded-full overflow-hidden flex"
+                    style={{ background: 'var(--line)' }}
+                  >
+                    <div
+                      className="h-full rounded-l-full transition-all duration-300"
+                      style={{
+                        width: `${(protocolEarnings.feeIncome / protocolEarnings.totalEarnings) * 100}%`,
+                        background: 'rgba(94,224,210,0.6)',
+                      }}
+                    />
+                    <div
+                      className="h-full rounded-r-full transition-all duration-300"
+                      style={{
+                        width: `${(Math.max(0, protocolEarnings.vaultIncome) / protocolEarnings.totalEarnings) * 100}%`,
+                        background: 'rgba(126,231,135,0.6)',
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="h-6 rounded-full"
+                    style={{ background: 'rgba(255,93,108,0.3)' }}
+                  />
+                )}
+                <div className="flex gap-4 text-[10px]">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block w-2 h-2 rounded-full"
+                      style={{ background: 'rgba(94,224,210,0.6)' }}
+                    />
+                    <span style={{ color: 'var(--ink-3)' }}>Premium Fees</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block w-2 h-2 rounded-full"
+                      style={{ background: 'rgba(126,231,135,0.6)' }}
+                    />
+                    <span style={{ color: 'var(--ink-3)' }}>Vault Yield</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Sensitivity Table ─── */}
+      <section className="max-w-6xl mx-auto px-6 pb-12">
+        <p
+          className="text-[11px] uppercase mb-4"
+          style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+        >
+          Sensitivity Analysis
+        </p>
+        <div
+          className="rounded-xl overflow-x-auto"
+          style={{
+            background: 'var(--bg-1)',
+            border: '1px solid var(--line)',
+          }}
+        >
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                <th
+                  className="text-left px-5 py-3 text-[11px] uppercase font-medium"
+                  style={{
+                    color: 'var(--ink-3)',
+                    letterSpacing: '0.15em',
+                  }}
+                >
+                  Delay Rate (p)
+                </th>
+                <th
+                  className="text-right px-5 py-3 text-[11px] uppercase font-medium"
+                  style={{
+                    color: 'var(--ink-3)',
+                    letterSpacing: '0.15em',
+                  }}
+                >
+                  Expected Yield
+                </th>
+                <th
+                  className="text-right px-5 py-3 text-[11px] uppercase font-medium"
+                  style={{
+                    color: 'var(--ink-3)',
+                    letterSpacing: '0.15em',
+                  }}
+                >
+                  Outcome
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sensitivityData.map(({ delay, yield: y }) => (
+                <tr
+                  key={delay}
+                  style={{ borderBottom: '1px solid var(--line)' }}
+                >
+                  <td
+                    className="px-5 py-3"
+                    style={{ color: 'var(--ink)', fontFamily: 'var(--mono)' }}
+                  >
+                    {(delay * 100).toFixed(0)}%
+                  </td>
+                  <td
+                    className="px-5 py-3 text-right font-semibold"
+                    style={{
+                      color:
+                        y > 0
+                          ? 'var(--green)'
+                          : y === 0
+                            ? 'var(--amber)'
+                            : 'var(--red)',
+                      fontFamily: 'var(--mono)',
+                    }}
+                  >
+                    {y >= 0 ? '+' : ''}
+                    {y.toFixed(1)}%
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <span
+                      className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium"
+                      style={{
+                        background:
+                          y > 0
+                            ? 'rgba(126,231,135,0.12)'
+                            : y === 0
+                              ? 'rgba(255,181,71,0.12)'
+                              : 'rgba(255,93,108,0.12)',
+                        color:
+                          y > 0
+                            ? 'var(--green)'
+                            : y === 0
+                              ? 'var(--amber)'
+                              : 'var(--red)',
+                      }}
+                    >
+                      {y > 0 ? 'Profitable' : y === 0 ? 'Break-even' : 'Loss'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {expanded && (
+        <>
+          {/* ─── Methodology ─── */}
+          <section className="max-w-6xl mx-auto px-6 pb-12">
+            <p
+              className="text-[11px] uppercase mb-4"
+              style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+            >
+              Methodology
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormulaCard
+                tag="Underwriter Yield"
+                formula="Yield = M × (π - λ × p) / C × 100%"
+                description="Where M = policies sold, π = premium per policy, λ = payout per claim, p = delay probability, C = total vault capital."
+                color="cyan"
+              />
+              <FormulaCard
+                tag="Protocol Earnings"
+                formula="E = f × M × π + Cp × Yield"
+                description="Where f = protocol fee rate (1–20%), M × π = total premiums collected, Cp = protocol's own capital in the vault. The protocol earns from both fees and vault yield."
+                color="green"
+              />
+              <FormulaCard
+                tag="Break-Even Probability"
+                formula="p* = π / λ"
+                description="The delay probability at which premiums exactly equal expected payouts. Below this, the vault is profitable. Above, it loses money."
+                color="amber"
+              />
+              <FormulaCard
+                tag="Monte Carlo Method"
+                formula="p ~ Uniform(pMin, pMax)"
+                description="Each trial draws a random delay probability from the specified range and computes the resulting yield. 10,000 trials produce the distribution above."
+                color="cyan"
+              />
+            </div>
+          </section>
+
+          {/* ─── How It Works ─── */}
+          <section className="max-w-6xl mx-auto px-6 pb-12">
+            <p
+              className="text-[11px] uppercase mb-4"
+              style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+            >
+              How It Works
+            </p>
+            <div
+              className="rounded-xl p-6 space-y-4"
+              style={{
+                background: 'var(--bg-1)',
+                border: '1px solid var(--line)',
+              }}
+            >
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: 'var(--ink-2)' }}
+              >
+                In parametric flight delay insurance, underwriters pool capital into a shared
+                vault (RiskVault). Travelers pay a fixed premium to insure a specific flight.
+                If the flight is delayed beyond the per-route threshold, the traveler receives
+                an automatic payout from the vault. If the flight is on time, the premium
+                flows to the vault as income.
+              </p>
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: 'var(--ink-2)' }}
+              >
+                The{' '}
+                <span style={{ color: 'var(--ink)', fontWeight: 500 }}>
+                  protocol earns in two ways
+                </span>
+                : a configurable fee (1–20%) on every premium collected, and yield on its own
+                capital deposited in the RiskVault alongside other underwriters. The
+                underwriter yield section above models the vault-wide return; the Protocol
+                Earnings Explorer shows the protocol's combined income from both sources.
+              </p>
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: 'var(--ink-2)' }}
+              >
+                The underwriter's return depends on the{' '}
+                <span style={{ color: 'var(--ink)', fontWeight: 500 }}>
+                  delay probability
+                </span>{' '}
+                across all insured flights. Since this probability is uncertain and varies by
+                route, season, and conditions, we use Monte Carlo simulation to model the
+                range of possible outcomes.
+              </p>
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: 'var(--ink-2)' }}
+              >
+                Currently, delay probability is sampled from a{' '}
+                <span style={{ color: 'var(--ink)', fontWeight: 500 }}>
+                  uniform distribution
+                </span>{' '}
+                between the min and max rates. Future iterations will calibrate these
+                distributions using historical flight data from the Bureau of Transportation
+                Statistics (BTS) and AeroAPI, giving route-specific yield projections.
+              </p>
+            </div>
+          </section>
+
+          {/* ─── Strategic Insights ─── */}
+          <section className="max-w-6xl mx-auto px-6 pb-24">
+            <p
+              className="text-[11px] uppercase mb-4"
+              style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+            >
+              Strategic Insights
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InsightCard
+                title="Premium vs. Payout Tradeoff"
+                body="Higher premiums raise the break-even threshold, making the vault profitable even at higher delay rates. But premiums that are too high will deter travelers from purchasing coverage."
+                color="cyan"
+              />
+              <InsightCard
+                title="Policy Volume Amplifies Everything"
+                body="Selling more policies magnifies both gains and losses. At profitable delay rates, more volume means more income. But if delays spike, losses scale proportionally."
+                color="green"
+              />
+              <InsightCard
+                title="Capital Buffer Matters"
+                body="Larger capital reserves reduce yield volatility and protect against short-term spikes in delay rates. A well-capitalized vault can weather bad months without becoming insolvent."
+                color="amber"
+              />
+              <InsightCard
+                title="Tail Risk Is Real"
+                body="Even with favorable average conditions, extreme events (regional shutdowns, severe weather) can cause delay rates to spike well beyond historical norms. Dynamic pricing and route diversification are essential hedges."
+                color="red"
+              />
+            </div>
+          </section>
+        </>
+      )}
+    </div>
+  );
+}

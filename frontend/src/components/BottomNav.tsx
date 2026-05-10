@@ -9,15 +9,18 @@ const NAV_ITEMS = [
   { href: '/crons', label: 'Crons' },
   { href: '/faucet', label: 'Faucet' },
   { href: '/contracts', label: 'Contracts' },
+  { href: '/quant', label: 'Quant' },
+  { href: '/presentation', label: 'Pitch' },
 ] as const;
 
 /**
- * Operator entry-point strip. Renders inside <main> on every page except `/`.
+ * Operator entry-point strip. Renders inside <main> on every page except `/`
+ * and `/presentation` (which is fullscreen).
  * Auth gating happens inside each destination page — links are always visible.
  */
 export function BottomNav() {
   const pathname = usePathname();
-  if (pathname === '/') return null;
+  if (pathname === '/' || pathname === '/presentation') return null;
 
   return (
     <nav className="bottom-nav" aria-label="Operator pages">
