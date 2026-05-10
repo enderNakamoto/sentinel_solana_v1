@@ -15,7 +15,6 @@ import {
 
 import {
   DEFAULT_PARAMS,
-  computeYieldAtP,
   runSimulation,
   type SimulationParams,
 } from '@/lib/monteCarlo';
@@ -127,97 +126,6 @@ function ParamSlider({
   );
 }
 
-function FormulaCard({
-  tag,
-  formula,
-  description,
-  color,
-}: {
-  tag: string;
-  formula: string;
-  description: string;
-  color: 'cyan' | 'green' | 'amber';
-}) {
-  // Soft tinted backgrounds keyed off the accent.
-  const tints: Record<typeof color, { bg: string; border: string; ink: string }> = {
-    cyan: {
-      bg: 'rgba(94,224,210,0.06)',
-      border: 'rgba(94,224,210,0.30)',
-      ink: 'var(--cyan)',
-    },
-    green: {
-      bg: 'rgba(126,231,135,0.06)',
-      border: 'rgba(126,231,135,0.30)',
-      ink: 'var(--green)',
-    },
-    amber: {
-      bg: 'rgba(255,181,71,0.06)',
-      border: 'rgba(255,181,71,0.30)',
-      ink: 'var(--amber)',
-    },
-  };
-  const t = tints[color];
-  return (
-    <div
-      className="rounded-xl border p-6"
-      style={{ background: t.bg, borderColor: t.border }}
-    >
-      <p
-        className="text-[11px] uppercase mb-3"
-        style={{ letterSpacing: '0.15em', color: t.ink }}
-      >
-        {tag}
-      </p>
-      <p
-        className="text-lg"
-        style={{ color: 'var(--ink)', fontFamily: 'var(--mono)' }}
-      >
-        {formula}
-      </p>
-      <p className="text-sm mt-3" style={{ color: 'var(--ink-3)' }}>
-        {description}
-      </p>
-    </div>
-  );
-}
-
-function InsightCard({
-  title,
-  body,
-  color,
-}: {
-  title: string;
-  body: string;
-  color: 'cyan' | 'green' | 'amber' | 'red';
-}) {
-  const tints: Record<typeof color, { bg: string; border: string }> = {
-    cyan: { bg: 'rgba(94,224,210,0.06)', border: 'rgba(94,224,210,0.30)' },
-    green: { bg: 'rgba(126,231,135,0.06)', border: 'rgba(126,231,135,0.30)' },
-    amber: { bg: 'rgba(255,181,71,0.06)', border: 'rgba(255,181,71,0.30)' },
-    red: { bg: 'rgba(255,93,108,0.06)', border: 'rgba(255,93,108,0.30)' },
-  };
-  const t = tints[color];
-  return (
-    <div
-      className="rounded-xl border p-5"
-      style={{ background: t.bg, borderColor: t.border }}
-    >
-      <p
-        className="text-sm font-semibold mb-2"
-        style={{ color: 'var(--ink)' }}
-      >
-        {title}
-      </p>
-      <p
-        className="text-sm leading-relaxed"
-        style={{ color: 'var(--ink-3)' }}
-      >
-        {body}
-      </p>
-    </div>
-  );
-}
-
 function ChartTooltip({
   active,
   payload,
@@ -246,14 +154,11 @@ function ChartTooltip({
 // ─── Main component ──────────────────────────────────────────────────────
 
 interface MonteCarloSimulatorProps {
-  /** Show the long-form Methodology / How It Works / Insights blocks. Default true. */
-  expanded?: boolean;
   /** Show the top hero (eyebrow + h1 + lead). Default true. */
   showHero?: boolean;
 }
 
 export default function MonteCarloSimulator({
-  expanded = true,
   showHero = true,
 }: MonteCarloSimulatorProps = {}) {
   const [params, setParams] = useState<SimulationParams>(DEFAULT_PARAMS);
@@ -274,26 +179,6 @@ export default function MonteCarloSimulator({
     const totalEarnings = feeIncome + vaultIncome;
     return { totalPremiums, feeIncome, vaultIncome, totalEarnings, vaultYieldPct };
   }, [params, protocolFeeRate, protocolCapital, result.meanYield]);
-
-  const sensitivityPoints = [0.01, 0.03, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3].filter(
-    (p) => p <= params.pMax + 0.05,
-  );
-
-  const sensitivityData = useMemo(
-    () =>
-      sensitivityPoints.map((p) => ({
-        delay: p,
-        yield: computeYieldAtP(
-          params.premium,
-          params.payout,
-          params.numPolicies,
-          params.capital,
-          p,
-        ),
-      })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [params],
-  );
 
   return (
     <div className="w-full" style={{ color: 'var(--ink)' }}>
@@ -783,244 +668,6 @@ export default function MonteCarloSimulator({
         </div>
       </section>
 
-      {/* ─── Sensitivity Table ─── */}
-      <section className="max-w-6xl mx-auto px-6 pb-12">
-        <p
-          className="text-[11px] uppercase mb-4"
-          style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
-        >
-          Sensitivity Analysis
-        </p>
-        <div
-          className="rounded-xl overflow-x-auto"
-          style={{
-            background: 'var(--bg-1)',
-            border: '1px solid var(--line)',
-          }}
-        >
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--line)' }}>
-                <th
-                  className="text-left px-5 py-3 text-[11px] uppercase font-medium"
-                  style={{
-                    color: 'var(--ink-3)',
-                    letterSpacing: '0.15em',
-                  }}
-                >
-                  Delay Rate (p)
-                </th>
-                <th
-                  className="text-right px-5 py-3 text-[11px] uppercase font-medium"
-                  style={{
-                    color: 'var(--ink-3)',
-                    letterSpacing: '0.15em',
-                  }}
-                >
-                  Expected Yield
-                </th>
-                <th
-                  className="text-right px-5 py-3 text-[11px] uppercase font-medium"
-                  style={{
-                    color: 'var(--ink-3)',
-                    letterSpacing: '0.15em',
-                  }}
-                >
-                  Outcome
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sensitivityData.map(({ delay, yield: y }) => (
-                <tr
-                  key={delay}
-                  style={{ borderBottom: '1px solid var(--line)' }}
-                >
-                  <td
-                    className="px-5 py-3"
-                    style={{ color: 'var(--ink)', fontFamily: 'var(--mono)' }}
-                  >
-                    {(delay * 100).toFixed(0)}%
-                  </td>
-                  <td
-                    className="px-5 py-3 text-right font-semibold"
-                    style={{
-                      color:
-                        y > 0
-                          ? 'var(--green)'
-                          : y === 0
-                            ? 'var(--amber)'
-                            : 'var(--red)',
-                      fontFamily: 'var(--mono)',
-                    }}
-                  >
-                    {y >= 0 ? '+' : ''}
-                    {y.toFixed(1)}%
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <span
-                      className="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium"
-                      style={{
-                        background:
-                          y > 0
-                            ? 'rgba(126,231,135,0.12)'
-                            : y === 0
-                              ? 'rgba(255,181,71,0.12)'
-                              : 'rgba(255,93,108,0.12)',
-                        color:
-                          y > 0
-                            ? 'var(--green)'
-                            : y === 0
-                              ? 'var(--amber)'
-                              : 'var(--red)',
-                      }}
-                    >
-                      {y > 0 ? 'Profitable' : y === 0 ? 'Break-even' : 'Loss'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {expanded && (
-        <>
-          {/* ─── Methodology ─── */}
-          <section className="max-w-6xl mx-auto px-6 pb-12">
-            <p
-              className="text-[11px] uppercase mb-4"
-              style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
-            >
-              Methodology
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormulaCard
-                tag="Underwriter Yield"
-                formula="Yield = M × (π - λ × p) / C × 100%"
-                description="Where M = policies sold, π = premium per policy, λ = payout per claim, p = delay probability, C = total vault capital."
-                color="cyan"
-              />
-              <FormulaCard
-                tag="Protocol Earnings"
-                formula="E = f × M × π + Cp × Yield"
-                description="Where f = protocol fee rate (1–20%), M × π = total premiums collected, Cp = protocol's own capital in the vault. The protocol earns from both fees and vault yield."
-                color="green"
-              />
-              <FormulaCard
-                tag="Break-Even Probability"
-                formula="p* = π / λ"
-                description="The delay probability at which premiums exactly equal expected payouts. Below this, the vault is profitable. Above, it loses money."
-                color="amber"
-              />
-              <FormulaCard
-                tag="Monte Carlo Method"
-                formula="p ~ Uniform(pMin, pMax)"
-                description="Each trial draws a random delay probability from the specified range and computes the resulting yield. 10,000 trials produce the distribution above."
-                color="cyan"
-              />
-            </div>
-          </section>
-
-          {/* ─── How It Works ─── */}
-          <section className="max-w-6xl mx-auto px-6 pb-12">
-            <p
-              className="text-[11px] uppercase mb-4"
-              style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
-            >
-              How It Works
-            </p>
-            <div
-              className="rounded-xl p-6 space-y-4"
-              style={{
-                background: 'var(--bg-1)',
-                border: '1px solid var(--line)',
-              }}
-            >
-              <p
-                className="text-sm leading-relaxed"
-                style={{ color: 'var(--ink-2)' }}
-              >
-                In parametric flight delay insurance, underwriters pool capital into a shared
-                vault (RiskVault). Travelers pay a fixed premium to insure a specific flight.
-                If the flight is delayed beyond the per-route threshold, the traveler receives
-                an automatic payout from the vault. If the flight is on time, the premium
-                flows to the vault as income.
-              </p>
-              <p
-                className="text-sm leading-relaxed"
-                style={{ color: 'var(--ink-2)' }}
-              >
-                The{' '}
-                <span style={{ color: 'var(--ink)', fontWeight: 500 }}>
-                  protocol earns in two ways
-                </span>
-                : a configurable fee (1–20%) on every premium collected, and yield on its own
-                capital deposited in the RiskVault alongside other underwriters. The
-                underwriter yield section above models the vault-wide return; the Protocol
-                Earnings Explorer shows the protocol's combined income from both sources.
-              </p>
-              <p
-                className="text-sm leading-relaxed"
-                style={{ color: 'var(--ink-2)' }}
-              >
-                The underwriter's return depends on the{' '}
-                <span style={{ color: 'var(--ink)', fontWeight: 500 }}>
-                  delay probability
-                </span>{' '}
-                across all insured flights. Since this probability is uncertain and varies by
-                route, season, and conditions, we use Monte Carlo simulation to model the
-                range of possible outcomes.
-              </p>
-              <p
-                className="text-sm leading-relaxed"
-                style={{ color: 'var(--ink-2)' }}
-              >
-                Currently, delay probability is sampled from a{' '}
-                <span style={{ color: 'var(--ink)', fontWeight: 500 }}>
-                  uniform distribution
-                </span>{' '}
-                between the min and max rates. Future iterations will calibrate these
-                distributions using historical flight data from the Bureau of Transportation
-                Statistics (BTS) and AeroAPI, giving route-specific yield projections.
-              </p>
-            </div>
-          </section>
-
-          {/* ─── Strategic Insights ─── */}
-          <section className="max-w-6xl mx-auto px-6 pb-24">
-            <p
-              className="text-[11px] uppercase mb-4"
-              style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
-            >
-              Strategic Insights
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InsightCard
-                title="Premium vs. Payout Tradeoff"
-                body="Higher premiums raise the break-even threshold, making the vault profitable even at higher delay rates. But premiums that are too high will deter travelers from purchasing coverage."
-                color="cyan"
-              />
-              <InsightCard
-                title="Policy Volume Amplifies Everything"
-                body="Selling more policies magnifies both gains and losses. At profitable delay rates, more volume means more income. But if delays spike, losses scale proportionally."
-                color="green"
-              />
-              <InsightCard
-                title="Capital Buffer Matters"
-                body="Larger capital reserves reduce yield volatility and protect against short-term spikes in delay rates. A well-capitalized vault can weather bad months without becoming insolvent."
-                color="amber"
-              />
-              <InsightCard
-                title="Tail Risk Is Real"
-                body="Even with favorable average conditions, extreme events (regional shutdowns, severe weather) can cause delay rates to spike well beyond historical norms. Dynamic pricing and route diversification are essential hedges."
-                color="red"
-              />
-            </div>
-          </section>
-        </>
-      )}
     </div>
   );
 }

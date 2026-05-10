@@ -307,8 +307,8 @@
     <div class="landing-inner">
       <div class="landing-badge">Solana Colosseum</div>
       <h1>Sentinel <span>Protocol</span></h1>
-      <div class="landing-sub">Hackathon Submission</div>
-      <div class="landing-tagline">Parametric Flight Insurance on Solana</div>
+      <div class="landing-sub">A prediction market on flight delays &mdash; sold as travel insurance.</div>
+      <div class="landing-tagline">Parametric &middot; Trustless &middot; Settled on Solana</div>
     </div>
   </section>
 
@@ -323,8 +323,8 @@
         <h1>Flight insurance<br>is broken.</h1>
         <ul class="problem-list" style="margin-top:28px">
           <li><div class="icon">&#10005;</div><span>File a claim. Wait weeks. Get denied on a technicality.</span></li>
-          <li><div class="icon">&#10005;</div><span>Insurance companies profit by <strong style="color:var(--white)">not paying</strong> &mdash; discretionary judgment replaces contract.</span></li>
-          <li><div class="icon">&#10005;</div><span>No transparency. No auditability. No guarantee the money is there.</span></li>
+          <li><div class="icon">&#10005;</div><span>Insurance companies profit by <strong style="color:var(--white)">not paying</strong>. They decide if you get paid.</span></li>
+          <li><div class="icon">&#10005;</div><span>You can't verify the insurer has the money to pay you.</span></li>
         </ul>
         <div class="stat-grid">
           <div class="stat-box">
@@ -348,15 +348,15 @@
 
       <div>
         <div class="tag green">The Fix</div>
-        <h2>Parametric insurance<br>on Solana.</h2>
+        <h2>A prediction market<br>sold as <em>insurance.</em></h2>
         <p class="lead" style="margin-top:12px; margin-bottom:20px">
-          Underwriters deposit capital. Travelers pay a premium. If the flight is delayed, the smart contract pays out automatically. No claims. No middlemen.
+          Underneath: a two-sided market on flight delays. On top: a one-click policy with an automatic payout. The smart contract is the insurer.
         </p>
         <ul class="problem-list solution-list">
-          <li><div class="icon">&#10003;</div><span>Flight delayed? <strong style="color:var(--white)">Payout is automatic.</strong> No claim form.</span></li>
-          <li><div class="icon">&#10003;</div><span>Anchor program is the policy. Immutable, public, auditable.</span></li>
-          <li><div class="icon">&#10003;</div><span>Executor settles every 5 min &mdash; no human in the loop.</span></li>
-          <li><div class="icon">&#10003;</div><span>100% collateralised at all times, enforced on-chain.</span></li>
+          <li><div class="icon">&#10003;</div><span>Flight delayed? <strong style="color:var(--white)">Payout is automatic.</strong> No claim form, no adjuster.</span></li>
+          <li><div class="icon">&#10003;</div><span>The contract <em>is</em> the policy. Anyone can read it. Nobody can rewrite it.</span></li>
+          <li><div class="icon">&#10003;</div><span>An automated keeper checks every 5 minutes. No human in the loop.</span></li>
+          <li><div class="icon">&#10003;</div><span>Every policy is 100% backed. The vault always has the cash.</span></li>
         </ul>
 
         <div class="card" style="margin-top:22px; display:flex; align-items:center; gap:16px; border-color:rgba(126,231,135,0.3)">
@@ -751,7 +751,7 @@
             <div style="font-size:19px; font-weight:800; color:var(--stellar)">Phone-as-TEE worker</div>
           </div>
           <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            The Fetcher cron is a JS deployment shipped to Acurast's processor network. Each processor is a real Android phone with hardware-attested TrustZone execution &mdash; the operator cannot read, modify, or forge the oracle's signing key. The job runs, signs, and posts to Solana from inside the TEE.
+            Acurast turns retired Android phones into trusted compute nodes. Our oracle code runs inside the phone's secure chip &mdash; nobody, not even the phone's owner, can read or steal the keys it uses to sign.
           </div>
         </div>
 
@@ -761,7 +761,7 @@
             <div style="font-size:19px; font-weight:800; color:var(--blue)">Attested signing key</div>
           </div>
           <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            <code style="color:var(--white);font-family:monospace">authorized_oracle</code> on <code style="color:var(--white);font-family:monospace">oracle_aggregator_program</code> is the Acurast deployment's TEE-resident keypair. Solana only accepts writes from a key that provably lives inside attested hardware.
+            The oracle's signing key only lives inside the phone's secure hardware. Solana checks the signature on every write &mdash; if it's not from that hardware-protected key, the write is rejected.
           </div>
         </div>
 
@@ -771,7 +771,7 @@
             <div style="font-size:19px; font-weight:800; color:var(--green)">No central operator</div>
           </div>
           <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            Anyone with an old Android phone can become a processor. The Acurast marketplace matches our deployment to a quorum of devices &mdash; Sentinel pays per execution, not per server. No AWS, no single keeper to bribe.
+            Anyone with an old Android phone can run our oracle. We pay per run, not per server. No AWS, no single operator to bribe &mdash; if one phone goes offline, another picks up the job.
           </div>
         </div>
 
@@ -781,7 +781,7 @@
             <div style="font-size:19px; font-weight:800; color:var(--yellow)">Same code, swappable host</div>
           </div>
           <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            The Fetcher's TS source is identical whether it runs locally, in CI, or on Acurast. <code style="color:var(--white);font-family:monospace">authorized_oracle</code> is a swap-friendly indirection &mdash; rotate the key, redeploy the Acurast job, no on-chain change required.
+            The same code runs in tests and on the phone &mdash; no special build. If we ever need to rotate keys or move the job to different hardware, we just redeploy. The Solana programs never change.
           </div>
         </div>
 
@@ -797,8 +797,8 @@
     <div style="max-width:1060px; width:100%">
       <div style="text-align:center; margin-bottom:14px">
         <div class="tag" style="background:rgba(94,224,210,0.1); color:var(--blue); margin-bottom:8px">How It Works</div>
-        <h2 style="margin-top:10px">OracleAggregator &mdash; Active Flight Registry</h2>
-        <p class="lead" style="margin:8px auto 0; text-align:center; max-width:700px">The system only tracks active flights. This is how it knows which flights to call the API for.</p>
+        <h2 style="margin-top:10px">How the oracle tracks flights</h2>
+        <p class="lead" style="margin:8px auto 0; text-align:center; max-width:720px">The oracle only watches flights people have actually bought coverage on. It only calls the flight-data API after a flight should have landed &mdash; saving most of the calls a naive system would make.</p>
       </div>
 
       <svg viewBox="0 0 960 340" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
@@ -1137,7 +1137,7 @@
           <text x="295" y="38" fill="#b6becd" font-size="8" font-weight="600" text-anchor="middle">Govern.</text>
           <text x="295" y="52" fill="#b6becd" font-size="8" font-weight="600" text-anchor="middle">terms</text>
         </svg>
-        <div style="font-size:13px; color:var(--muted); line-height:1.5">XGBoost delay-prob + Grok disruption signals reprice routes daily. Disable on storms, re-enable on clear skies.</div>
+        <div style="font-size:13px; color:var(--muted); line-height:1.5">Updates each route's premium daily. The model uses past delay history; Grok checks for storms or war zones. Bad conditions &rarr; premium up. Unsafe &rarr; route disabled.</div>
       </div>
 
     </div>
@@ -1233,8 +1233,7 @@
         <div class="tag" style="background:rgba(255,181,71,0.1); color:var(--yellow)">Solvency</div>
         <h2>Every policy is<br>100% backed. Always.</h2>
         <p class="lead" style="margin-top:16px">
-          The solvency check runs before every purchase.
-          If the vault can't cover the worst-case payout, the purchase reverts. No exceptions.
+          Before every sale, the contract checks: does the vault have enough free cash to cover this payout? If not, the sale is refused. No exceptions.
         </p>
 
         <div class="solvency-viz">
@@ -1256,9 +1255,9 @@
             <div class="sol-val" style="color:var(--green)">$200</div>
           </div>
 
-          <div style="margin-top:16px; padding:14px; background:var(--bg); border-radius:8px; font-size:14px; font-family:monospace; color:var(--muted)">
-            <span style="color:var(--green)">&#10003; purchase allowed</span>: free_capital ($200) &ge; new_payoff ($100)<br>
-            <span style="color:var(--red)">&#10005; purchase blocked</span>: free_capital ($100) &lt; new_payoff ($100+)
+          <div style="margin-top:16px; padding:14px; background:var(--bg); border-radius:8px; font-size:14px; color:var(--muted); line-height:1.6">
+            <span style="color:var(--green)">&#10003; allowed</span> &mdash; vault has $200 free, payout is $100. Plenty of cash.<br>
+            <span style="color:var(--red)">&#10005; blocked</span> &mdash; vault has $100 free, payout would be $100+. Not enough.
           </div>
         </div>
       </div>
@@ -1267,8 +1266,7 @@
         <div class="tag" style="color:var(--yellow); background:rgba(255,181,71,0.1)">FIFO Withdrawal Queue</div>
         <h2>Capital is locked<br>fairly, not arbitrarily.</h2>
         <p class="lead" style="margin-top:16px">
-          If your withdrawal would breach locked capital, it enters a FIFO queue.
-          After each settlement, the queue drains in order &mdash; first in, first out.
+          If your withdrawal would dip into locked capital, it joins a queue. As flights settle and cash frees up, the queue drains in order &mdash; first in, first out. No jumping the line.
         </p>
 
         <div class="fifo-wrap">
@@ -1276,7 +1274,7 @@
             <span class="arrow">&#9654;</span>
             <span>Queue drains after settlement</span>
           </div>
-          <div class="fifo-label">Withdrawal queue &mdash; queue_head pointer advances FIFO</div>
+          <div class="fifo-label">Withdrawal queue &mdash; first in, first out</div>
           <div class="queue-track" id="queue-track">
             <div class="q-item done" style="opacity:0.3">
               <div class="q-avatar" style="background:rgba(126,231,135,0.15);color:var(--green)">A</div>

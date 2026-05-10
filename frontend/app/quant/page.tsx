@@ -7,5 +7,5 @@ export const metadata = {
 };
 
 export default function QuantPage() {
-  return <MonteCarloSimulator expanded showHero />;
+  return <MonteCarloSimulator showHero />;
 }
