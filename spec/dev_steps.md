@@ -1192,9 +1192,9 @@ controller-program redeploy with the `rent_payer` schema change.
 ## Phase 22 — Premium Pricing Agent (FastAPI + XGBoost)
 
 **Status: planned.** Stand up `agent/` as a fourth workspace alongside
-`frontend/`, `executor/`, and `contracts/`. Train and export an XGBoost
-model on the [Kaggle "Flight Delays Fall 2018"](https://www.kaggle.com/competitions/flight-delays-fall-2018)
-dataset, then wrap it in a tiny FastAPI service that maps a flight tuple to a USDC premium clamped to
+`frontend/`, `executor/`, and `contracts/`. Train and export the Kaggle
+XGBoost model from `refrence_models/model_1.ipynb`, then wrap it in a tiny
+FastAPI service that maps a flight tuple to a USDC premium clamped to
 `[$1, $5]` via `premium_usdc = clamp(1 + 4 * p_delay, 1, 5)`. Hackathon-
 grade pricing — proof-of-concept only, not actuarially sound. The agent has
 no on-chain authority; the only consumer is Phase 23's `RouteRepricer` cron
@@ -1250,9 +1250,9 @@ via `POST /price`.
   (`X-AGENT-TOKEN`), deferred.
 - Online retraining / new datasets / payout-side prediction.
 
-**Depends on:** the [Kaggle "Flight Delays Fall 2018"](https://www.kaggle.com/competitions/flight-delays-fall-2018)
-dataset + the canonical XGBoost notebook for it (manual download per
-Kaggle ToS).
+**Depends on:** `refrence_models/model_1.ipynb` (the source pipeline) and
+the Kaggle `flight-delays-fall-2018` dataset (manual download per Kaggle
+ToS).
 
 ---
 

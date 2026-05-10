@@ -150,7 +150,7 @@ Phase 22 doesn't lock this in — pick whichever fits when wiring Phase 23.
 
 ## Reference
 
-- Source dataset: [Kaggle "Flight Delays Fall 2018"](https://www.kaggle.com/competitions/flight-delays-fall-2018) — XGBoost notebook by `luiscrmartins` is the model lineage; the original notebook lived at `refrence_models/model_1.ipynb` and was removed once `agent/training/train.py` shipped (see git history at commit `a4a1e7a`).
+- Source notebook: `refrence_models/model_1.ipynb`
 - Phase plan: `spec/phases/phase-22-premium-pricing-agent.md`
 - Architecture: `spec/architecture.md` §Off-Chain Executor Layer
 - Consumer: `spec/phases/phase-23-route-repricer-cron.md`

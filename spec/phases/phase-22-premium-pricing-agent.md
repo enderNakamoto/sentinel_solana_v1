@@ -9,12 +9,12 @@ Completed: 2026-05-10
 ## Goal
 
 Stand up `agent/` as a fourth workspace alongside `frontend/`, `executor/`, and
-`contracts/`. Train and export an XGBoost model on the [Kaggle "Flight
-Delays Fall 2018"](https://www.kaggle.com/competitions/flight-delays-fall-2018)
-dataset, then wrap it in a tiny FastAPI service that maps a flight tuple
-`(flight_id, carrier, origin, dest, dep_time_hhmm, distance_mi, month,
-day_of_month, day_of_week)` to a USDC premium clamped to `[$1, $5]`.
-Hackathon-grade pricing — proof-of-concept only, not actuarially sound.
+`contracts/`. Train and export the Kaggle XGBoost model from
+`refrence_models/model_1.ipynb`, then wrap it in a tiny FastAPI service that
+maps a flight tuple `(flight_id, carrier, origin, dest, dep_time_hhmm,
+distance_mi, month, day_of_month, day_of_week)` to a USDC premium clamped to
+`[$1, $5]`. Hackathon-grade pricing — proof-of-concept only, not actuarially
+sound.
 
 The agent has no on-chain authority and writes nothing to Solana; the only
 consumer is Phase 23's `RouteRepricer` cron via `POST /price`. Premium
@@ -24,15 +24,13 @@ phase's surface.
 
 ## Dependencies
 
-- **Kaggle dataset:** [Flight Delays Fall 2018](https://www.kaggle.com/competitions/flight-delays-fall-2018)
-  (train + test CSVs, target `dep_delayed_15min`). The canonical
-  XGBoost notebook for the competition is the model lineage; this
-  phase ports its modelling cells (same OHE preprocessing, same
-  hyperparameters: `n_estimators=200, learning_rate=0.1, max_depth=9,
-  subsample=0.8, colsample_bytree=0.8, random_state=42`) into
-  `agent/training/train.py`. Training data is not committed;
-  `make download-data` documents the manual Kaggle download. Training
-  is local-only — the deployed image carries the artifacts in.
+- **`refrence_models/model_1.ipynb`** — the Kaggle XGBoost pipeline this phase
+  ports to a Python script. Same OHE preprocessing, same hyperparameters
+  (`n_estimators=200, learning_rate=0.1, max_depth=9, subsample=0.8,
+  colsample_bytree=0.8, random_state=42`), same target (`dep_delayed_15min`).
+- **The Kaggle dataset** (`flight-delays-fall-2018`, train + test CSVs). Not
+  committed; `make download-data` documents the source. Training is local-only
+  — the deployed image carries the artifacts in.
 - No on-chain dependencies. Phase 22 ships zero Solana tx surface.
 
 ## Context Manifest
@@ -60,6 +58,8 @@ phase's surface.
   reference (manual download link).
 
 ### Project Files to Read
+- `refrence_models/model_1.ipynb` — full notebook; the modelling cells are
+  the contract for the training port.
 - `spec/architecture.md` — §Off-Chain Executor Layer (so the agent's role
   and trust model are clear).
 - `spec/dev_steps.md` — Phase 22 entry (this phase's deliverables +
