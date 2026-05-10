@@ -55,7 +55,8 @@ The agent uses these files to resume work seamlessly across sessions without los
 
 ```
 not generated → planned → in_progress → paused → complete
-                              ↑________________|
+       │              ↑________________|
+       └────► deferred (scope locked, execution skipped)
 ```
 
 - **not generated** — phase row exists in `progress.md`; no phase file yet
@@ -63,6 +64,7 @@ not generated → planned → in_progress → paused → complete
 - **in_progress** — agent is actively working; subtasks being checked off; work log being written
 - **paused** — session ended mid-phase; work log records where we stopped
 - **complete** — user has validated and called `/complete-phase`; phase file is now read-only history
+- **deferred** — scope is documented in `dev_steps.md` (architecture chosen, deliverables sketched) but execution is intentionally skipped (e.g. out of hackathon scope, pending external dependency). Distinct from `not generated` because the design decision has been made; distinct from `paused` because no work has started.
 
 ---
 

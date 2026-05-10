@@ -76,7 +76,7 @@ export default function HomePage() {
               ? 'Charter a coverage scroll for any flight — claim your gold the moment the gale carries it astray. Or fund the underwriter chest and earn the spread when skies stay clear.'
               : 'Pay a small premium to get an instant payout when your flight is late. Or deposit into the vault and underwrite the risk for yield. Settled on-chain by oracles, no claims.'}
           </p>
-          <div className="row" style={{ marginTop: 36, gap: 12 }}>
+          <div className="row" style={{ marginTop: 36, gap: 12, flexWrap: 'wrap' }}>
             <Link href="/buy" className="btn primary lg">
               {isFun ? 'Bind a flight →' : 'Cover a flight →'}
             </Link>
@@ -85,6 +85,16 @@ export default function HomePage() {
             </Link>
             <Link href="/markets" className="btn ghost lg">
               {isFun ? 'Watch the sky map' : 'Watch live markets'}
+            </Link>
+            <Link
+              href="/presentation"
+              className="btn ghost lg"
+              style={{
+                borderColor: 'var(--violet)',
+                color: 'var(--violet)',
+              }}
+            >
+              {isFun ? 'Read the chronicle ↗' : 'View pitch ↗'}
             </Link>
           </div>
         </div>

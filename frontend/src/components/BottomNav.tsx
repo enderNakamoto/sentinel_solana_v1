@@ -9,18 +9,17 @@ const NAV_ITEMS = [
   { href: '/crons', label: 'Crons' },
   { href: '/faucet', label: 'Faucet' },
   { href: '/contracts', label: 'Contracts' },
-  { href: '/quant', label: 'Quant' },
-  { href: '/presentation', label: 'Pitch' },
 ] as const;
 
 /**
- * Operator entry-point strip. Renders inside <main> on every page except `/`
- * and `/presentation` (which is fullscreen).
+ * Operator entry-point strip. Renders inside <main> on every page except `/`.
+ * `/presentation` and `/quant` are fullscreen pitch pages — Chrome.tsx
+ * already suppresses BottomNav on those routes.
  * Auth gating happens inside each destination page — links are always visible.
  */
 export function BottomNav() {
   const pathname = usePathname();
-  if (pathname === '/' || pathname === '/presentation') return null;
+  if (pathname === '/') return null;
 
   return (
     <nav className="bottom-nav" aria-label="Operator pages">

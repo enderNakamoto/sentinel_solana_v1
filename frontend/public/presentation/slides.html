@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sentinel Protocol — Tranche 2</title>
+<title>Sentinel Protocol — Pitch</title>
+<!-- Match the dapp's font stack. The frontend loads these via next/font;
+     the deck is a static asset so we pull them from Google Fonts directly. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link
+  href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap"
+  rel="stylesheet">
 <style>
   :root {
     /* Sentinel design system — mirrors frontend/src/theme/serious/tokens.css.
@@ -53,24 +60,24 @@
 
   .logo {
     position: fixed; top: 20px; left: 28px; z-index: 100;
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     font-size: 13px; font-weight: 800; letter-spacing: 0.15em; color: #2a3040;
   }
   .logo span { color: var(--stellar); }
 
   h1 { font-size: 44px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; }
   h2 { font-size: 36px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; }
-  .lead { font-size: 17px; color: #8a93a8; line-height: 1.6; max-width: 520px; }
+  .lead { font-size: 17px; color: #b6becd; line-height: 1.6; max-width: 520px; }
 
   .tag {
     display: inline-block; padding: 5px 14px; border-radius: 6px;
     font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    background: rgba(59,142,243,0.1); color: var(--blue); margin-bottom: 12px;
-    font-family: 'SF Mono', monospace;
+    background: rgba(94,224,210,0.1); color: var(--blue); margin-bottom: 12px;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
   }
-  .tag.green { background: rgba(46,204,143,0.1); color: var(--green); }
-  .tag.red   { background: rgba(224,92,107,0.1); color: var(--red); }
-  .tag.stellar { background: rgba(99,102,241,0.1); color: var(--stellar); }
+  .tag.green { background: rgba(126,231,135,0.1); color: var(--green); }
+  .tag.red   { background: rgba(255,93,108,0.1); color: var(--red); }
+  .tag.stellar { background: rgba(169,139,255,0.1); color: var(--stellar); }
 
   .card {
     background: var(--surface); border: 1px solid var(--border);
@@ -91,11 +98,11 @@
   .nav-dots { display: flex; gap: 8px; }
   .dot {
     width: 10px; height: 10px; border-radius: 50%;
-    background: #1e2530; cursor: pointer; transition: background 0.3s, transform 0.3s;
+    background: #1e2533; cursor: pointer; transition: background 0.3s, transform 0.3s;
   }
   .dot.active { background: var(--stellar); transform: scale(1.3); }
   .slide-counter {
-    font-size: 12px; color: var(--muted); font-family: 'SF Mono', monospace;
+    font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', 'SF Mono', monospace;
     min-width: 48px; text-align: center;
   }
 
@@ -115,22 +122,22 @@
   .stat-box:nth-child(2) { animation-delay: 0.2s; }
   .stat-box:nth-child(3) { animation-delay: 0.3s; }
   .stat-box:nth-child(4) { animation-delay: 0.4s; }
-  .stat-box .num { font-size: 26px; font-weight: 800; font-family: 'SF Mono', monospace; }
+  .stat-box .num { font-size: 26px; font-weight: 800; font-family: 'JetBrains Mono', 'SF Mono', monospace; }
   .stat-box .num.blue { color: var(--blue); }
   .stat-box .num.red  { color: var(--red); }
   .stat-box .label { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
   .problem-list { list-style: none; margin-top: 24px; display: flex; flex-direction: column; gap: 14px; }
   .problem-list li {
-    display: flex; gap: 14px; align-items: flex-start; font-size: 16px; color: #8a93a8;
+    display: flex; gap: 14px; align-items: flex-start; font-size: 16px; color: #b6becd;
   }
   .problem-list li .icon {
     width: 26px; height: 26px; border-radius: 6px;
-    background: rgba(224,92,107,0.15); color: var(--red);
+    background: rgba(255,93,108,0.15); color: var(--red);
     display: flex; align-items: center; justify-content: center;
     font-size: 13px; flex-shrink: 0; margin-top: 2px;
   }
-  .solution-list li .icon { background: rgba(46,204,143,0.12); color: var(--green); }
+  .solution-list li .icon { background: rgba(126,231,135,0.12); color: var(--green); }
 
   /* ── SLIDE 3 — ARCHITECTURE ── */
   #s3 { padding: 32px; }
@@ -173,8 +180,8 @@
   .q-item .q-info { flex: 1; }
   .q-item .q-shares { font-size: 12px; color: var(--muted); }
   .q-item .q-status { font-size: 12px; padding: 3px 8px; border-radius: 4px; }
-  .q-item.waiting .q-status { background: rgba(245,200,66,0.1); color: var(--yellow); }
-  .q-item.ready .q-status { background: rgba(46,204,143,0.12); color: var(--green); }
+  .q-item.waiting .q-status { background: rgba(255,181,71,0.1); color: var(--yellow); }
+  .q-item.ready .q-status { background: rgba(126,231,135,0.12); color: var(--green); }
   .q-item.done { opacity: 0.35; }
   .q-item.done .q-status { background: rgba(90,100,120,0.2); color: var(--muted); }
 
@@ -218,14 +225,14 @@
   #s0 .landing-badge {
     display: inline-block; padding: 8px 24px; border-radius: 20px;
     font-size: 15px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-    background: rgba(99,102,241,0.12); color: var(--stellar); border: 1px solid rgba(99,102,241,0.25);
-    font-family: 'SF Mono', monospace;
+    background: rgba(169,139,255,0.12); color: var(--stellar); border: 1px solid rgba(169,139,255,0.25);
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
     animation: fade-in-up 0.6s both; animation-delay: 0.1s;
   }
   #s0 h1 { font-size: 80px; letter-spacing: -0.03em; animation: fade-in-up 0.7s both; animation-delay: 0.25s; }
   #s0 h1 span { color: var(--stellar); }
-  #s0 .landing-sub { font-size: 26px; color: #8a93a8; max-width: 600px; line-height: 1.5; animation: fade-in-up 0.6s both; animation-delay: 0.4s; }
-  #s0 .landing-tagline { font-size: 18px; color: var(--muted); font-family: 'SF Mono', monospace; letter-spacing: 0.05em; animation: fade-in-up 0.6s both; animation-delay: 0.55s; }
+  #s0 .landing-sub { font-size: 26px; color: #b6becd; max-width: 600px; line-height: 1.5; animation: fade-in-up 0.6s both; animation-delay: 0.4s; }
+  #s0 .landing-tagline { font-size: 18px; color: var(--muted); font-family: 'JetBrains Mono', 'SF Mono', monospace; letter-spacing: 0.05em; animation: fade-in-up 0.6s both; animation-delay: 0.55s; }
 
   /* ── STATE MACHINE SLIDE ── */
   #s-states { padding: 32px; }
@@ -243,7 +250,7 @@
   }
   .cron-card .cron-freq {
     display: inline-block; padding: 3px 10px; border-radius: 4px;
-    font-size: 11px; font-weight: 700; font-family: 'SF Mono', monospace;
+    font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', 'SF Mono', monospace;
     margin-bottom: 12px;
   }
   .cron-card .cron-name { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
@@ -255,15 +262,15 @@
     max-width: 1100px; width: 100%; align-items: start;
   }
   .proposed-col, .delivered-col { display: flex; flex-direction: column; gap: 16px; }
-  .proposed-col .tag { background: rgba(245,200,66,0.1); color: var(--yellow); }
-  .delivered-col .tag { background: rgba(46,204,143,0.1); color: var(--green); }
+  .proposed-col .tag { background: rgba(255,181,71,0.1); color: var(--yellow); }
+  .delivered-col .tag { background: rgba(126,231,135,0.1); color: var(--green); }
   .budget-badge {
     display: inline-block; padding: 4px 12px; border-radius: 6px;
-    font-size: 13px; font-weight: 700; font-family: 'SF Mono', monospace;
-    background: rgba(245,200,66,0.1); color: var(--yellow); margin-bottom: 8px;
+    font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    background: rgba(255,181,71,0.1); color: var(--yellow); margin-bottom: 8px;
   }
   .criteria-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-  .criteria-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; color: #8a93a8; }
+  .criteria-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; color: #b6becd; }
   .criteria-list li .ci { flex-shrink: 0; font-size: 14px; }
   .check-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
   .check-list li {
@@ -285,12 +292,6 @@
   .bonus-card .bonus-title { font-size: 18px; font-weight: 800; }
   .bonus-card .bonus-desc { font-size: 14px; color: var(--muted); line-height: 1.55; }
 
-  /* ── HCS SLIDE ── */
-  #s-hcs { padding: 32px; }
-  .hcs-canvas { width: 100%; max-width: 1060px; margin: 0 auto; }
-  .hcs-title { text-align: center; margin-bottom: 6px; }
-  .hcs-subtitle { text-align: center; font-size: 15px; color: var(--muted); margin-bottom: 24px; }
-  .hcs-note { text-align: center; font-size: 13px; color: var(--muted); margin-top: 16px; font-style: italic; }
 </style>
 </head>
 <body>
@@ -304,10 +305,10 @@
   <!-- ══════════════════════════════════════════════════ -->
   <section class="slide active" id="s0">
     <div class="landing-inner">
-      <div class="landing-badge">SCF Community Award</div>
+      <div class="landing-badge">Solana Colosseum</div>
       <h1>Sentinel <span>Protocol</span></h1>
-      <div class="landing-sub">Tranche 2 Submission</div>
-      <div class="landing-tagline">Parametric Flight Insurance on Soroban</div>
+      <div class="landing-sub">Hackathon Submission</div>
+      <div class="landing-tagline">Parametric Flight Insurance on Solana</div>
     </div>
   </section>
 
@@ -346,18 +347,18 @@
 
       <div>
         <div class="tag green">The Fix</div>
-        <h2>Parametric insurance<br>on Soroban.</h2>
+        <h2>Parametric insurance<br>on Solana.</h2>
         <p class="lead" style="margin-top:12px; margin-bottom:20px">
           Underwriters deposit capital. Travelers pay a premium. If the flight is delayed, the smart contract pays out automatically. No claims. No middlemen.
         </p>
         <ul class="problem-list solution-list">
           <li><div class="icon">&#10003;</div><span>Flight delayed? <strong style="color:var(--white)">Payout is automatic.</strong> No claim form.</span></li>
-          <li><div class="icon">&#10003;</div><span>Soroban smart contract is the policy. Immutable, public, auditable.</span></li>
+          <li><div class="icon">&#10003;</div><span>Anchor program is the policy. Immutable, public, auditable.</span></li>
           <li><div class="icon">&#10003;</div><span>Executor settles every 5 min &mdash; no human in the loop.</span></li>
           <li><div class="icon">&#10003;</div><span>100% collateralised at all times, enforced on-chain.</span></li>
         </ul>
 
-        <div class="card" style="margin-top:22px; display:flex; align-items:center; gap:16px; border-color:rgba(46,204,143,0.3)">
+        <div class="card" style="margin-top:22px; display:flex; align-items:center; gap:16px; border-color:rgba(126,231,135,0.3)">
           <div style="font-size:32px">&#9992;</div>
           <div>
             <div style="font-size:16px; color:var(--white); font-weight:600">Pay $12 premium &rarr; flight AA123 delayed 3 hours</div>
@@ -369,7 +370,7 @@
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <!-- SLIDE 3 — ARCHITECTURE (Soroban + Executor)         -->
+  <!-- SLIDE 3 — ARCHITECTURE (Solana + Executor)         -->
   <!-- ══════════════════════════════════════════════════ -->
   <section class="slide" id="s3">
     <div class="arch-canvas">
@@ -377,106 +378,106 @@
         <div class="tag stellar" style="margin-bottom:8px">System Architecture</div>
         <h2>How it works</h2>
       </div>
-      <div class="arch-subtitle">Fully on-chain on Soroban, settled automatically by the Executor.</div>
+      <div class="arch-subtitle">Fully on-chain on Solana, settled automatically by the Executor.</div>
 
       <svg viewBox="0 0 960 420" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
 
-        <!-- Soroban boundary -->
+        <!-- Solana boundary -->
         <rect x="160" y="120" width="640" height="280" rx="14"
-              stroke="#1e2530" stroke-width="1.5" stroke-dasharray="6 4" fill="rgba(15,18,24,0.5)"/>
-        <text x="800" y="114" fill="#2a3040" font-size="13" font-family="monospace">Soroban (on-chain)</text>
+              stroke="#1e2533" stroke-width="1.5" stroke-dasharray="6 4" fill="rgba(15,18,24,0.5)"/>
+        <text x="800" y="114" fill="#2a3040" font-size="13" font-family="monospace">Solana (on-chain)</text>
 
         <!-- Executor (off-chain, single block) -->
         <rect x="340" y="16" width="280" height="68" rx="12"
-              fill="#0d0d1f" stroke="#6366f1" stroke-width="2"/>
-        <text x="480" y="40" fill="#6366f1" font-size="12" font-family="monospace" text-anchor="middle">EXECUTOR (CRON JOBS)</text>
-        <text x="480" y="62" fill="#e8ecf4" font-size="17" font-weight="800" text-anchor="middle">Oracle + Settler + Deployer</text>
+              fill="#0d0d1f" stroke="#a98bff" stroke-width="2"/>
+        <text x="480" y="40" fill="#a98bff" font-size="12" font-family="monospace" text-anchor="middle">EXECUTOR (CRON JOBS)</text>
+        <text x="480" y="62" fill="#eef1f7" font-size="17" font-weight="800" text-anchor="middle">Fetcher + Classifier + Settler + Repricer</text>
 
         <!-- Controller -->
         <rect x="350" y="160" width="260" height="72" rx="12"
-              fill="#12171f" stroke="#e8ecf4" stroke-width="2"/>
-        <text x="480" y="188" fill="#8a93a8" font-size="12" font-family="monospace" text-anchor="middle">ORCHESTRATOR</text>
-        <text x="480" y="212" fill="#e8ecf4" font-size="20" font-weight="800" text-anchor="middle">Controller</text>
+              fill="#12171f" stroke="#eef1f7" stroke-width="2"/>
+        <text x="480" y="188" fill="#b6becd" font-size="12" font-family="monospace" text-anchor="middle">ORCHESTRATOR</text>
+        <text x="480" y="212" fill="#eef1f7" font-size="20" font-weight="800" text-anchor="middle">Controller</text>
 
         <!-- FlightPool -->
         <rect x="190" y="300" width="220" height="68" rx="12"
-              fill="rgba(59,142,243,0.07)" stroke="#1a3a6b" stroke-width="2"/>
-        <text x="300" y="326" fill="#3b8ef3" font-size="12" font-family="monospace" text-anchor="middle">PER-FLIGHT POOL</text>
-        <text x="300" y="348" fill="#e8ecf4" font-size="16" font-weight="700" text-anchor="middle">FlightPool(s)</text>
+              fill="rgba(94,224,210,0.07)" stroke="#1a3a6b" stroke-width="2"/>
+        <text x="300" y="326" fill="#5ee0d2" font-size="12" font-family="monospace" text-anchor="middle">PER-FLIGHT POOL</text>
+        <text x="300" y="348" fill="#eef1f7" font-size="16" font-weight="700" text-anchor="middle">FlightPool(s)</text>
 
-        <!-- RiskVault -->
+        <!-- Vault -->
         <rect x="550" y="300" width="220" height="68" rx="12"
-              fill="rgba(224,92,107,0.07)" stroke="#5c1a22" stroke-width="2"/>
-        <text x="660" y="326" fill="#e05c6b" font-size="12" font-family="monospace" text-anchor="middle">UNDERWRITER CAPITAL</text>
-        <text x="660" y="348" fill="#e8ecf4" font-size="16" font-weight="700" text-anchor="middle">RiskVault</text>
+              fill="rgba(255,93,108,0.07)" stroke="#5c1a22" stroke-width="2"/>
+        <text x="660" y="326" fill="#ff5d6c" font-size="12" font-family="monospace" text-anchor="middle">UNDERWRITER CAPITAL</text>
+        <text x="660" y="348" fill="#eef1f7" font-size="16" font-weight="700" text-anchor="middle">Vault</text>
 
         <!-- Traveler -->
-        <circle cx="60" cy="334" r="22" fill="rgba(59,142,243,0.1)" stroke="#3b8ef3" stroke-width="1.5"/>
+        <circle cx="60" cy="334" r="22" fill="rgba(94,224,210,0.1)" stroke="#5ee0d2" stroke-width="1.5"/>
         <text x="60" y="330" font-size="18" text-anchor="middle">&#128100;</text>
-        <text x="60" y="345" font-size="10" fill="#3b8ef3" font-family="monospace" text-anchor="middle">&#9992;</text>
-        <text x="60" y="370" fill="#3b8ef3" font-size="14" font-weight="600" text-anchor="middle">Traveler</text>
+        <text x="60" y="345" font-size="10" fill="#5ee0d2" font-family="monospace" text-anchor="middle">&#9992;</text>
+        <text x="60" y="370" fill="#5ee0d2" font-size="14" font-weight="600" text-anchor="middle">Traveler</text>
 
         <!-- Underwriter -->
-        <circle cx="900" cy="334" r="22" fill="rgba(224,92,107,0.1)" stroke="#e05c6b" stroke-width="1.5"/>
+        <circle cx="900" cy="334" r="22" fill="rgba(255,93,108,0.1)" stroke="#ff5d6c" stroke-width="1.5"/>
         <text x="900" y="330" font-size="18" text-anchor="middle">&#127974;</text>
-        <text x="900" y="345" font-size="10" fill="#e05c6b" font-family="monospace" text-anchor="middle">$</text>
-        <text x="900" y="370" fill="#e05c6b" font-size="14" font-weight="600" text-anchor="middle">Underwriter</text>
+        <text x="900" y="345" font-size="10" fill="#ff5d6c" font-family="monospace" text-anchor="middle">$</text>
+        <text x="900" y="370" fill="#ff5d6c" font-size="14" font-weight="600" text-anchor="middle">Underwriter</text>
 
         <!-- Executor → Controller -->
-        <path d="M 480 84 L 480 158" stroke="#6366f1" stroke-width="2"
+        <path d="M 480 84 L 480 158" stroke="#a98bff" stroke-width="2"
               stroke-dasharray="5 3" marker-end="url(#arr-stellar)" class="flowing-line"/>
-        <text x="498" y="126" fill="#6366f1" font-size="11" font-family="monospace">settle()</text>
+        <text x="498" y="126" fill="#a98bff" font-size="11" font-family="monospace">settle()</text>
 
         <!-- Controller → FlightPool -->
-        <path d="M 420 232 L 320 298" stroke="#3b8ef3" stroke-width="2"
+        <path d="M 420 232 L 320 298" stroke="#5ee0d2" stroke-width="2"
               marker-end="url(#arr-blue)" class="flowing-line"/>
-        <text x="350" y="262" fill="#3b8ef3" font-size="11" font-family="monospace" text-anchor="middle">deploy + settle</text>
+        <text x="350" y="262" fill="#5ee0d2" font-size="11" font-family="monospace" text-anchor="middle">register + settle</text>
 
-        <!-- Controller → RiskVault -->
-        <path d="M 540 232 L 640 298" stroke="#e05c6b" stroke-width="2"
+        <!-- Controller → Vault -->
+        <path d="M 540 232 L 640 298" stroke="#ff5d6c" stroke-width="2"
               marker-end="url(#arr-red)" class="flowing-line"/>
-        <text x="610" y="262" fill="#e05c6b" font-size="11" font-family="monospace" text-anchor="middle">lock / payout</text>
+        <text x="610" y="262" fill="#ff5d6c" font-size="11" font-family="monospace" text-anchor="middle">lock / payout</text>
 
         <!-- Traveler → FlightPool -->
-        <path d="M 82 324 L 188 324" stroke="#3b8ef3" stroke-width="1.5"
+        <path d="M 82 324 L 188 324" stroke="#5ee0d2" stroke-width="1.5"
               stroke-dasharray="5 3" marker-end="url(#arr-blue)" class="flowing-line"/>
-        <text x="135" y="316" fill="#3b8ef3" font-size="11" font-family="monospace" text-anchor="middle">premium</text>
+        <text x="135" y="316" fill="#5ee0d2" font-size="11" font-family="monospace" text-anchor="middle">premium</text>
 
         <!-- FlightPool → Traveler (payout) -->
-        <path d="M 188 348 L 82 348" stroke="#2ecc8f" stroke-width="1.5"
+        <path d="M 188 348 L 82 348" stroke="#7ee787" stroke-width="1.5"
               stroke-dasharray="5 3" marker-end="url(#arr-green)"/>
-        <text x="135" y="362" fill="#2ecc8f" font-size="11" font-family="monospace" text-anchor="middle">payout</text>
+        <text x="135" y="362" fill="#7ee787" font-size="11" font-family="monospace" text-anchor="middle">payout</text>
 
-        <!-- Underwriter → RiskVault -->
-        <path d="M 878 324 L 772 324" stroke="#e05c6b" stroke-width="1.5"
+        <!-- Underwriter → Vault -->
+        <path d="M 878 324 L 772 324" stroke="#ff5d6c" stroke-width="1.5"
               stroke-dasharray="5 3" marker-end="url(#arr-red)" class="flowing-line"/>
-        <text x="825" y="316" fill="#e05c6b" font-size="11" font-family="monospace" text-anchor="middle">deposit</text>
+        <text x="825" y="316" fill="#ff5d6c" font-size="11" font-family="monospace" text-anchor="middle">deposit</text>
 
-        <!-- RiskVault → Underwriter (yield) -->
-        <path d="M 772 348 L 878 348" stroke="#f5c842" stroke-width="1.5"
+        <!-- Vault → Underwriter (yield) -->
+        <path d="M 772 348 L 878 348" stroke="#ffb547" stroke-width="1.5"
               stroke-dasharray="5 3" marker-end="url(#arr-yellow)"/>
-        <text x="825" y="362" fill="#f5c842" font-size="11" font-family="monospace" text-anchor="middle">yield</text>
+        <text x="825" y="362" fill="#ffb547" font-size="11" font-family="monospace" text-anchor="middle">yield</text>
 
-        <!-- FlightPool ↔ RiskVault -->
-        <path d="M 412 328 L 548 328" stroke="#2ecc8f" stroke-width="1.5"
+        <!-- FlightPool ↔ Vault -->
+        <path d="M 412 328 L 548 328" stroke="#7ee787" stroke-width="1.5"
               stroke-dasharray="5 3" marker-end="url(#arr-green)" class="flowing-line-slow"/>
-        <text x="480" y="320" fill="#2ecc8f" font-size="10" font-family="monospace" text-anchor="middle">premiums (on-time)</text>
+        <text x="480" y="320" fill="#7ee787" font-size="10" font-family="monospace" text-anchor="middle">premiums (on-time)</text>
 
-        <path d="M 548 348 L 412 348" stroke="#e05c6b" stroke-width="1.5"
+        <path d="M 548 348 L 412 348" stroke="#ff5d6c" stroke-width="1.5"
               stroke-dasharray="5 3" marker-end="url(#arr-red)" class="flowing-line-slow"/>
-        <text x="480" y="364" fill="#e05c6b" font-size="10" font-family="monospace" text-anchor="middle">payout (delayed)</text>
+        <text x="480" y="364" fill="#ff5d6c" font-size="10" font-family="monospace" text-anchor="middle">payout (delayed)</text>
 
         <defs>
           <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#3b8ef3"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#5ee0d2"/></marker>
           <marker id="arr-red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#e05c6b"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#ff5d6c"/></marker>
           <marker id="arr-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#2ecc8f"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#7ee787"/></marker>
           <marker id="arr-yellow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#f5c842"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#ffb547"/></marker>
           <marker id="arr-stellar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#6366f1"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#a98bff"/></marker>
         </defs>
       </svg>
     </div>
@@ -491,7 +492,7 @@
         <div class="tag red">For Underwriters</div>
         <h2>Earn yield.<br>No active management.</h2>
         <p class="lead" style="margin-top:16px">
-          Deposit USDC into the shared RiskVault. Receive shares.
+          Deposit USDC into the shared vault. Receive shares.
           Every on-time flight returns premiums &mdash; share price rises automatically.
         </p>
 
@@ -501,7 +502,7 @@
             <span>Initial deposit</span><span class="val">1.000 USDC/share</span>
           </div>
           <div class="yield-bar-track">
-            <div class="yield-bar" style="--w:60%; background:linear-gradient(90deg,#1a3a6b,#3b8ef3)"></div>
+            <div class="yield-bar" style="--w:60%; background:linear-gradient(90deg,#1a3a6b,#5ee0d2)"></div>
           </div>
           <div class="yield-row" style="margin-top:2px">
             <span>After 10 on-time flights</span><span class="val">1.043 USDC/share</span>
@@ -513,7 +514,7 @@
             <span>After 30 on-time flights</span><span class="val">1.131 USDC/share</span>
           </div>
           <div class="yield-bar-track">
-            <div class="yield-bar" style="--w:100%; background:linear-gradient(90deg,#0d7a50,#2ecc8f)"></div>
+            <div class="yield-bar" style="--w:100%; background:linear-gradient(90deg,#0d7a50,#7ee787)"></div>
           </div>
         </div>
 
@@ -538,32 +539,32 @@
       </div>
 
       <div>
-        <div class="tag" style="background:rgba(59,142,243,0.1); color:var(--blue)">For Travelers</div>
+        <div class="tag" style="background:rgba(94,224,210,0.1); color:var(--blue)">For Travelers</div>
         <h2>Hedge your flight.<br>Get paid instantly.</h2>
         <p class="lead" style="margin-top:16px">
           Pay a small premium. If your flight is delayed, the payout is ready automatically.
           No claim form. No adjuster. No waiting weeks for a decision.
         </p>
 
-        <div class="card" style="margin-top:20px; border-color:rgba(46,204,143,0.3)">
+        <div class="card" style="margin-top:20px; border-color:rgba(126,231,135,0.3)">
           <div style="font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:16px">How it works for you</div>
           <div style="display:flex; flex-direction:column; gap:14px">
             <div style="display:flex; gap:14px; align-items:flex-start">
-              <div style="width:32px;height:32px;border-radius:8px;background:rgba(59,142,243,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">1</div>
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">1</div>
               <div>
                 <div style="font-size:15px; font-weight:600; color:var(--white)">Pick your flight + date</div>
                 <div style="font-size:14px; color:var(--muted); margin-top:2px">Choose from whitelisted routes. Pay premium in USDC.</div>
               </div>
             </div>
             <div style="display:flex; gap:14px; align-items:flex-start">
-              <div style="width:32px;height:32px;border-radius:8px;background:rgba(99,102,241,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--stellar)">2</div>
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(169,139,255,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--stellar)">2</div>
               <div>
                 <div style="font-size:15px; font-weight:600; color:var(--white)">Settlement runs automatically</div>
                 <div style="font-size:14px; color:var(--muted); margin-top:2px">Every 5 minutes, the executor settles. You don't lift a finger.</div>
               </div>
             </div>
             <div style="display:flex; gap:14px; align-items:flex-start">
-              <div style="width:32px;height:32px;border-radius:8px;background:rgba(46,204,143,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--green)">3</div>
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(126,231,135,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--green)">3</div>
               <div>
                 <div style="font-size:15px; font-weight:600; color:var(--white)">Flight delayed? Collect your payout.</div>
                 <div style="font-size:14px; color:var(--muted); margin-top:2px">Payout is already credited. Just call <code style="color:var(--green)">claim()</code> and receive USDC.</div>
@@ -572,7 +573,7 @@
           </div>
         </div>
 
-        <div class="card" style="margin-top:14px; display:flex; align-items:center; gap:16px; border-color:rgba(46,204,143,0.3); background:rgba(46,204,143,0.03)">
+        <div class="card" style="margin-top:14px; display:flex; align-items:center; gap:16px; border-color:rgba(126,231,135,0.3); background:rgba(126,231,135,0.03)">
           <div style="font-size:32px">&#9992;</div>
           <div>
             <div style="font-size:16px; color:var(--white); font-weight:600">Pay $12 &rarr; flight AA123 delayed 3 hours</div>
@@ -596,142 +597,6 @@
         </div>
       </div>
     </div>
-  </section>
-
-  <!-- ══════════════════════════════════════════════════ -->
-  <!-- SLIDE s-tranche1 — TRANCHE 1 RECAP                  -->
-  <!-- ══════════════════════════════════════════════════ -->
-  <section class="slide" id="s-tranche1">
-    <div style="max-width:1060px; width:100%">
-      <div style="text-align:center; margin-bottom:28px">
-        <div class="tag green">Completed</div>
-        <h2 style="margin-top:10px">[Recap] Tranche 1 &mdash; What We Shipped</h2>
-      </div>
-
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
-
-        <!-- 1. Vault Standard -->
-        <div class="card" style="border-color:rgba(99,102,241,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(99,102,241,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128220;</div>
-            <div>
-              <div style="font-size:19px; font-weight:800; color:var(--stellar)">Vault Standard for Soroban</div>
-              <div style="font-size:13px; color:var(--muted); margin-top:2px">SEP-0056</div>
-            </div>
-          </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            Close collaboration with <strong style="color:var(--white)">OpenZeppelin</strong> resulted in a standard vault library &mdash; now available for all Soroban developers as a reusable DeFi primitive.
-          </div>
-        </div>
-
-        <!-- 2. Central Risk Vault Architecture -->
-        <div class="card" style="border-color:rgba(224,92,107,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(224,92,107,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#127974;</div>
-            <div>
-              <div style="font-size:19px; font-weight:800; color:var(--red)">Central Risk Vault Architecture</div>
-            </div>
-          </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            Replaced per-market risk vaults with a <strong style="color:var(--white)">single pooled vault</strong> supporting multiple flight pools &mdash; improving capital efficiency and simplifying investor exposure.
-          </div>
-        </div>
-
-        <!-- 3. Flight Delay Interface -->
-        <div class="card" style="border-color:rgba(59,142,243,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(59,142,243,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9992;</div>
-            <div>
-              <div style="font-size:19px; font-weight:800; color:var(--blue)">Flight Delay Insurance Interface</div>
-            </div>
-          </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            Purpose-built frontend replacing the generic market UI &mdash; dedicated dashboards for <strong style="color:var(--white)">insurance buyers</strong> and <strong style="color:var(--white)">risk investors</strong> with streamlined deposit, withdrawal, and coverage flows.
-          </div>
-        </div>
-
-        <!-- 4. Acurast Oracle -->
-        <div class="card" style="border-color:rgba(46,204,143,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(46,204,143,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128274;</div>
-            <div>
-              <div style="font-size:19px; font-weight:800; color:var(--green)">Acurast Oracle Integration</div>
-              <div style="font-size:13px; color:var(--muted); margin-top:2px">Trusted Execution Environments</div>
-            </div>
-          </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            First integration of Acurast TEE oracles with Soroban &mdash; enabling verifiable Web2 API data on-chain. Published documentation, example contracts, and developer-facing guides.
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ══════════════════════════════════════════════════ -->
-  <!-- SLIDE s-tranche2 — TRANCHE 2 DELIVERABLES           -->
-  <!-- ══════════════════════════════════════════════════ -->
-  <section class="slide" id="s-tranche2">
-    <div style="max-width:1060px; width:100%">
-      <div style="text-align:center; margin-bottom:28px">
-        <div class="tag stellar">Tranche 2</div>
-        <h2 style="margin-top:10px">What We Built</h2>
-      </div>
-
-      <div style="margin-bottom:12px; display:flex; gap:16px; font-size:12px; font-family:'SF Mono',monospace; letter-spacing:0.06em; color:var(--muted)">
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--green);margin-right:6px"></span>PLANNED</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--yellow);margin-right:6px"></span>BONUS</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#c084fc;margin-right:6px"></span>ECOSYSTEM INFRA</span>
-      </div>
-
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
-
-        <!-- Planned (green) -->
-        <div class="card" style="border-color:rgba(46,204,143,0.3); padding:20px; display:flex; gap:16px; align-items:center">
-          <div style="width:42px;height:42px;border-radius:10px;background:rgba(46,204,143,0.12);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--green);flex-shrink:0;font-family:'SF Mono',monospace">01</div>
-          <div style="font-size:17px; font-weight:700; color:var(--green)">Oracle Infrastructure Update</div>
-        </div>
-
-        <div class="card" style="border-color:rgba(46,204,143,0.3); padding:20px; display:flex; gap:16px; align-items:center">
-          <div style="width:42px;height:42px;border-radius:10px;background:rgba(46,204,143,0.12);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--green);flex-shrink:0;font-family:'SF Mono',monospace">02</div>
-          <div style="font-size:17px; font-weight:700; color:var(--green)">Automated Market Creation</div>
-        </div>
-
-        <div class="card" style="border-color:rgba(46,204,143,0.3); padding:20px; display:flex; gap:16px; align-items:center">
-          <div style="width:42px;height:42px;border-radius:10px;background:rgba(46,204,143,0.12);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--green);flex-shrink:0;font-family:'SF Mono',monospace">03</div>
-          <div style="font-size:17px; font-weight:700; color:var(--green)">Testnet Launch &amp; E2E Testing</div>
-        </div>
-
-        <!-- Bonus (yellow) -->
-        <div class="card" style="border-color:rgba(245,200,66,0.3); padding:20px; display:flex; gap:16px; align-items:center">
-          <div style="width:42px;height:42px;border-radius:10px;background:rgba(245,200,66,0.12);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--yellow);flex-shrink:0;font-family:'SF Mono',monospace">04</div>
-          <div style="font-size:17px; font-weight:700; color:var(--yellow)">FIFO Withdrawal Queue</div>
-        </div>
-
-        <div class="card" style="border-color:rgba(245,200,66,0.3); padding:20px; display:flex; gap:16px; align-items:center">
-          <div style="width:42px;height:42px;border-radius:10px;background:rgba(245,200,66,0.12);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--yellow);flex-shrink:0;font-family:'SF Mono',monospace">05</div>
-          <div style="font-size:17px; font-weight:700; color:var(--yellow)">Complete Revamp of Cron Jobs (Keepers)</div>
-        </div>
-
-        <div class="card" style="border-color:rgba(245,200,66,0.3); padding:20px; display:flex; gap:16px; align-items:center">
-          <div style="width:42px;height:42px;border-radius:10px;background:rgba(245,200,66,0.12);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--yellow);flex-shrink:0;font-family:'SF Mono',monospace">06</div>
-          <div style="font-size:17px; font-weight:700; color:var(--yellow)">Frontend Revamp</div>
-        </div>
-
-        <div class="card" style="border-color:rgba(245,200,66,0.3); padding:20px; display:flex; gap:16px; align-items:center">
-          <div style="width:42px;height:42px;border-radius:10px;background:rgba(245,200,66,0.12);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--yellow);flex-shrink:0;font-family:'SF Mono',monospace">07</div>
-          <div style="font-size:17px; font-weight:700; color:var(--yellow)">Modular Governance Contract</div>
-        </div>
-
-        <!-- Ecosystem Infra (purple) -->
-        <div class="card" style="border-color:rgba(192,132,252,0.3); padding:20px; display:flex; gap:16px; align-items:center">
-          <div style="width:42px;height:42px;border-radius:10px;background:rgba(192,132,252,0.12);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#c084fc;flex-shrink:0;font-family:'SF Mono',monospace">08</div>
-          <div style="font-size:17px; font-weight:700; color:#c084fc">stellar-wallet-mock</div>
-        </div>
-
-      </div>
-    </div>
-  </section>
 
   <!-- ══════════════════════════════════════════════════ -->
   <!-- SLIDE s-oracle — Oracle Infra & Executor Overview    -->
@@ -739,49 +604,49 @@
   <section class="slide" id="s-oracle">
     <div style="max-width:1060px; width:100%">
       <div style="text-align:center; margin-bottom:28px">
-        <div class="tag" style="background:rgba(46,204,143,0.1); color:var(--green); margin-bottom:8px">Deliverable 01 + 05</div>
+        <div class="tag" style="background:rgba(126,231,135,0.1); color:var(--green); margin-bottom:8px">Oracle &amp; Executor</div>
         <h2 style="margin-top:10px">Oracle Infrastructure &amp; Modular Executor</h2>
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
 
-        <div class="card" style="border-color:rgba(59,142,243,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(94,224,210,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(59,142,243,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128225;</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128225;</div>
             <div style="font-size:19px; font-weight:800; color:var(--blue)">OracleAggregator Contract</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
             Single source of truth for all flight data. Stores status, ETA, and actual arrival times. Decoupled from the Controller &mdash; any oracle can write, any contract can read.
           </div>
         </div>
 
-        <div class="card" style="border-color:rgba(46,204,143,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(126,231,135,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(46,204,143,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9992;</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(126,231,135,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9992;</div>
             <div style="font-size:19px; font-weight:800; color:var(--green)">Robust Flight State Machine</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
             8-state deterministic lifecycle validated on-chain. Every transition is enforced &mdash; no invalid jumps, no ambiguity. Flights move from Active through to Settled with full auditability.
           </div>
         </div>
 
-        <div class="card" style="border-color:rgba(99,102,241,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(169,139,255,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(99,102,241,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(169,139,255,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
             <div style="font-size:19px; font-weight:800; color:var(--stellar)">Modular Executor Pipeline</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
             4 independent cron jobs (keepers) that toggle flight states: fetch, classify, settle, and extend TTL. Each is swappable and independently deployable.
           </div>
         </div>
 
-        <div class="card" style="border-color:rgba(245,200,66,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(255,181,71,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(245,200,66,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128737;</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,181,71,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128737;</div>
             <div style="font-size:19px; font-weight:800; color:var(--yellow)">TEE-Hardened Oracle (Roadmap)</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            Future hardening: TEE-attested signer (Switchboard On-Demand SGX or Acurast mobile-TEE) replaces the centralised cron with no on-chain changes &mdash; <code style="color:var(--white);font-family:monospace">authorized_oracle</code> is already a swap-friendly indirection.
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
+            Future hardening: TEE-attested signer (Switchboard On-Demand SGX) replaces the centralised cron with no on-chain changes &mdash; <code style="color:var(--white);font-family:monospace">authorized_oracle</code> is already a swap-friendly indirection.
           </div>
         </div>
 
@@ -795,7 +660,7 @@
   <section class="slide" id="s-oracle-flow">
     <div style="max-width:1060px; width:100%">
       <div style="text-align:center; margin-bottom:14px">
-        <div class="tag" style="background:rgba(59,142,243,0.1); color:var(--blue); margin-bottom:8px">How It Works</div>
+        <div class="tag" style="background:rgba(94,224,210,0.1); color:var(--blue); margin-bottom:8px">How It Works</div>
         <h2 style="margin-top:10px">OracleAggregator &mdash; Active Flight Registry</h2>
         <p class="lead" style="margin:8px auto 0; text-align:center; max-width:700px">The system only tracks active flights. This is how it knows which flights to call the API for.</p>
       </div>
@@ -805,132 +670,132 @@
         <!-- ═══ LEFT: How flights enter ═══ -->
 
         <!-- buy_insurance label -->
-        <text x="30" y="28" fill="#6366f1" font-size="11" font-weight="700" font-family="monospace">REGISTER</text>
+        <text x="30" y="28" fill="#a98bff" font-size="11" font-weight="700" font-family="monospace">REGISTER</text>
 
         <!-- Step: buy_insurance → Controller → register_flight → Oracle -->
-        <rect x="20" y="42" width="150" height="44" rx="8" fill="#12171f" stroke="#6366f1" stroke-width="1.5"/>
-        <text x="95" y="60" fill="#8a93a8" font-size="9" font-family="monospace" text-anchor="middle">buy_insurance()</text>
-        <text x="95" y="76" fill="#e8ecf4" font-size="12" font-weight="700" text-anchor="middle">Controller</text>
+        <rect x="20" y="42" width="150" height="44" rx="8" fill="#12171f" stroke="#a98bff" stroke-width="1.5"/>
+        <text x="95" y="60" fill="#b6becd" font-size="9" font-family="monospace" text-anchor="middle">buy_insurance()</text>
+        <text x="95" y="76" fill="#eef1f7" font-size="12" font-weight="700" text-anchor="middle">Controller</text>
 
-        <path d="M 172 64 L 208 64" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
-        <text x="190" y="56" fill="#6366f1" font-size="8" font-family="monospace" text-anchor="middle">register</text>
+        <path d="M 172 64 L 208 64" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+        <text x="190" y="56" fill="#a98bff" font-size="8" font-family="monospace" text-anchor="middle">register</text>
 
         <!-- ═══ CENTER: OracleAggregator + ActiveFlightList ═══ -->
 
-        <rect x="210" y="16" width="530" height="300" rx="14" fill="#0c0e14" stroke="#1e2530" stroke-width="1.5"/>
-        <text x="475" y="40" fill="#e8ecf4" font-size="18" font-weight="800" text-anchor="middle">OracleAggregator</text>
-        <text x="475" y="56" fill="#8a93a8" font-size="10" text-anchor="middle">ActiveFlightList &mdash; source of truth for all flight state</text>
+        <rect x="210" y="16" width="530" height="300" rx="14" fill="#0c0e14" stroke="#1e2533" stroke-width="1.5"/>
+        <text x="475" y="40" fill="#eef1f7" font-size="18" font-weight="800" text-anchor="middle">OracleAggregator</text>
+        <text x="475" y="56" fill="#b6becd" font-size="10" text-anchor="middle">ActiveFlightList &mdash; source of truth for all flight state</text>
 
         <!-- Flight entries -->
         <!-- Entry 1: NotInitiated (just registered) -->
-        <rect x="232" y="74" width="486" height="38" rx="6" fill="var(--surface)" stroke="#6a7488" stroke-width="1"/>
-        <circle cx="254" cy="93" r="8" fill="rgba(106,116,136,0.15)" stroke="#6a7488" stroke-width="1"/>
-        <text x="254" y="97" fill="#6a7488" font-size="10" text-anchor="middle">1</text>
-        <text x="280" y="90" fill="#6a7488" font-size="12" font-weight="700">BA200</text>
-        <text x="350" y="90" fill="#6a7488" font-size="10">NotInitiated</text>
+        <rect x="232" y="74" width="486" height="38" rx="6" fill="var(--surface)" stroke="#6b7385" stroke-width="1"/>
+        <circle cx="254" cy="93" r="8" fill="rgba(106,116,136,0.15)" stroke="#6b7385" stroke-width="1"/>
+        <text x="254" y="97" fill="#6b7385" font-size="10" text-anchor="middle">1</text>
+        <text x="280" y="90" fill="#6b7385" font-size="12" font-weight="700">BA200</text>
+        <text x="350" y="90" fill="#6b7385" font-size="10">NotInitiated</text>
         <text x="490" y="90" fill="#5a6478" font-size="10">ETA: &mdash;</text>
         <text x="590" y="90" fill="#5a6478" font-size="10" font-style="italic">waiting for Fetcher to get ETA</text>
 
         <!-- Entry 2: Active, ETA in future (waiting) -->
-        <rect x="232" y="118" width="486" height="38" rx="6" fill="rgba(59,142,243,0.05)" stroke="rgba(59,142,243,0.3)" stroke-width="1.5">
+        <rect x="232" y="118" width="486" height="38" rx="6" fill="rgba(94,224,210,0.05)" stroke="rgba(94,224,210,0.3)" stroke-width="1.5">
           <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
         </rect>
-        <circle cx="254" cy="137" r="8" fill="rgba(59,142,243,0.15)" stroke="#3b8ef3" stroke-width="1"/>
-        <text x="254" y="141" fill="#3b8ef3" font-size="10" text-anchor="middle">2</text>
-        <text x="280" y="134" fill="#3b8ef3" font-size="12" font-weight="700">DL789</text>
-        <text x="348" y="134" fill="#3b8ef3" font-size="10" font-weight="600">Active</text>
-        <text x="490" y="134" fill="#3b8ef3" font-size="10">ETA: 18:00</text>
+        <circle cx="254" cy="137" r="8" fill="rgba(94,224,210,0.15)" stroke="#5ee0d2" stroke-width="1"/>
+        <text x="254" y="141" fill="#5ee0d2" font-size="10" text-anchor="middle">2</text>
+        <text x="280" y="134" fill="#5ee0d2" font-size="12" font-weight="700">DL789</text>
+        <text x="348" y="134" fill="#5ee0d2" font-size="10" font-weight="600">Active</text>
+        <text x="490" y="134" fill="#5ee0d2" font-size="10">ETA: 18:00</text>
         <text x="590" y="134" fill="#5a6478" font-size="10" font-style="italic">ETA not passed yet &mdash; waiting</text>
 
         <!-- Entry 3: Active, ETA+1h passed → API CALL -->
-        <rect x="232" y="162" width="486" height="38" rx="6" fill="rgba(59,142,243,0.08)" stroke="#3b8ef3" stroke-width="2">
+        <rect x="232" y="162" width="486" height="38" rx="6" fill="rgba(94,224,210,0.08)" stroke="#5ee0d2" stroke-width="2">
           <animate attributeName="stroke-opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite"/>
         </rect>
-        <circle cx="254" cy="181" r="8" fill="rgba(59,142,243,0.2)" stroke="#3b8ef3" stroke-width="1.5"/>
-        <text x="254" y="185" fill="#3b8ef3" font-size="10" text-anchor="middle">3</text>
-        <text x="280" y="178" fill="#3b8ef3" font-size="12" font-weight="700">AA123</text>
-        <text x="348" y="178" fill="#3b8ef3" font-size="10" font-weight="600">Active</text>
-        <text x="490" y="178" fill="#3b8ef3" font-size="10">ETA: 14:30</text>
-        <text x="590" y="178" fill="#e8ecf4" font-size="10" font-weight="700">&#9654; CALLS API (ETA+1h passed)</text>
+        <circle cx="254" cy="181" r="8" fill="rgba(94,224,210,0.2)" stroke="#5ee0d2" stroke-width="1.5"/>
+        <text x="254" y="185" fill="#5ee0d2" font-size="10" text-anchor="middle">3</text>
+        <text x="280" y="178" fill="#5ee0d2" font-size="12" font-weight="700">AA123</text>
+        <text x="348" y="178" fill="#5ee0d2" font-size="10" font-weight="600">Active</text>
+        <text x="490" y="178" fill="#5ee0d2" font-size="10">ETA: 14:30</text>
+        <text x="590" y="178" fill="#eef1f7" font-size="10" font-weight="700">&#9654; CALLS API (ETA+1h passed)</text>
 
         <!-- Entry 4: Landed (fetcher wrote actual arrival) -->
-        <rect x="232" y="206" width="486" height="38" rx="6" fill="rgba(46,204,143,0.05)" stroke="rgba(46,204,143,0.3)" stroke-width="1.5"/>
-        <circle cx="254" cy="225" r="8" fill="rgba(46,204,143,0.15)" stroke="#2ecc8f" stroke-width="1"/>
-        <text x="254" y="229" fill="#2ecc8f" font-size="10" text-anchor="middle">4</text>
-        <text x="280" y="222" fill="#2ecc8f" font-size="12" font-weight="700">UA456</text>
-        <text x="348" y="222" fill="#2ecc8f" font-size="10" font-weight="600">Landed</text>
-        <text x="490" y="222" fill="#2ecc8f" font-size="10">actual: 16:45</text>
+        <rect x="232" y="206" width="486" height="38" rx="6" fill="rgba(126,231,135,0.05)" stroke="rgba(126,231,135,0.3)" stroke-width="1.5"/>
+        <circle cx="254" cy="225" r="8" fill="rgba(126,231,135,0.15)" stroke="#7ee787" stroke-width="1"/>
+        <text x="254" y="229" fill="#7ee787" font-size="10" text-anchor="middle">4</text>
+        <text x="280" y="222" fill="#7ee787" font-size="12" font-weight="700">UA456</text>
+        <text x="348" y="222" fill="#7ee787" font-size="10" font-weight="600">Landed</text>
+        <text x="490" y="222" fill="#7ee787" font-size="10">actual: 16:45</text>
         <text x="590" y="222" fill="#5a6478" font-size="10" font-style="italic">ready for Classifier</text>
 
         <!-- Entry 5: ToBeSettled (classified, ready for settlement) -->
-        <rect x="232" y="250" width="486" height="38" rx="6" fill="rgba(245,200,66,0.05)" stroke="rgba(245,200,66,0.3)" stroke-width="1.5"/>
-        <circle cx="254" cy="269" r="8" fill="rgba(245,200,66,0.15)" stroke="#f5c842" stroke-width="1"/>
-        <text x="254" y="273" fill="#f5c842" font-size="10" text-anchor="middle">5</text>
-        <text x="280" y="266" fill="#f5c842" font-size="12" font-weight="700">AF300</text>
-        <text x="358" y="266" fill="#f5c842" font-size="10" font-weight="600">ToBeSettledDelayed</text>
+        <rect x="232" y="250" width="486" height="38" rx="6" fill="rgba(255,181,71,0.05)" stroke="rgba(255,181,71,0.3)" stroke-width="1.5"/>
+        <circle cx="254" cy="269" r="8" fill="rgba(255,181,71,0.15)" stroke="#ffb547" stroke-width="1"/>
+        <text x="254" y="273" fill="#ffb547" font-size="10" text-anchor="middle">5</text>
+        <text x="280" y="266" fill="#ffb547" font-size="12" font-weight="700">AF300</text>
+        <text x="358" y="266" fill="#ffb547" font-size="10" font-weight="600">ToBeSettledDelayed</text>
         <text x="590" y="266" fill="#5a6478" font-size="10" font-style="italic">ready for Settler</text>
 
         <!-- ═══ RIGHT: How flights exit ═══ -->
 
         <!-- Arrow out: settled & removed -->
-        <text x="770" y="28" fill="#e05c6b" font-size="11" font-weight="700" font-family="monospace">DEREGISTER</text>
+        <text x="770" y="28" fill="#ff5d6c" font-size="11" font-weight="700" font-family="monospace">DEREGISTER</text>
 
-        <path d="M 742 64 L 778 64" stroke="#e05c6b" stroke-width="1.5" marker-end="url(#arr-red)"/>
+        <path d="M 742 64 L 778 64" stroke="#ff5d6c" stroke-width="1.5" marker-end="url(#arr-red)"/>
 
-        <rect x="780" y="42" width="160" height="44" rx="8" fill="rgba(224,92,107,0.06)" stroke="rgba(224,92,107,0.3)" stroke-width="1.5" stroke-dasharray="5 3"/>
-        <text x="860" y="60" fill="#e05c6b" font-size="9" font-family="monospace" text-anchor="middle">execute_settlements()</text>
-        <text x="860" y="76" fill="#e05c6b" font-size="11" font-weight="700" text-anchor="middle">Removed from active list</text>
+        <rect x="780" y="42" width="160" height="44" rx="8" fill="rgba(255,93,108,0.06)" stroke="rgba(255,93,108,0.3)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <text x="860" y="60" fill="#ff5d6c" font-size="9" font-family="monospace" text-anchor="middle">execute_settlements()</text>
+        <text x="860" y="76" fill="#ff5d6c" font-size="11" font-weight="700" text-anchor="middle">Removed from active list</text>
 
         <!-- ═══ LEFT SIDE: Fetcher reads list ═══ -->
-        <rect x="20" y="130" width="150" height="56" rx="8" fill="rgba(59,142,243,0.06)" stroke="#3b8ef3" stroke-width="1.5"/>
-        <text x="95" y="150" fill="#3b8ef3" font-size="9" font-family="monospace" text-anchor="middle">CRON &middot; every 2h</text>
-        <text x="95" y="168" fill="#e8ecf4" font-size="14" font-weight="700" text-anchor="middle">Fetcher</text>
+        <rect x="20" y="130" width="150" height="56" rx="8" fill="rgba(94,224,210,0.06)" stroke="#5ee0d2" stroke-width="1.5"/>
+        <text x="95" y="150" fill="#5ee0d2" font-size="9" font-family="monospace" text-anchor="middle">CRON &middot; every 2h</text>
+        <text x="95" y="168" fill="#eef1f7" font-size="14" font-weight="700" text-anchor="middle">Fetcher</text>
 
         <!-- Arrow: Fetcher reads list -->
-        <path d="M 172 158 L 208 158" stroke="#3b8ef3" stroke-width="1.2" marker-end="url(#arr-blue)"/>
+        <path d="M 172 158 L 208 158" stroke="#5ee0d2" stroke-width="1.2" marker-end="url(#arr-blue)"/>
 
         <!-- AeroAPI call annotation -->
         <rect x="20" y="200" width="150" height="40" rx="8" fill="#0d1420" stroke="#2a3040" stroke-width="1.2"/>
         <text x="95" y="216" fill="#5a6478" font-size="9" font-family="monospace" text-anchor="middle">FLIGHTAWARE</text>
-        <text x="95" y="232" fill="#e8ecf4" font-size="12" font-weight="700" text-anchor="middle">AeroAPI</text>
+        <text x="95" y="232" fill="#eef1f7" font-size="12" font-weight="700" text-anchor="middle">AeroAPI</text>
 
-        <path d="M 95 186 L 95 198" stroke="#3b8ef3" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arr-blue)"/>
-        <path d="M 172 220 L 230 200" stroke="#3b8ef3" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr-blue)" class="flowing-line"/>
-        <text x="130" y="250" fill="#3b8ef3" font-size="9" text-anchor="middle">writes ETA or actual arrival</text>
+        <path d="M 95 186 L 95 198" stroke="#5ee0d2" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arr-blue)"/>
+        <path d="M 172 220 L 230 200" stroke="#5ee0d2" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr-blue)" class="flowing-line"/>
+        <text x="130" y="250" fill="#5ee0d2" font-size="9" text-anchor="middle">writes ETA or actual arrival</text>
 
         <!-- Classifier annotation -->
-        <rect x="20" y="268" width="150" height="44" rx="8" fill="rgba(245,200,66,0.06)" stroke="#f5c842" stroke-width="1.5"/>
-        <text x="95" y="286" fill="#f5c842" font-size="9" font-family="monospace" text-anchor="middle">via Controller &middot; every 1h</text>
-        <text x="95" y="302" fill="#e8ecf4" font-size="13" font-weight="700" text-anchor="middle">Classifier</text>
-        <path d="M 172 290 L 230 270" stroke="#f5c842" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
+        <rect x="20" y="268" width="150" height="44" rx="8" fill="rgba(255,181,71,0.06)" stroke="#ffb547" stroke-width="1.5"/>
+        <text x="95" y="286" fill="#ffb547" font-size="9" font-family="monospace" text-anchor="middle">via Controller &middot; every 1h</text>
+        <text x="95" y="302" fill="#eef1f7" font-size="13" font-weight="700" text-anchor="middle">Classifier</text>
+        <path d="M 172 290 L 230 270" stroke="#ffb547" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
 
         <!-- Bottom key insight -->
-        <rect x="780" y="120" width="160" height="80" rx="10" fill="rgba(59,142,243,0.06)" stroke="rgba(59,142,243,0.2)" stroke-width="1.5"/>
-        <text x="860" y="142" fill="#3b8ef3" font-size="10" font-weight="800" text-anchor="middle">KEY INSIGHT</text>
-        <text x="860" y="160" fill="#e8ecf4" font-size="11" text-anchor="middle" font-weight="600">Fetcher only calls API</text>
-        <text x="860" y="176" fill="#e8ecf4" font-size="11" text-anchor="middle" font-weight="600">for Active flights</text>
-        <text x="860" y="192" fill="#3b8ef3" font-size="11" text-anchor="middle" font-weight="700">after ETA + 1 hour</text>
+        <rect x="780" y="120" width="160" height="80" rx="10" fill="rgba(94,224,210,0.06)" stroke="rgba(94,224,210,0.2)" stroke-width="1.5"/>
+        <text x="860" y="142" fill="#5ee0d2" font-size="10" font-weight="800" text-anchor="middle">KEY INSIGHT</text>
+        <text x="860" y="160" fill="#eef1f7" font-size="11" text-anchor="middle" font-weight="600">Fetcher only calls API</text>
+        <text x="860" y="176" fill="#eef1f7" font-size="11" text-anchor="middle" font-weight="600">for Active flights</text>
+        <text x="860" y="192" fill="#5ee0d2" font-size="11" text-anchor="middle" font-weight="700">after ETA + 1 hour</text>
 
         <!-- Bottom flow -->
         <rect x="780" y="220" width="160" height="92" rx="10" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
-        <text x="860" y="240" fill="#8a93a8" font-size="9" font-family="monospace" text-anchor="middle">LIFECYCLE</text>
-        <text x="860" y="258" fill="#6a7488" font-size="10" text-anchor="middle">NotInitiated</text>
-        <text x="860" y="270" fill="#8a93a8" font-size="10" text-anchor="middle">&#8595;</text>
-        <text x="860" y="282" fill="#3b8ef3" font-size="10" font-weight="700" text-anchor="middle">Active (has ETA)</text>
-        <text x="860" y="294" fill="#8a93a8" font-size="10" text-anchor="middle">&#8595;</text>
-        <text x="860" y="306" fill="#e05c6b" font-size="10" font-weight="700" text-anchor="middle">Settled &#8594; removed</text>
+        <text x="860" y="240" fill="#b6becd" font-size="9" font-family="monospace" text-anchor="middle">LIFECYCLE</text>
+        <text x="860" y="258" fill="#6b7385" font-size="10" text-anchor="middle">NotInitiated</text>
+        <text x="860" y="270" fill="#b6becd" font-size="10" text-anchor="middle">&#8595;</text>
+        <text x="860" y="282" fill="#5ee0d2" font-size="10" font-weight="700" text-anchor="middle">Active (has ETA)</text>
+        <text x="860" y="294" fill="#b6becd" font-size="10" text-anchor="middle">&#8595;</text>
+        <text x="860" y="306" fill="#ff5d6c" font-size="10" font-weight="700" text-anchor="middle">Settled &#8594; removed</text>
 
         <defs>
           <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#3b8ef3"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#5ee0d2"/></marker>
           <marker id="arr-red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#e05c6b"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#ff5d6c"/></marker>
           <marker id="arr-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#2ecc8f"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#7ee787"/></marker>
           <marker id="arr-yellow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#f5c842"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#ffb547"/></marker>
           <marker id="arr-stellar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#6366f1"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#a98bff"/></marker>
         </defs>
       </svg>
     </div>
@@ -947,101 +812,101 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:20px; max-width:1060px; width:100%; height:auto">
 
       <!-- Q1: FlightDataFetcher -->
-      <div class="card" style="border-color:rgba(59,142,243,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
+      <div class="card" style="border-color:rgba(94,224,210,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
         <div style="display:flex; align-items:center; justify-content:space-between">
           <div>
-            <div class="cron-freq" style="background:rgba(59,142,243,0.12); color:var(--blue); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 2h</div>
+            <div class="cron-freq" style="background:rgba(94,224,210,0.12); color:var(--blue); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 2h</div>
             <div style="font-size:20px; font-weight:800; color:var(--blue); margin-top:8px">FlightDataFetcher</div>
           </div>
         </div>
         <svg viewBox="0 0 320 80" fill="none" style="width:100%;height:auto">
           <rect x="0" y="20" width="80" height="40" rx="8" fill="#0d1420" stroke="#2a3040" stroke-width="1.2"/>
-          <text x="40" y="44" fill="#8a93a8" font-size="11" font-weight="700" text-anchor="middle">AeroAPI</text>
-          <path d="M 82 40 L 128 40" stroke="#3b8ef3" stroke-width="1.5" marker-end="url(#arr-blue)" class="flowing-line"/>
-          <text x="105" y="34" fill="#3b8ef3" font-size="9" font-family="monospace" text-anchor="middle">HTTP</text>
-          <rect x="130" y="15" width="90" height="50" rx="8" fill="rgba(59,142,243,0.08)" stroke="#3b8ef3" stroke-width="1.5"/>
-          <text x="175" y="36" fill="#3b8ef3" font-size="10" font-weight="700" text-anchor="middle">Fetcher</text>
-          <text x="175" y="50" fill="#8a93a8" font-size="9" text-anchor="middle">ETA + actual</text>
-          <path d="M 222 40 L 258 40" stroke="#3b8ef3" stroke-width="1.5" marker-end="url(#arr-blue)" class="flowing-line"/>
-          <text x="240" y="34" fill="#3b8ef3" font-size="9" font-family="monospace" text-anchor="middle">write</text>
-          <rect x="260" y="20" width="55" height="40" rx="8" fill="#12171f" stroke="#1e2530" stroke-width="1.2"/>
-          <text x="288" y="44" fill="#8a93a8" font-size="9" font-weight="700" text-anchor="middle">Oracle</text>
+          <text x="40" y="44" fill="#b6becd" font-size="11" font-weight="700" text-anchor="middle">AeroAPI</text>
+          <path d="M 82 40 L 128 40" stroke="#5ee0d2" stroke-width="1.5" marker-end="url(#arr-blue)" class="flowing-line"/>
+          <text x="105" y="34" fill="#5ee0d2" font-size="9" font-family="monospace" text-anchor="middle">HTTP</text>
+          <rect x="130" y="15" width="90" height="50" rx="8" fill="rgba(94,224,210,0.08)" stroke="#5ee0d2" stroke-width="1.5"/>
+          <text x="175" y="36" fill="#5ee0d2" font-size="10" font-weight="700" text-anchor="middle">Fetcher</text>
+          <text x="175" y="50" fill="#b6becd" font-size="9" text-anchor="middle">ETA + actual</text>
+          <path d="M 222 40 L 258 40" stroke="#5ee0d2" stroke-width="1.5" marker-end="url(#arr-blue)" class="flowing-line"/>
+          <text x="240" y="34" fill="#5ee0d2" font-size="9" font-family="monospace" text-anchor="middle">write</text>
+          <rect x="260" y="20" width="55" height="40" rx="8" fill="#12171f" stroke="#1e2533" stroke-width="1.2"/>
+          <text x="288" y="44" fill="#b6becd" font-size="9" font-weight="700" text-anchor="middle">Oracle</text>
         </svg>
         <div style="font-size:13px; color:var(--muted); line-height:1.5">Pulls flight data from FlightAware, writes arrival times on-chain.</div>
       </div>
 
       <!-- Q2: FlightClassifier -->
-      <div class="card" style="border-color:rgba(245,200,66,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
+      <div class="card" style="border-color:rgba(255,181,71,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
         <div>
-          <div class="cron-freq" style="background:rgba(245,200,66,0.12); color:var(--yellow); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 1h</div>
+          <div class="cron-freq" style="background:rgba(255,181,71,0.12); color:var(--yellow); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 1h</div>
           <div style="font-size:20px; font-weight:800; color:var(--yellow); margin-top:8px">FlightClassifier</div>
         </div>
         <svg viewBox="0 0 320 80" fill="none" style="width:100%;height:auto">
-          <rect x="0" y="20" width="70" height="40" rx="8" fill="#12171f" stroke="#1e2530" stroke-width="1.2"/>
-          <text x="35" y="44" fill="#8a93a8" font-size="9" font-weight="700" text-anchor="middle">Oracle</text>
-          <path d="M 72 40 L 108 40" stroke="#f5c842" stroke-width="1.5" marker-end="url(#arr-yellow)" class="flowing-line"/>
-          <text x="90" y="34" fill="#f5c842" font-size="9" font-family="monospace" text-anchor="middle">read</text>
-          <rect x="110" y="10" width="100" height="60" rx="8" fill="rgba(245,200,66,0.08)" stroke="#f5c842" stroke-width="1.5"/>
-          <text x="160" y="32" fill="#f5c842" font-size="10" font-weight="700" text-anchor="middle">Classifier</text>
-          <text x="160" y="46" fill="#8a93a8" font-size="8" text-anchor="middle">actual vs scheduled</text>
-          <text x="160" y="58" fill="#8a93a8" font-size="8" text-anchor="middle">&#8594; outcome</text>
-          <path d="M 212 28 L 258 16" stroke="#2ecc8f" stroke-width="1.2" marker-end="url(#arr-green)"/>
-          <text x="283" y="16" fill="#2ecc8f" font-size="9" font-weight="600">OnTime</text>
-          <path d="M 212 40 L 258 40" stroke="#f5c842" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
-          <text x="283" y="42" fill="#f5c842" font-size="9" font-weight="600">Delayed</text>
-          <path d="M 212 52 L 258 64" stroke="#e05c6b" stroke-width="1.2" marker-end="url(#arr-red)"/>
-          <text x="290" y="67" fill="#e05c6b" font-size="9" font-weight="600">Cancelled</text>
+          <rect x="0" y="20" width="70" height="40" rx="8" fill="#12171f" stroke="#1e2533" stroke-width="1.2"/>
+          <text x="35" y="44" fill="#b6becd" font-size="9" font-weight="700" text-anchor="middle">Oracle</text>
+          <path d="M 72 40 L 108 40" stroke="#ffb547" stroke-width="1.5" marker-end="url(#arr-yellow)" class="flowing-line"/>
+          <text x="90" y="34" fill="#ffb547" font-size="9" font-family="monospace" text-anchor="middle">read</text>
+          <rect x="110" y="10" width="100" height="60" rx="8" fill="rgba(255,181,71,0.08)" stroke="#ffb547" stroke-width="1.5"/>
+          <text x="160" y="32" fill="#ffb547" font-size="10" font-weight="700" text-anchor="middle">Classifier</text>
+          <text x="160" y="46" fill="#b6becd" font-size="8" text-anchor="middle">actual vs scheduled</text>
+          <text x="160" y="58" fill="#b6becd" font-size="8" text-anchor="middle">&#8594; outcome</text>
+          <path d="M 212 28 L 258 16" stroke="#7ee787" stroke-width="1.2" marker-end="url(#arr-green)"/>
+          <text x="283" y="16" fill="#7ee787" font-size="9" font-weight="600">OnTime</text>
+          <path d="M 212 40 L 258 40" stroke="#ffb547" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
+          <text x="283" y="42" fill="#ffb547" font-size="9" font-weight="600">Delayed</text>
+          <path d="M 212 52 L 258 64" stroke="#ff5d6c" stroke-width="1.2" marker-end="url(#arr-red)"/>
+          <text x="290" y="67" fill="#ff5d6c" font-size="9" font-weight="600">Cancelled</text>
         </svg>
         <div style="font-size:13px; color:var(--muted); line-height:1.5">Compares arrival times, classifies each flight outcome.</div>
       </div>
 
       <!-- Q3: SettlementExecutor -->
-      <div class="card" style="border-color:rgba(46,204,143,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
+      <div class="card" style="border-color:rgba(126,231,135,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
         <div>
-          <div class="cron-freq" style="background:rgba(46,204,143,0.12); color:var(--green); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 5m</div>
+          <div class="cron-freq" style="background:rgba(126,231,135,0.12); color:var(--green); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 5m</div>
           <div style="font-size:20px; font-weight:800; color:var(--green); margin-top:8px">SettlementExecutor</div>
         </div>
         <svg viewBox="0 0 320 80" fill="none" style="width:100%;height:auto">
-          <rect x="0" y="20" width="80" height="40" rx="8" fill="rgba(46,204,143,0.08)" stroke="#2ecc8f" stroke-width="1.5"/>
-          <text x="40" y="36" fill="#2ecc8f" font-size="9" font-weight="700" text-anchor="middle">Settler</text>
-          <text x="40" y="50" fill="#8a93a8" font-size="8" text-anchor="middle">settle()</text>
-          <path d="M 82 30 L 128 18" stroke="#3b8ef3" stroke-width="1.2" marker-end="url(#arr-blue)" class="flowing-line"/>
-          <path d="M 82 50 L 128 58" stroke="#e05c6b" stroke-width="1.2" marker-end="url(#arr-red)" class="flowing-line"/>
-          <rect x="130" y="4" width="75" height="30" rx="6" fill="rgba(59,142,243,0.07)" stroke="#1a3a6b" stroke-width="1"/>
-          <text x="168" y="23" fill="#3b8ef3" font-size="9" font-weight="600" text-anchor="middle">FlightPool</text>
-          <rect x="130" y="46" width="75" height="30" rx="6" fill="rgba(224,92,107,0.07)" stroke="#5c1a22" stroke-width="1"/>
-          <text x="168" y="65" fill="#e05c6b" font-size="9" font-weight="600" text-anchor="middle">RiskVault</text>
-          <path d="M 207 19 L 243 19" stroke="#2ecc8f" stroke-width="1.2" marker-end="url(#arr-green)"/>
-          <path d="M 207 61 L 243 61" stroke="#f5c842" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
-          <text x="280" y="22" fill="#2ecc8f" font-size="8" font-weight="600">premiums</text>
-          <text x="280" y="64" fill="#f5c842" font-size="8" font-weight="600">payouts</text>
+          <rect x="0" y="20" width="80" height="40" rx="8" fill="rgba(126,231,135,0.08)" stroke="#7ee787" stroke-width="1.5"/>
+          <text x="40" y="36" fill="#7ee787" font-size="9" font-weight="700" text-anchor="middle">Settler</text>
+          <text x="40" y="50" fill="#b6becd" font-size="8" text-anchor="middle">settle()</text>
+          <path d="M 82 30 L 128 18" stroke="#5ee0d2" stroke-width="1.2" marker-end="url(#arr-blue)" class="flowing-line"/>
+          <path d="M 82 50 L 128 58" stroke="#ff5d6c" stroke-width="1.2" marker-end="url(#arr-red)" class="flowing-line"/>
+          <rect x="130" y="4" width="75" height="30" rx="6" fill="rgba(94,224,210,0.07)" stroke="#1a3a6b" stroke-width="1"/>
+          <text x="168" y="23" fill="#5ee0d2" font-size="9" font-weight="600" text-anchor="middle">FlightPool</text>
+          <rect x="130" y="46" width="75" height="30" rx="6" fill="rgba(255,93,108,0.07)" stroke="#5c1a22" stroke-width="1"/>
+          <text x="168" y="65" fill="#ff5d6c" font-size="9" font-weight="600" text-anchor="middle">Vault</text>
+          <path d="M 207 19 L 243 19" stroke="#7ee787" stroke-width="1.2" marker-end="url(#arr-green)"/>
+          <path d="M 207 61 L 243 61" stroke="#ffb547" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
+          <text x="280" y="22" fill="#7ee787" font-size="8" font-weight="600">premiums</text>
+          <text x="280" y="64" fill="#ffb547" font-size="8" font-weight="600">payouts</text>
         </svg>
         <div style="font-size:13px; color:var(--muted); line-height:1.5">Settles classified flights, moves capital, processes withdrawals.</div>
       </div>
 
-      <!-- Q4: TTLExtender -->
-      <div class="card" style="border-color:rgba(99,102,241,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
+      <!-- Q4: RouteRepricer (XGBoost + Grok agent) -->
+      <div class="card" style="border-color:rgba(169,139,255,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
         <div>
-          <div class="cron-freq" style="background:rgba(99,102,241,0.12); color:var(--stellar); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">daily</div>
-          <div style="font-size:20px; font-weight:800; color:var(--stellar); margin-top:8px">TTLExtender</div>
+          <div class="cron-freq" style="background:rgba(169,139,255,0.12); color:var(--stellar); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">daily</div>
+          <div style="font-size:20px; font-weight:800; color:var(--stellar); margin-top:8px">RouteRepricer</div>
         </div>
         <svg viewBox="0 0 320 80" fill="none" style="width:100%;height:auto">
-          <rect x="0" y="20" width="90" height="40" rx="8" fill="rgba(99,102,241,0.08)" stroke="#6366f1" stroke-width="1.5"/>
-          <text x="45" y="36" fill="#6366f1" font-size="9" font-weight="700" text-anchor="middle">Extender</text>
-          <text x="45" y="50" fill="#8a93a8" font-size="8" text-anchor="middle">extend_ttl()</text>
-          <path d="M 92 32 L 138 20" stroke="#6366f1" stroke-width="1.2" marker-end="url(#arr-stellar)" class="flowing-line"/>
-          <path d="M 92 40 L 138 40" stroke="#6366f1" stroke-width="1.2" marker-end="url(#arr-stellar)" class="flowing-line"/>
-          <path d="M 92 48 L 138 60" stroke="#6366f1" stroke-width="1.2" marker-end="url(#arr-stellar)" class="flowing-line"/>
-          <rect x="140" y="6" width="60" height="24" rx="5" fill="#12171f" stroke="#1e2530" stroke-width="1"/>
-          <text x="170" y="22" fill="#8a93a8" font-size="8" font-weight="600" text-anchor="middle">Controller</text>
-          <rect x="140" y="34" width="60" height="24" rx="5" fill="#12171f" stroke="#1e2530" stroke-width="1"/>
-          <text x="170" y="50" fill="#8a93a8" font-size="8" font-weight="600" text-anchor="middle">Pools</text>
-          <rect x="140" y="52" width="60" height="24" rx="5" fill="#12171f" stroke="#1e2530" stroke-width="1"/>
-          <text x="170" y="68" fill="#8a93a8" font-size="8" font-weight="600" text-anchor="middle">Vault</text>
-          <text x="240" y="44" fill="#6366f1" font-size="22" text-anchor="middle">&#8635;</text>
-          <text x="280" y="44" fill="#6366f1" font-size="10" font-weight="600" text-anchor="middle">TTL renewed</text>
+          <rect x="0" y="6" width="90" height="30" rx="6" fill="#0d1420" stroke="#2a3040" stroke-width="1.2"/>
+          <text x="45" y="25" fill="#b6becd" font-size="10" font-weight="700" text-anchor="middle">XGBoost</text>
+          <rect x="0" y="44" width="90" height="30" rx="6" fill="#0d1420" stroke="#2a3040" stroke-width="1.2"/>
+          <text x="45" y="63" fill="#b6becd" font-size="10" font-weight="700" text-anchor="middle">Grok agent</text>
+          <path d="M 92 21 L 138 32" stroke="#a98bff" stroke-width="1.2" marker-end="url(#arr-stellar)" class="flowing-line"/>
+          <path d="M 92 59 L 138 48" stroke="#a98bff" stroke-width="1.2" marker-end="url(#arr-stellar)" class="flowing-line"/>
+          <rect x="140" y="20" width="90" height="40" rx="8" fill="rgba(169,139,255,0.08)" stroke="#a98bff" stroke-width="1.5"/>
+          <text x="185" y="36" fill="#a98bff" font-size="9" font-weight="700" text-anchor="middle">Repricer</text>
+          <text x="185" y="50" fill="#b6becd" font-size="8" text-anchor="middle">$1 &mdash; $5 USDC</text>
+          <path d="M 232 40 L 268 40" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+          <text x="250" y="34" fill="#a98bff" font-size="8" font-family="monospace" text-anchor="middle">update</text>
+          <rect x="270" y="20" width="50" height="40" rx="6" fill="#12171f" stroke="#1e2533" stroke-width="1"/>
+          <text x="295" y="38" fill="#b6becd" font-size="8" font-weight="600" text-anchor="middle">Govern.</text>
+          <text x="295" y="52" fill="#b6becd" font-size="8" font-weight="600" text-anchor="middle">terms</text>
         </svg>
-        <div style="font-size:13px; color:var(--muted); line-height:1.5">Extends storage TTL on all contracts. Prevents ledger expiry.</div>
+        <div style="font-size:13px; color:var(--muted); line-height:1.5">XGBoost delay-prob + Grok disruption signals reprice routes daily. Disable on storms, re-enable on clear skies.</div>
       </div>
 
     </div>
@@ -1060,76 +925,76 @@
 
       <svg viewBox="0 0 960 400" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
         <!-- NotInitiated -->
-        <rect x="20" y="165" width="130" height="50" rx="10" fill="var(--surface)" stroke="#6a7488" stroke-width="1.5"/>
-        <text x="85" y="195" fill="#6a7488" font-size="13" font-weight="700" text-anchor="middle">NotInitiated</text>
+        <rect x="20" y="165" width="130" height="50" rx="10" fill="var(--surface)" stroke="#6b7385" stroke-width="1.5"/>
+        <text x="85" y="195" fill="#6b7385" font-size="13" font-weight="700" text-anchor="middle">NotInitiated</text>
 
         <!-- Arrow: NotInitiated → Active -->
-        <path d="M 150 190 L 198 190" stroke="#6366f1" stroke-width="2" marker-end="url(#arr-stellar)" class="flowing-line"/>
-        <text x="174" y="182" fill="#6366f1" font-size="9" font-family="monospace" text-anchor="middle">set_estimated_arrival()</text>
+        <path d="M 150 190 L 198 190" stroke="#a98bff" stroke-width="2" marker-end="url(#arr-stellar)" class="flowing-line"/>
+        <text x="174" y="182" fill="#a98bff" font-size="9" font-family="monospace" text-anchor="middle">set_estimated_arrival()</text>
 
         <!-- Active -->
-        <rect x="200" y="165" width="110" height="50" rx="10" fill="rgba(59,142,243,0.08)" stroke="#3b8ef3" stroke-width="2"/>
-        <text x="255" y="195" fill="#3b8ef3" font-size="14" font-weight="800" text-anchor="middle">Active</text>
+        <rect x="200" y="165" width="110" height="50" rx="10" fill="rgba(94,224,210,0.08)" stroke="#5ee0d2" stroke-width="2"/>
+        <text x="255" y="195" fill="#5ee0d2" font-size="14" font-weight="800" text-anchor="middle">Active</text>
 
         <!-- Arrow: Active → Landed -->
-        <path d="M 310 175 L 388 135" stroke="#2ecc8f" stroke-width="2" marker-end="url(#arr-green)" class="flowing-line"/>
-        <text x="350" y="143" fill="#2ecc8f" font-size="9" font-family="monospace" text-anchor="middle">oracle</text>
+        <path d="M 310 175 L 388 135" stroke="#7ee787" stroke-width="2" marker-end="url(#arr-green)" class="flowing-line"/>
+        <text x="350" y="143" fill="#7ee787" font-size="9" font-family="monospace" text-anchor="middle">oracle</text>
 
         <!-- Arrow: Active → Cancelled -->
-        <path d="M 310 205 L 388 245" stroke="#e05c6b" stroke-width="2" marker-end="url(#arr-red)" class="flowing-line"/>
-        <text x="350" y="238" fill="#e05c6b" font-size="9" font-family="monospace" text-anchor="middle">oracle</text>
+        <path d="M 310 205 L 388 245" stroke="#ff5d6c" stroke-width="2" marker-end="url(#arr-red)" class="flowing-line"/>
+        <text x="350" y="238" fill="#ff5d6c" font-size="9" font-family="monospace" text-anchor="middle">oracle</text>
 
         <!-- Landed -->
-        <rect x="390" y="105" width="110" height="50" rx="10" fill="rgba(46,204,143,0.08)" stroke="#2ecc8f" stroke-width="1.5"/>
-        <text x="445" y="135" fill="#2ecc8f" font-size="13" font-weight="700" text-anchor="middle">Landed</text>
+        <rect x="390" y="105" width="110" height="50" rx="10" fill="rgba(126,231,135,0.08)" stroke="#7ee787" stroke-width="1.5"/>
+        <text x="445" y="135" fill="#7ee787" font-size="13" font-weight="700" text-anchor="middle">Landed</text>
 
         <!-- Cancelled -->
-        <rect x="390" y="225" width="110" height="50" rx="10" fill="rgba(224,92,107,0.08)" stroke="#e05c6b" stroke-width="1.5"/>
-        <text x="445" y="255" fill="#e05c6b" font-size="13" font-weight="700" text-anchor="middle">Cancelled</text>
+        <rect x="390" y="225" width="110" height="50" rx="10" fill="rgba(255,93,108,0.08)" stroke="#ff5d6c" stroke-width="1.5"/>
+        <text x="445" y="255" fill="#ff5d6c" font-size="13" font-weight="700" text-anchor="middle">Cancelled</text>
 
         <!-- Arrow: Landed → ToBeSettledOnTime -->
-        <path d="M 500 118 L 558 78" stroke="#2ecc8f" stroke-width="1.5" marker-end="url(#arr-green)" class="flowing-line"/>
-        <text x="540" y="88" fill="#2ecc8f" font-size="8" font-family="monospace" text-anchor="end">classify()</text>
+        <path d="M 500 118 L 558 78" stroke="#7ee787" stroke-width="1.5" marker-end="url(#arr-green)" class="flowing-line"/>
+        <text x="540" y="88" fill="#7ee787" font-size="8" font-family="monospace" text-anchor="end">classify()</text>
 
         <!-- Arrow: Landed → ToBeSettledDelayed -->
-        <path d="M 500 142 L 558 168" stroke="#f5c842" stroke-width="1.5" marker-end="url(#arr-yellow)" class="flowing-line"/>
-        <text x="540" y="164" fill="#f5c842" font-size="8" font-family="monospace" text-anchor="end">classify()</text>
+        <path d="M 500 142 L 558 168" stroke="#ffb547" stroke-width="1.5" marker-end="url(#arr-yellow)" class="flowing-line"/>
+        <text x="540" y="164" fill="#ffb547" font-size="8" font-family="monospace" text-anchor="end">classify()</text>
 
         <!-- Arrow: Cancelled → ToBeSettledCancelled -->
-        <path d="M 500 250 L 558 268" stroke="#e05c6b" stroke-width="1.5" marker-end="url(#arr-red)" class="flowing-line"/>
-        <text x="540" y="270" fill="#e05c6b" font-size="8" font-family="monospace" text-anchor="end">classify()</text>
+        <path d="M 500 250 L 558 268" stroke="#ff5d6c" stroke-width="1.5" marker-end="url(#arr-red)" class="flowing-line"/>
+        <text x="540" y="270" fill="#ff5d6c" font-size="8" font-family="monospace" text-anchor="end">classify()</text>
 
         <!-- ToBeSettledOnTime -->
-        <rect x="560" y="50" width="180" height="50" rx="10" fill="rgba(46,204,143,0.06)" stroke="#2ecc8f" stroke-width="1.5" stroke-dasharray="4 3"/>
-        <text x="650" y="72" fill="#2ecc8f" font-size="11" font-family="monospace" text-anchor="middle">ToBeSettled</text>
-        <text x="650" y="89" fill="#2ecc8f" font-size="12" font-weight="700" text-anchor="middle">OnTime</text>
+        <rect x="560" y="50" width="180" height="50" rx="10" fill="rgba(126,231,135,0.06)" stroke="#7ee787" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="650" y="72" fill="#7ee787" font-size="11" font-family="monospace" text-anchor="middle">ToBeSettled</text>
+        <text x="650" y="89" fill="#7ee787" font-size="12" font-weight="700" text-anchor="middle">OnTime</text>
 
         <!-- ToBeSettledDelayed -->
-        <rect x="560" y="145" width="180" height="50" rx="10" fill="rgba(245,200,66,0.06)" stroke="#f5c842" stroke-width="1.5" stroke-dasharray="4 3"/>
-        <text x="650" y="167" fill="#f5c842" font-size="11" font-family="monospace" text-anchor="middle">ToBeSettled</text>
-        <text x="650" y="184" fill="#f5c842" font-size="12" font-weight="700" text-anchor="middle">Delayed</text>
+        <rect x="560" y="145" width="180" height="50" rx="10" fill="rgba(255,181,71,0.06)" stroke="#ffb547" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="650" y="167" fill="#ffb547" font-size="11" font-family="monospace" text-anchor="middle">ToBeSettled</text>
+        <text x="650" y="184" fill="#ffb547" font-size="12" font-weight="700" text-anchor="middle">Delayed</text>
 
         <!-- ToBeSettledCancelled -->
-        <rect x="560" y="240" width="180" height="50" rx="10" fill="rgba(224,92,107,0.06)" stroke="#e05c6b" stroke-width="1.5" stroke-dasharray="4 3"/>
-        <text x="650" y="262" fill="#e05c6b" font-size="11" font-family="monospace" text-anchor="middle">ToBeSettled</text>
-        <text x="650" y="279" fill="#e05c6b" font-size="12" font-weight="700" text-anchor="middle">Cancelled</text>
+        <rect x="560" y="240" width="180" height="50" rx="10" fill="rgba(255,93,108,0.06)" stroke="#ff5d6c" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="650" y="262" fill="#ff5d6c" font-size="11" font-family="monospace" text-anchor="middle">ToBeSettled</text>
+        <text x="650" y="279" fill="#ff5d6c" font-size="12" font-weight="700" text-anchor="middle">Cancelled</text>
 
         <!-- Arrows: ToBeSettled* → Settled -->
-        <path d="M 740 75 L 808 155" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
-        <path d="M 740 170 L 808 170" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
-        <path d="M 740 265 L 808 185" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
-        <text x="775" y="130" fill="#6366f1" font-size="9" font-family="monospace" text-anchor="middle">settle()</text>
+        <path d="M 740 75 L 808 155" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+        <path d="M 740 170 L 808 170" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+        <path d="M 740 265 L 808 185" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+        <text x="775" y="130" fill="#a98bff" font-size="9" font-family="monospace" text-anchor="middle">settle()</text>
 
         <!-- Settled -->
-        <rect x="810" y="145" width="130" height="50" rx="10" fill="rgba(99,102,241,0.1)" stroke="#6366f1" stroke-width="2"/>
-        <text x="875" y="175" fill="#6366f1" font-size="15" font-weight="800" text-anchor="middle">Settled</text>
+        <rect x="810" y="145" width="130" height="50" rx="10" fill="rgba(169,139,255,0.1)" stroke="#a98bff" stroke-width="2"/>
+        <text x="875" y="175" fill="#a98bff" font-size="15" font-weight="800" text-anchor="middle">Settled</text>
 
         <!-- Legend -->
-        <rect x="20" y="330" width="920" height="50" rx="8" fill="rgba(15,18,24,0.7)" stroke="#1e2530" stroke-width="1"/>
-        <text x="40" y="360" fill="#6a7488" font-size="12" font-family="monospace">
-          <tspan fill="#2ecc8f">OnTime</tspan> = premiums flow to RiskVault
-          <tspan dx="24" fill="#f5c842">Delayed</tspan> = payout to travelers from RiskVault
-          <tspan dx="24" fill="#e05c6b">Cancelled</tspan> = payout to travelers, collateral unlocked
+        <rect x="20" y="330" width="920" height="50" rx="8" fill="rgba(15,18,24,0.7)" stroke="#1e2533" stroke-width="1"/>
+        <text x="40" y="360" fill="#6b7385" font-size="12" font-family="monospace">
+          <tspan fill="#7ee787">OnTime</tspan> = premiums flow to Vault
+          <tspan dx="24" fill="#ffb547">Delayed</tspan> = payout to travelers from Vault
+          <tspan dx="24" fill="#ff5d6c">Cancelled</tspan> = payout to travelers, collateral unlocked
         </text>
       </svg>
     </div>
@@ -1141,49 +1006,49 @@
   <section class="slide" id="s-market">
     <div style="max-width:1060px; width:100%">
       <div style="text-align:center; margin-bottom:28px">
-        <div class="tag" style="background:rgba(46,204,143,0.1); color:var(--green); margin-bottom:8px">Deliverable 02 + 07</div>
+        <div class="tag" style="background:rgba(126,231,135,0.1); color:var(--green); margin-bottom:8px">Markets &amp; Governance</div>
         <h2 style="margin-top:10px">Automated Market Creation &amp; Modular Governance</h2>
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
 
-        <div class="card" style="border-color:rgba(59,142,243,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(94,224,210,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(59,142,243,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--blue)">Controller.buy_insurance()</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
+            <div style="font-size:19px; font-weight:800; color:var(--blue)">controller.buy_insurance()</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            On first purchase for a flight, the Controller auto-deploys a new FlightPool via WASM hash, registers it with the OracleAggregator, and locks collateral from the RiskVault.
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
+            On first purchase for a flight, the controller auto-registers a new FlightPool PDA, initialises the OracleAggregator feed, and locks collateral from the vault_program &mdash; all in one transaction via 6 chained CPIs.
           </div>
         </div>
 
-        <div class="card" style="border-color:rgba(245,200,66,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(255,181,71,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(245,200,66,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128220;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--yellow)">GovernanceModule</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,181,71,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128220;</div>
+            <div style="font-size:19px; font-weight:800; color:var(--yellow)">governance_program</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            Modular contract that whitelists routes with terms &mdash; premium, payout, and delay threshold per airline route. Controller enforces these terms on every purchase.
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
+            Modular program that whitelists routes with terms &mdash; premium, payout, and delay threshold per airline route. The controller reads these via cross-program invocation and enforces them on every purchase.
           </div>
         </div>
 
-        <div class="card" style="border-color:rgba(46,204,143,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(126,231,135,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(46,204,143,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128187;</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(126,231,135,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128187;</div>
             <div style="font-size:19px; font-weight:800; color:var(--green)">React Frontend Integration</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            Flight search, route selection, premium payment, and purchase confirmation &mdash; all wired end-to-end to Soroban contracts via stellar-sdk v14.
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
+            Flight search, route selection, premium payment, and purchase confirmation &mdash; all wired end-to-end to Solana programs via @solana/kit + Codama-generated typed clients.
           </div>
         </div>
 
-        <div class="card" style="border-color:rgba(99,102,241,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(169,139,255,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(99,102,241,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128279;</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(169,139,255,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128279;</div>
             <div style="font-size:19px; font-weight:800; color:var(--stellar)">Auto-Sync Deployment</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            Frontend auto-syncs contract IDs on deploy. No manual configuration needed when contracts are redeployed to testnet.
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
+            Frontend reads program IDs from <code style="color:var(--white);font-family:monospace">deployments/devnet-latest.json</code> on every build. Redeploy regenerates the file &mdash; no manual config edits.
           </div>
         </div>
 
@@ -1197,166 +1062,166 @@
   <section class="slide" id="s-market-flow">
     <div style="max-width:1060px; width:100%">
       <div style="text-align:center; margin-bottom:14px">
-        <div class="tag" style="background:rgba(46,204,143,0.1); color:var(--green); margin-bottom:8px">Deliverable 02</div>
+        <div class="tag" style="background:rgba(126,231,135,0.1); color:var(--green); margin-bottom:8px">Buy Flow</div>
         <h2 style="margin-top:10px">How a Flight Gets Insured</h2>
       </div>
 
       <svg viewBox="0 0 960 370" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
 
-        <!-- STEP 1: GovernanceModule -->
-        <text x="30" y="20" fill="#8a93a8" font-size="10" font-family="monospace">STEP 1 &mdash; PREREQUISITE</text>
-        <rect x="30" y="30" width="220" height="56" rx="10" fill="rgba(245,200,66,0.06)" stroke="#f5c842" stroke-width="1.5"/>
-        <text x="140" y="52" fill="#f5c842" font-size="10" font-family="monospace" text-anchor="middle">GOVERNANCE MODULE</text>
-        <text x="140" y="72" fill="#e8ecf4" font-size="14" font-weight="700" text-anchor="middle">Route Whitelisted</text>
-        <text x="268" y="58" fill="#f5c842" font-size="11" font-family="monospace">AA &middot; JFK&rarr;LAX</text>
-        <text x="268" y="74" fill="#8a93a8" font-size="10">premium: $12 &middot; payoff: $150 &middot; delay: 3h</text>
+        <!-- STEP 1: governance_program -->
+        <text x="30" y="20" fill="#b6becd" font-size="10" font-family="monospace">STEP 1 &mdash; PREREQUISITE</text>
+        <rect x="30" y="30" width="220" height="56" rx="10" fill="rgba(255,181,71,0.06)" stroke="#ffb547" stroke-width="1.5"/>
+        <text x="140" y="52" fill="#ffb547" font-size="10" font-family="monospace" text-anchor="middle">GOVERNANCE PROGRAM</text>
+        <text x="140" y="72" fill="#eef1f7" font-size="14" font-weight="700" text-anchor="middle">Route Whitelisted</text>
+        <text x="268" y="58" fill="#ffb547" font-size="11" font-family="monospace">AA &middot; JFK&rarr;LAX</text>
+        <text x="268" y="74" fill="#b6becd" font-size="10">premium: $12 &middot; payoff: $150 &middot; delay: 3h</text>
 
         <!-- STEP 2: Traveler buys -->
-        <text x="30" y="114" fill="#8a93a8" font-size="10" font-family="monospace">STEP 2 &mdash; PURCHASE</text>
-        <circle cx="55" cy="148" r="18" fill="rgba(59,142,243,0.1)" stroke="#3b8ef3" stroke-width="1.5"/>
+        <text x="30" y="114" fill="#b6becd" font-size="10" font-family="monospace">STEP 2 &mdash; PURCHASE</text>
+        <circle cx="55" cy="148" r="18" fill="rgba(94,224,210,0.1)" stroke="#5ee0d2" stroke-width="1.5"/>
         <text x="55" y="144" font-size="14" text-anchor="middle">&#128100;</text>
-        <text x="55" y="157" font-size="7" fill="#3b8ef3" font-family="monospace" text-anchor="middle">&#9992;</text>
-        <path d="M 75 148 L 118 148" stroke="#3b8ef3" stroke-width="1.5" marker-end="url(#mf-arr-blue)" class="flowing-line"/>
-        <text x="96" y="140" fill="#3b8ef3" font-size="8" font-family="monospace" text-anchor="middle">buy_insurance()</text>
+        <text x="55" y="157" font-size="7" fill="#5ee0d2" font-family="monospace" text-anchor="middle">&#9992;</text>
+        <path d="M 75 148 L 118 148" stroke="#5ee0d2" stroke-width="1.5" marker-end="url(#mf-arr-blue)" class="flowing-line"/>
+        <text x="96" y="140" fill="#5ee0d2" font-size="8" font-family="monospace" text-anchor="middle">buy_insurance()</text>
 
-        <rect x="120" y="124" width="180" height="50" rx="10" fill="#12171f" stroke="#e8ecf4" stroke-width="2"/>
-        <text x="210" y="144" fill="#8a93a8" font-size="9" font-family="monospace" text-anchor="middle">CONTROLLER</text>
-        <text x="210" y="162" fill="#e8ecf4" font-size="13" font-weight="700" text-anchor="middle">Validates route terms</text>
-        <path d="M 210 124 L 170 88" stroke="#f5c842" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#mf-arr-yellow)"/>
-        <text x="178" y="108" fill="#f5c842" font-size="8" font-family="monospace">check route</text>
+        <rect x="120" y="124" width="180" height="50" rx="10" fill="#12171f" stroke="#eef1f7" stroke-width="2"/>
+        <text x="210" y="144" fill="#b6becd" font-size="9" font-family="monospace" text-anchor="middle">CONTROLLER</text>
+        <text x="210" y="162" fill="#eef1f7" font-size="13" font-weight="700" text-anchor="middle">Validates route terms</text>
+        <path d="M 210 124 L 170 88" stroke="#ffb547" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#mf-arr-yellow)"/>
+        <text x="178" y="108" fill="#ffb547" font-size="8" font-family="monospace">check route</text>
 
-        <!-- STEP 3: Deploy FlightPool if needed -->
-        <text x="340" y="114" fill="#8a93a8" font-size="10" font-family="monospace">STEP 3 &mdash; DEPLOY IF NEEDED</text>
-        <polygon points="340,148 380,128 420,148 380,168" fill="#12171f" stroke="#e8ecf4" stroke-width="1.5"/>
-        <text x="380" y="152" fill="#e8ecf4" font-size="9" font-weight="700" text-anchor="middle">Pool</text>
-        <text x="380" y="162" fill="#e8ecf4" font-size="9" font-weight="700" text-anchor="middle">exists?</text>
-        <path d="M 302 148 L 338 148" stroke="#e8ecf4" stroke-width="1.5" marker-end="url(#mf-arr-white)"/>
+        <!-- STEP 3: Register FlightPool PDA if needed -->
+        <text x="340" y="114" fill="#b6becd" font-size="10" font-family="monospace">STEP 3 &mdash; REGISTER IF NEEDED</text>
+        <polygon points="340,148 380,128 420,148 380,168" fill="#12171f" stroke="#eef1f7" stroke-width="1.5"/>
+        <text x="380" y="152" fill="#eef1f7" font-size="9" font-weight="700" text-anchor="middle">Pool</text>
+        <text x="380" y="162" fill="#eef1f7" font-size="9" font-weight="700" text-anchor="middle">exists?</text>
+        <path d="M 302 148 L 338 148" stroke="#eef1f7" stroke-width="1.5" marker-end="url(#mf-arr-white)"/>
 
-        <path d="M 380 168 L 380 198" stroke="#2ecc8f" stroke-width="1.5" marker-end="url(#mf-arr-green)"/>
-        <text x="392" y="188" fill="#2ecc8f" font-size="9" font-weight="700">NO</text>
-        <rect x="320" y="200" width="180" height="50" rx="10" fill="rgba(46,204,143,0.06)" stroke="#2ecc8f" stroke-width="2"/>
-        <text x="410" y="218" fill="#2ecc8f" font-size="9" font-family="monospace" text-anchor="middle">DEPLOY VIA WASM HASH</text>
-        <text x="410" y="236" fill="#e8ecf4" font-size="14" font-weight="700" text-anchor="middle">New FlightPool</text>
+        <path d="M 380 168 L 380 198" stroke="#7ee787" stroke-width="1.5" marker-end="url(#mf-arr-green)"/>
+        <text x="392" y="188" fill="#7ee787" font-size="9" font-weight="700">NO</text>
+        <rect x="320" y="200" width="180" height="50" rx="10" fill="rgba(126,231,135,0.06)" stroke="#7ee787" stroke-width="2"/>
+        <text x="410" y="218" fill="#7ee787" font-size="9" font-family="monospace" text-anchor="middle">REGISTER FLIGHT POOL PDA</text>
+        <text x="410" y="236" fill="#eef1f7" font-size="14" font-weight="700" text-anchor="middle">New FlightPool</text>
 
-        <path d="M 420 148 L 502 148" stroke="#3b8ef3" stroke-width="1.5" marker-end="url(#mf-arr-blue)"/>
-        <text x="460" y="140" fill="#3b8ef3" font-size="9" font-weight="700">YES</text>
-        <text x="460" y="160" fill="#8a93a8" font-size="8">use existing</text>
+        <path d="M 420 148 L 502 148" stroke="#5ee0d2" stroke-width="1.5" marker-end="url(#mf-arr-blue)"/>
+        <text x="460" y="140" fill="#5ee0d2" font-size="9" font-weight="700">YES</text>
+        <text x="460" y="160" fill="#b6becd" font-size="8">use existing</text>
 
         <!-- STEP 4: Register in OracleAggregator -->
-        <text x="530" y="114" fill="#8a93a8" font-size="10" font-family="monospace">STEP 4 &mdash; REGISTER</text>
-        <rect x="505" y="124" width="200" height="50" rx="10" fill="#12171f" stroke="#6366f1" stroke-width="2"/>
-        <text x="605" y="142" fill="#6366f1" font-size="9" font-family="monospace" text-anchor="middle">ORACLE AGGREGATOR</text>
-        <text x="605" y="162" fill="#e8ecf4" font-size="13" font-weight="700" text-anchor="middle">register_flight()</text>
-        <path d="M 502 225 L 555 176" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#mf-arr-stellar)" class="flowing-line"/>
+        <text x="530" y="114" fill="#b6becd" font-size="10" font-family="monospace">STEP 4 &mdash; REGISTER</text>
+        <rect x="505" y="124" width="200" height="50" rx="10" fill="#12171f" stroke="#a98bff" stroke-width="2"/>
+        <text x="605" y="142" fill="#a98bff" font-size="9" font-family="monospace" text-anchor="middle">ORACLE AGGREGATOR</text>
+        <text x="605" y="162" fill="#eef1f7" font-size="13" font-weight="700" text-anchor="middle">register_flight()</text>
+        <path d="M 502 225 L 555 176" stroke="#a98bff" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#mf-arr-stellar)" class="flowing-line"/>
 
-        <rect x="730" y="128" width="110" height="28" rx="6" fill="var(--surface)" stroke="#6a7488" stroke-width="1.5"/>
-        <text x="785" y="146" fill="#6a7488" font-size="11" font-weight="700" text-anchor="middle">NotInitiated</text>
-        <path d="M 707 149 L 728 142" stroke="#6a7488" stroke-width="1.2" marker-end="url(#mf-arr-muted)"/>
+        <rect x="730" y="128" width="110" height="28" rx="6" fill="var(--surface)" stroke="#6b7385" stroke-width="1.5"/>
+        <text x="785" y="146" fill="#6b7385" font-size="11" font-weight="700" text-anchor="middle">NotInitiated</text>
+        <path d="M 707 149 L 728 142" stroke="#6b7385" stroke-width="1.2" marker-end="url(#mf-arr-muted)"/>
 
         <!-- STEP 5: Lock Capital -->
-        <text x="30" y="210" fill="#8a93a8" font-size="10" font-family="monospace">STEP 5 &mdash; LOCK CAPITAL</text>
-        <rect x="30" y="220" width="120" height="44" rx="8" fill="rgba(224,92,107,0.06)" stroke="#e05c6b" stroke-width="1.5"/>
-        <text x="90" y="238" fill="#e05c6b" font-size="9" font-family="monospace" text-anchor="middle">RISK VAULT</text>
-        <text x="90" y="254" fill="#e8ecf4" font-size="12" font-weight="700" text-anchor="middle">Lock $150</text>
+        <text x="30" y="210" fill="#b6becd" font-size="10" font-family="monospace">STEP 5 &mdash; LOCK CAPITAL</text>
+        <rect x="30" y="220" width="120" height="44" rx="8" fill="rgba(255,93,108,0.06)" stroke="#ff5d6c" stroke-width="1.5"/>
+        <text x="90" y="238" fill="#ff5d6c" font-size="9" font-family="monospace" text-anchor="middle">VAULT PROGRAM</text>
+        <text x="90" y="254" fill="#eef1f7" font-size="12" font-weight="700" text-anchor="middle">Lock $150</text>
 
-        <rect x="170" y="220" width="120" height="44" rx="8" fill="rgba(59,142,243,0.06)" stroke="#3b8ef3" stroke-width="1.5"/>
-        <text x="230" y="238" fill="#3b8ef3" font-size="9" font-family="monospace" text-anchor="middle">PREMIUM</text>
-        <text x="230" y="254" fill="#e8ecf4" font-size="12" font-weight="700" text-anchor="middle">$12 &rarr; Pool</text>
+        <rect x="170" y="220" width="120" height="44" rx="8" fill="rgba(94,224,210,0.06)" stroke="#5ee0d2" stroke-width="1.5"/>
+        <text x="230" y="238" fill="#5ee0d2" font-size="9" font-family="monospace" text-anchor="middle">PREMIUM</text>
+        <text x="230" y="254" fill="#eef1f7" font-size="12" font-weight="700" text-anchor="middle">$12 &rarr; Pool</text>
 
         <!-- STEP 6: Fetcher activates -->
-        <text x="530" y="210" fill="#8a93a8" font-size="10" font-family="monospace">STEP 6 &mdash; ACTIVATION (ASYNC)</text>
-        <rect x="530" y="220" width="160" height="44" rx="8" fill="rgba(59,142,243,0.06)" stroke="#3b8ef3" stroke-width="1.5"/>
-        <text x="610" y="236" fill="#3b8ef3" font-size="9" font-family="monospace" text-anchor="middle">FETCHER CRON &middot; 2h</text>
-        <text x="610" y="254" fill="#e8ecf4" font-size="12" font-weight="700" text-anchor="middle">Calls AeroAPI</text>
+        <text x="530" y="210" fill="#b6becd" font-size="10" font-family="monospace">STEP 6 &mdash; ACTIVATION (ASYNC)</text>
+        <rect x="530" y="220" width="160" height="44" rx="8" fill="rgba(94,224,210,0.06)" stroke="#5ee0d2" stroke-width="1.5"/>
+        <text x="610" y="236" fill="#5ee0d2" font-size="9" font-family="monospace" text-anchor="middle">FETCHER CRON &middot; 2h</text>
+        <text x="610" y="254" fill="#eef1f7" font-size="12" font-weight="700" text-anchor="middle">Calls AeroAPI</text>
 
-        <path d="M 692 242 L 728 242" stroke="#3b8ef3" stroke-width="1.5" marker-end="url(#mf-arr-blue)" class="flowing-line"/>
-        <rect x="730" y="220" width="200" height="44" rx="8" fill="rgba(59,142,243,0.06)" stroke="#3b8ef3" stroke-width="2"/>
-        <text x="830" y="236" fill="#3b8ef3" font-size="9" font-family="monospace" text-anchor="middle">set_estimated_arrival()</text>
-        <text x="830" y="254" fill="#e8ecf4" font-size="12" font-weight="700" text-anchor="middle">ETA written on-chain</text>
+        <path d="M 692 242 L 728 242" stroke="#5ee0d2" stroke-width="1.5" marker-end="url(#mf-arr-blue)" class="flowing-line"/>
+        <rect x="730" y="220" width="200" height="44" rx="8" fill="rgba(94,224,210,0.06)" stroke="#5ee0d2" stroke-width="2"/>
+        <text x="830" y="236" fill="#5ee0d2" font-size="9" font-family="monospace" text-anchor="middle">set_estimated_arrival()</text>
+        <text x="830" y="254" fill="#eef1f7" font-size="12" font-weight="700" text-anchor="middle">ETA written on-chain</text>
 
-        <path d="M 785 158 L 785 200 L 830 218" stroke="#3b8ef3" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#mf-arr-blue)" class="flowing-line"/>
+        <path d="M 785 158 L 785 200 L 830 218" stroke="#5ee0d2" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#mf-arr-blue)" class="flowing-line"/>
 
-        <rect x="730" y="274" width="200" height="34" rx="8" fill="rgba(46,204,143,0.08)" stroke="#2ecc8f" stroke-width="2">
+        <rect x="730" y="274" width="200" height="34" rx="8" fill="rgba(126,231,135,0.08)" stroke="#7ee787" stroke-width="2">
           <animate attributeName="stroke-opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite"/>
         </rect>
-        <text x="830" y="296" fill="#2ecc8f" font-size="13" font-weight="800" text-anchor="middle">&#10003; Insurance Active</text>
-        <path d="M 830 266 L 830 272" stroke="#2ecc8f" stroke-width="1.5" marker-end="url(#mf-arr-green)"/>
+        <text x="830" y="296" fill="#7ee787" font-size="13" font-weight="800" text-anchor="middle">&#10003; Insurance Active</text>
+        <path d="M 830 266 L 830 272" stroke="#7ee787" stroke-width="1.5" marker-end="url(#mf-arr-green)"/>
 
         <!-- Bottom flow -->
-        <rect x="30" y="325" width="900" height="34" rx="8" fill="rgba(15,18,24,0.7)" stroke="#1e2530" stroke-width="1"/>
-        <text x="480" y="346" fill="#8a93a8" font-size="11" text-anchor="middle">
-          <tspan fill="#f5c842" font-weight="700">Whitelist route</tspan>
+        <rect x="30" y="325" width="900" height="34" rx="8" fill="rgba(15,18,24,0.7)" stroke="#1e2533" stroke-width="1"/>
+        <text x="480" y="346" fill="#b6becd" font-size="11" text-anchor="middle">
+          <tspan fill="#ffb547" font-weight="700">Whitelist route</tspan>
           <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#3b8ef3" font-weight="700">buy_insurance()</tspan>
+          <tspan dx="6" fill="#5ee0d2" font-weight="700">buy_insurance()</tspan>
           <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#2ecc8f" font-weight="700">Deploy pool</tspan>
+          <tspan dx="6" fill="#7ee787" font-weight="700">Register PDA</tspan>
           <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#6366f1" font-weight="700">Register</tspan>
+          <tspan dx="6" fill="#a98bff" font-weight="700">Register</tspan>
           <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#e05c6b" font-weight="700">Lock capital</tspan>
+          <tspan dx="6" fill="#ff5d6c" font-weight="700">Lock capital</tspan>
           <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#3b8ef3" font-weight="700">Fetch ETA</tspan>
+          <tspan dx="6" fill="#5ee0d2" font-weight="700">Fetch ETA</tspan>
           <tspan dx="6">&#8594;</tspan>
-          <tspan dx="6" fill="#2ecc8f" font-weight="700">Active</tspan>
+          <tspan dx="6" fill="#7ee787" font-weight="700">Active</tspan>
         </text>
 
         <defs>
           <marker id="mf-arr-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#3b8ef3"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#5ee0d2"/></marker>
           <marker id="mf-arr-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#2ecc8f"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#7ee787"/></marker>
           <marker id="mf-arr-yellow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#f5c842"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#ffb547"/></marker>
           <marker id="mf-arr-stellar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#6366f1"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#a98bff"/></marker>
           <marker id="mf-arr-white" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#e8ecf4"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#eef1f7"/></marker>
           <marker id="mf-arr-muted" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 Z" fill="#6a7488"/></marker>
+            <path d="M0,0 L0,6 L8,3 Z" fill="#6b7385"/></marker>
         </defs>
       </svg>
     </div>
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <!-- SLIDE s-testnet — DELIVERABLE 03+08: Testing          -->
+  <!-- SLIDE s-testnet — Devnet + Test Coverage              -->
   <!-- ══════════════════════════════════════════════════ -->
   <section class="slide" id="s-testnet">
     <div style="max-width:1060px; width:100%">
       <div style="text-align:center; margin-bottom:28px">
-        <div class="tag" style="background:rgba(46,204,143,0.1); color:var(--green); margin-bottom:8px">Deliverable 03 + 08</div>
-        <h2 style="margin-top:10px">Testnet Launch &amp; Full Test Coverage</h2>
+        <div class="tag" style="background:rgba(126,231,135,0.1); color:var(--green); margin-bottom:8px">Devnet</div>
+        <h2 style="margin-top:10px">Devnet Live &amp; Full Test Coverage</h2>
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
 
-        <div class="card" style="border-color:rgba(59,142,243,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(94,224,210,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(59,142,243,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128270;</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128270;</div>
             <div style="font-size:19px; font-weight:800; color:var(--blue)">Unit Tests</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            Full coverage across all 5 contracts &mdash; Controller, RiskVault, FlightPool, OracleAggregator, and GovernanceModule. Every public function tested with edge cases.
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
+            <strong style="color:var(--white)">88 LiteSVM tests</strong> across all 5 programs &mdash; controller, vault, flight_pool, oracle_aggregator, governance. Every instruction tested with auth + edge cases.
           </div>
         </div>
 
-        <div class="card" style="border-color:rgba(46,204,143,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(126,231,135,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(46,204,143,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128279;</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(126,231,135,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128279;</div>
             <div style="font-size:19px; font-weight:800; color:var(--green)">Integration Tests</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            Cross-contract lifecycle tests: deploy &rarr; whitelist &rarr; deposit &rarr; buy insurance &rarr; oracle write &rarr; classify &rarr; settle &rarr; claim/collect. Full end-to-end on testnet.
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
+            Cross-program lifecycle on Surfpool: deploy &rarr; whitelist &rarr; deposit &rarr; buy_insurance &rarr; oracle write &rarr; classify &rarr; settle &rarr; claim/collect. 9 e2e flows + live devnet deploy.
           </div>
         </div>
 
-        <div class="card" style="border-color:rgba(245,200,66,0.3); padding:24px">
+        <div class="card" style="border-color:rgba(255,181,71,0.3); padding:24px">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(245,200,66,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,181,71,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
             <div style="font-size:19px; font-weight:800; color:var(--yellow)">Executor Tests</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            All 4 cron jobs tested against contracts using <strong style="color:var(--white)">Mock AeroAPI</strong> data with the same response signature as the real API. Verifies the full fetch &rarr; classify &rarr; settle pipeline.
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
+            <strong style="color:var(--white)">77 executor unit tests</strong> + 8 Surfpool e2e scenarios drive the real fetch / classify / settle / reprice crons against a parameterised mock AeroAPI &mdash; same response shape as the live API.
           </div>
         </div>
 
@@ -1365,68 +1230,8 @@
             <div style="width:44px;height:44px;border-radius:10px;background:rgba(192,132,252,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128295;</div>
             <div style="font-size:19px; font-weight:800; color:#c084fc">Automated Frontend Tests</div>
           </div>
-          <div style="font-size:15px; color:#8a93a8; line-height:1.6">
-            Headless Playwright tests powered by <strong style="color:#c084fc">stellar-wallet-mock</strong> &mdash; a library we built to solve the missing wallet-mocking gap in the Soroban ecosystem.
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  <!-- ══════════════════════════════════════════════════ -->
-  <!-- SLIDE s-wallet-mock — stellar-wallet-mock Library     -->
-  <!-- ══════════════════════════════════════════════════ -->
-  <section class="slide" id="s-wallet-mock">
-    <div style="max-width:1060px; width:100%">
-      <div style="text-align:center; margin-bottom:24px">
-        <div class="tag" style="background:rgba(192,132,252,0.1); color:#c084fc; margin-bottom:8px">Ecosystem Infrastructure</div>
-        <h2 style="margin-top:10px">stellar-wallet-mock</h2>
-        <p class="lead" style="margin:8px auto 0; text-align:center; max-width:750px">
-          Ethereum has <strong style="color:var(--white)">wallet-mock</strong> and <strong style="color:var(--white)">Synpress</strong> for automated dApp testing. Nothing like this existed for Stellar. So we built one.
-        </p>
-      </div>
-
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
-
-        <div class="card" style="border-color:rgba(192,132,252,0.3); padding:24px; grid-column:1/3">
-          <div style="display:flex; gap:28px; align-items:flex-start">
-            <div style="flex:1">
-              <div style="font-size:18px; font-weight:800; color:#c084fc; margin-bottom:10px">What it does</div>
-              <div style="font-size:15px; color:#8a93a8; line-height:1.7">
-                Mock <strong style="color:var(--white)">Freighter</strong> wallet for headless E2E testing of Stellar/Soroban dApps with <strong style="color:var(--white)">Playwright</strong>. No browser extension needed. No manual wallet interaction. Works with any dApp that uses <code style="color:#c084fc">@stellar/freighter-api</code> or <code style="color:#c084fc">@creit-tech/stellar-wallets-kit</code> &mdash; zero dApp code changes required.
-              </div>
-            </div>
-            <div style="flex:1">
-              <div style="font-size:18px; font-weight:800; color:#c084fc; margin-bottom:10px">Why we built it</div>
-              <div style="font-size:15px; color:#8a93a8; line-height:1.7">
-                We needed automated frontend testing for Sentinel but couldn&rsquo;t find a way to mock wallet interactions in the Soroban ecosystem. Rather than skip frontend tests, we built the tool &mdash; and open-sourced it so other developers can use it too.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card" style="border-color:rgba(59,142,243,0.3); padding:20px">
-          <div style="font-size:14px; font-weight:800; color:var(--blue); margin-bottom:10px">Features</div>
-          <div style="font-size:14px; color:#8a93a8; line-height:1.7">
-            &#10003; Intercepts <code style="color:var(--white)">window.postMessage</code> protocol<br>
-            &#10003; Signs real transactions &amp; Soroban auth entries<br>
-            &#10003; Pre-seeds localStorage for connected state<br>
-            &#10003; Works on testnet, mainnet, standalone<br>
-            &#10003; CI/CD ready &mdash; no extension needed<br>
-            &#10003; Zero runtime deps beyond stellar-sdk
-          </div>
-        </div>
-
-        <div class="card" style="border-color:rgba(99,102,241,0.3); padding:20px">
-          <div style="font-size:14px; font-weight:800; color:var(--stellar); margin-bottom:10px">Quick Start</div>
-          <div style="font-size:13px; color:#8a93a8; line-height:1.7; font-family:'SF Mono',monospace">
-            <span style="color:var(--muted)">// Install</span><br>
-            <span style="color:var(--green)">npm install</span> github:SentinelFi/stellar_wallet_mock<br><br>
-            <span style="color:var(--muted)">// In your test</span><br>
-            <span style="color:#c084fc">await</span> installMockStellarWallet({ page, secretKey });<br>
-            <span style="color:#c084fc">await</span> page.goto(<span style="color:var(--yellow)">"http://localhost:5173"</span>);<br>
-            <span style="color:var(--muted)">// dApp boots connected &mdash; no manual signing</span>
+          <div style="font-size:15px; color:#b6becd; line-height:1.6">
+            Headless Playwright + <strong style="color:#c084fc">Synpress</strong> drive a real Phantom wallet against the live frontend. Every page smoke-tested; three flight-outcome flows (on-time, delayed, cancelled) covered end-to-end.
           </div>
         </div>
 
@@ -1440,7 +1245,7 @@
   <section class="slide" id="s5">
     <div class="layout">
       <div>
-        <div class="tag" style="background:rgba(245,200,66,0.1); color:var(--yellow)">Deliverable 04 &mdash; Bonus</div>
+        <div class="tag" style="background:rgba(255,181,71,0.1); color:var(--yellow)">Solvency</div>
         <h2>Every policy is<br>100% backed. Always.</h2>
         <p class="lead" style="margin-top:16px">
           The solvency check runs before every purchase.
@@ -1452,17 +1257,17 @@
 
           <div class="sol-row">
             <div class="sol-label" style="color:var(--white); font-weight:600">Total Assets</div>
-            <div class="sol-bar-wrap"><div class="sol-bar" style="--w:90%; background:#3b8ef3;"></div></div>
+            <div class="sol-bar-wrap"><div class="sol-bar" style="--w:90%; background:#5ee0d2;"></div></div>
             <div class="sol-val" style="color:var(--blue)">$500</div>
           </div>
           <div class="sol-row">
             <div class="sol-label">Locked (3&times;$100)</div>
-            <div class="sol-bar-wrap"><div class="sol-bar" style="--w:54%; background:#e05c6b;"></div></div>
+            <div class="sol-bar-wrap"><div class="sol-bar" style="--w:54%; background:#ff5d6c;"></div></div>
             <div class="sol-val" style="color:var(--red)">$300</div>
           </div>
           <div class="sol-row">
             <div class="sol-label">Free Capital</div>
-            <div class="sol-bar-wrap"><div class="sol-bar" style="--w:36%; background:#2ecc8f;"></div></div>
+            <div class="sol-bar-wrap"><div class="sol-bar" style="--w:36%; background:#7ee787;"></div></div>
             <div class="sol-val" style="color:var(--green)">$200</div>
           </div>
 
@@ -1474,7 +1279,7 @@
       </div>
 
       <div>
-        <div class="tag" style="color:var(--yellow); background:rgba(245,200,66,0.1)">FIFO Withdrawal Queue</div>
+        <div class="tag" style="color:var(--yellow); background:rgba(255,181,71,0.1)">FIFO Withdrawal Queue</div>
         <h2>Capital is locked<br>fairly, not arbitrarily.</h2>
         <p class="lead" style="margin-top:16px">
           If your withdrawal would breach locked capital, it enters a FIFO queue.
@@ -1489,15 +1294,15 @@
           <div class="fifo-label">Withdrawal queue &mdash; queue_head pointer advances FIFO</div>
           <div class="queue-track" id="queue-track">
             <div class="q-item done" style="opacity:0.3">
-              <div class="q-avatar" style="background:rgba(46,204,143,0.15);color:var(--green)">A</div>
+              <div class="q-avatar" style="background:rgba(126,231,135,0.15);color:var(--green)">A</div>
               <div class="q-info">
                 <div>Alice</div>
                 <div class="q-shares">500 shares &rarr; 512 USDC</div>
               </div>
-              <div class="q-status" style="background:rgba(46,204,143,0.12);color:var(--green)">collected</div>
+              <div class="q-status" style="background:rgba(126,231,135,0.12);color:var(--green)">collected</div>
             </div>
             <div class="q-item waiting" id="qi-bob">
-              <div class="q-avatar" style="background:rgba(245,200,66,0.12);color:var(--yellow)">B</div>
+              <div class="q-avatar" style="background:rgba(255,181,71,0.12);color:var(--yellow)">B</div>
               <div class="q-info">
                 <div>Bob</div>
                 <div class="q-shares">300 shares &rarr; queued</div>
@@ -1505,7 +1310,7 @@
               <div class="q-status">waiting</div>
             </div>
             <div class="q-item waiting" id="qi-carol">
-              <div class="q-avatar" style="background:rgba(245,200,66,0.12);color:var(--yellow)">C</div>
+              <div class="q-avatar" style="background:rgba(255,181,71,0.12);color:var(--yellow)">C</div>
               <div class="q-info">
                 <div>Carol</div>
                 <div class="q-shares">800 shares &rarr; queued</div>
@@ -1513,7 +1318,7 @@
               <div class="q-status">waiting</div>
             </div>
             <div class="q-item waiting" id="qi-dave">
-              <div class="q-avatar" style="background:rgba(245,200,66,0.12);color:var(--yellow)">D</div>
+              <div class="q-avatar" style="background:rgba(255,181,71,0.12);color:var(--yellow)">D</div>
               <div class="q-info">
                 <div>Dave</div>
                 <div class="q-shares">200 shares &rarr; queued</div>
@@ -1598,23 +1403,18 @@
   // 1 = s1 (problem + fix)
   // 2 = s3 (architecture)
   // 3 = s4 (two sides)
-  // 4 = s-tranche1 (tranche 1 recap)
-  // 5 = s-tranche2 (tranche 2 deliverables)
-  // 6 = s-oracle (deliverable 01 - oracle infra)
-  // 7 = s-oracle-flow (oracle aggregator lifecycle)
-  // 8 = s-crons (cron jobs)
-  // 9 = s-states (state machine)
-  // 10 = s-hcs (HCS oracle exploration)
-  // 11 = s-market (deliverable 02+07 - market + governance)
-  // 12 = s-market-flow (market creation flow diagram)
-  // 13 = s-ai-gov (AI agent governance exploration)
-  // 14 = s-testnet (deliverable 03+08 - testing)
-  // 15 = s-wallet-mock (stellar-wallet-mock library)
-  // 16 = s5 (deliverable 04 - solvency + FIFO) ← queue animation
-  // 17 = s-demo (deliverable 06 - frontend revamp demo)
+  // 4 = s-oracle (oracle + executor)
+  // 5 = s-oracle-flow (oracle aggregator lifecycle)
+  // 6 = s-crons (cron jobs)
+  // 7 = s-states (state machine)
+  // 8 = s-market (markets + governance)
+  // 9 = s-market-flow (buy flow diagram)
+  // 10 = s-testnet (devnet + test coverage)
+  // 11 = s5 (solvency + FIFO) ← queue animation
+  // 12 = s-quant (Monte Carlo iframe)
 
   function onSlideEnter(idx) {
-    if (idx === 16) animateQueue();  // s5 = Solvency + FIFO
+    if (idx === 11) animateQueue();  // s5 = Solvency + FIFO
   }
 
   let queueAnimating = false;
@@ -1630,7 +1430,7 @@
       el.classList.remove('ready','done');
       el.classList.add('waiting');
       el.querySelector('.q-status').textContent = 'waiting';
-      el.querySelector('.q-status').style.background = 'rgba(245,200,66,0.1)';
+      el.querySelector('.q-status').style.background = 'rgba(255,181,71,0.1)';
       el.querySelector('.q-status').style.color = 'var(--yellow)';
       el.style.opacity = '1';
     });
@@ -1641,7 +1441,7 @@
         el.classList.remove('waiting');
         el.classList.add('ready');
         el.querySelector('.q-status').textContent = 'credited \u2713';
-        el.querySelector('.q-status').style.background = 'rgba(46,204,143,0.12)';
+        el.querySelector('.q-status').style.background = 'rgba(126,231,135,0.12)';
         el.querySelector('.q-status').style.color = 'var(--green)';
         setTimeout(() => {
           el.classList.remove('ready');
