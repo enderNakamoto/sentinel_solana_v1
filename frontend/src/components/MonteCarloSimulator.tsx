@@ -508,10 +508,10 @@ export default function MonteCarloSimulator({
             >
               Distribution of Simulated Yields ({params.numSimulations.toLocaleString()} trials)
             </p>
-            <ResponsiveContainer width="100%" height={380}>
+            <ResponsiveContainer width="100%" height={400}>
               <BarChart
                 data={result.histogram}
-                margin={{ top: 10, right: 20, bottom: 20, left: 10 }}
+                margin={{ top: 36, right: 40, bottom: 24, left: 16 }}
               >
                 <CartesianGrid stroke={COLOR.line} strokeDasharray="3 3" />
                 <XAxis
@@ -519,6 +519,7 @@ export default function MonteCarloSimulator({
                   tick={{ fill: COLOR.ink3, fontSize: 10 }}
                   tickFormatter={(v: number) => `${v.toFixed(0)}%`}
                   interval={Math.max(0, Math.floor(result.histogram.length / 8) - 1)}
+                  padding={{ left: 32, right: 32 }}
                   axisLine={{ stroke: COLOR.line }}
                   tickLine={{ stroke: COLOR.line }}
                   label={{
@@ -575,7 +576,8 @@ export default function MonteCarloSimulator({
                   strokeWidth={1.5}
                   label={{
                     value: `5th: ${result.percentile5.toFixed(0)}%`,
-                    position: 'top',
+                    position: 'insideTopLeft',
+                    offset: 6,
                     fill: COLOR.amber,
                     fontSize: 10,
                   }}
@@ -592,7 +594,8 @@ export default function MonteCarloSimulator({
                   strokeWidth={1.5}
                   label={{
                     value: `95th: ${result.percentile95.toFixed(0)}%`,
-                    position: 'top',
+                    position: 'insideTopRight',
+                    offset: 6,
                     fill: COLOR.green,
                     fontSize: 10,
                   }}
