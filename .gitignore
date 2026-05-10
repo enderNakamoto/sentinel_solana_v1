@@ -52,6 +52,9 @@ agent/__pycache__/
 agent/**/__pycache__/
 agent/.venv/
 agent/.pytest_cache/
+# Jupyter editing-state for agent/training/model_1.ipynb
+.ipynb_checkpoints/
+agent/**/.ipynb_checkpoints/
 
 # ─── Env files (commit only .env.example) ─────────────────────────
 .env

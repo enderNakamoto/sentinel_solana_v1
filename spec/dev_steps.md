@@ -1193,7 +1193,7 @@ controller-program redeploy with the `rent_payer` schema change.
 
 **Status: planned.** Stand up `agent/` as a fourth workspace alongside
 `frontend/`, `executor/`, and `contracts/`. Train and export the Kaggle
-XGBoost model from `refrence_models/model_1.ipynb`, then wrap it in a tiny
+XGBoost model from `agent/training/model_1.ipynb`, then wrap it in a tiny
 FastAPI service that maps a flight tuple to a USDC premium clamped to
 `[$1, $5]` via `premium_usdc = clamp(1 + 4 * p_delay, 1, 5)`. Hackathon-
 grade pricing — proof-of-concept only, not actuarially sound. The agent has
@@ -1250,7 +1250,7 @@ via `POST /price`.
   (`X-AGENT-TOKEN`), deferred.
 - Online retraining / new datasets / payout-side prediction.
 
-**Depends on:** `refrence_models/model_1.ipynb` (the source pipeline) and
+**Depends on:** `agent/training/model_1.ipynb` (the source pipeline) and
 the Kaggle `flight-delays-fall-2018` dataset (manual download per Kaggle
 ToS).
 

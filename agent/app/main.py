@@ -117,7 +117,7 @@ class HealthResponse(BaseModel):
 def to_notebook_format(req: PriceRequest) -> pd.DataFrame:
     """Translate a PriceRequest into the notebook's expected DataFrame format.
 
-    The training notebook (`refrence_models/model_1.ipynb`) represents
+    The training notebook (`agent/training/model_1.ipynb`) represents
     Month/DayofMonth/DayOfWeek as `c-{n}` strings (e.g. `c-7`, `c-21`). The
     fitted ColumnTransformer expects the same encoding at serving time.
     """

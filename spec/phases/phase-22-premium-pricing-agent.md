@@ -10,7 +10,7 @@ Completed: 2026-05-10
 
 Stand up `agent/` as a fourth workspace alongside `frontend/`, `executor/`, and
 `contracts/`. Train and export the Kaggle XGBoost model from
-`refrence_models/model_1.ipynb`, then wrap it in a tiny FastAPI service that
+`agent/training/model_1.ipynb`, then wrap it in a tiny FastAPI service that
 maps a flight tuple `(flight_id, carrier, origin, dest, dep_time_hhmm,
 distance_mi, month, day_of_month, day_of_week)` to a USDC premium clamped to
 `[$1, $5]`. Hackathon-grade pricing — proof-of-concept only, not actuarially
@@ -24,7 +24,7 @@ phase's surface.
 
 ## Dependencies
 
-- **`refrence_models/model_1.ipynb`** — the Kaggle XGBoost pipeline this phase
+- **`agent/training/model_1.ipynb`** — the Kaggle XGBoost pipeline this phase
   ports to a Python script. Same OHE preprocessing, same hyperparameters
   (`n_estimators=200, learning_rate=0.1, max_depth=9, subsample=0.8,
   colsample_bytree=0.8, random_state=42`), same target (`dep_delayed_15min`).
@@ -58,7 +58,7 @@ phase's surface.
   reference (manual download link).
 
 ### Project Files to Read
-- `refrence_models/model_1.ipynb` — full notebook; the modelling cells are
+- `agent/training/model_1.ipynb` — full notebook; the modelling cells are
   the contract for the training port.
 - `spec/architecture.md` — §Off-Chain Executor Layer (so the agent's role
   and trust model are clear).
@@ -263,7 +263,7 @@ carrier `ZZ` → no 500, returns clamped premium ~$2.97 (OHE
 Starting phase. Lite prime complete. Context manifest loaded.
 
 - **Skills loaded:** `solana-dev` (SKILL.md, references/security.md spot-checked) — repo-conventions only; Phase 22 has no on-chain surface. `git`.
-- **Project files read:** README.md (top), spec/architecture.md (System Overview + Program Architecture), spec/phases/phase-22-premium-pricing-agent.md (full), spec/progress.md (full), git log (10 commits) + git status. Notebook (`refrence_models/model_1.ipynb`), spec/architecture.md (full), spec/dev_steps.md (Phase 22 entry), MEMORY.md, .gitignore, package.json carry forward from the planning session — content unchanged.
+- **Project files read:** README.md (top), spec/architecture.md (System Overview + Program Architecture), spec/phases/phase-22-premium-pricing-agent.md (full), spec/progress.md (full), git log (10 commits) + git status. Notebook (`agent/training/model_1.ipynb`), spec/architecture.md (full), spec/dev_steps.md (Phase 22 entry), MEMORY.md, .gitignore, package.json carry forward from the planning session — content unchanged.
 - **Docs to fetch (skipped):** FastAPI / XGBoost / sklearn OneHotEncoder / Kaggle dataset reference. Skipped — the phase plan is fully specified and the Python stack is in-vocab. Will fetch on demand if a specific API surface is unclear during implementation. Noted as a deviation from the `/start-phase` script.
 - **Pre-condition check:** `agent/data/flight_delays_train.csv` already in place (3.5 MB, 100k rows + header, schema matches). `.gitignore` already covers `agent/data/`, `agent/artifacts/`, `agent/__pycache__/`, `agent/.venv/`, `agent/.pytest_cache/` (pre-phase fix). Bucket A4 effectively done before phase start.
 - Phase status flipped: `planned` → `in_progress`. Started 2026-05-10.
@@ -377,7 +377,7 @@ the API contract the Phase 23 `RouteRepricer` cron will consume.
 decimals on Solana).
 
 **Model:** XGBoost classifier trained on the Kaggle 2008 flight-delay
-dataset (`refrence_models/model_1.ipynb` port). 100k training rows, 6
+dataset (`agent/training/model_1.ipynb` port). 100k training rows, 6
 categorical features (`Month, DayofMonth, DayOfWeek, UniqueCarrier,
 Origin, Dest`) + 2 numerical features (`DepTime, Distance`), 649 post-OHE
 columns. Locked hyperparameters: `n_estimators=200, learning_rate=0.1,

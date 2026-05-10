@@ -1,6 +1,6 @@
 """Train the XGBoost flight-delay classifier and persist serving artifacts.
 
-This is a port of the modelling cells in `refrence_models/model_1.ipynb`
+This is a port of the modelling cells in `agent/training/model_1.ipynb`
 (notebook cells `0bb9cbd0`, `3136bf30`, `87b7ce66`, `13ec2e3c`, `2ef52595`).
 The notebook fits OneHotEncoder on `train + Kaggle_test` concatenated; this
 script fits OHE on training data only and relies on

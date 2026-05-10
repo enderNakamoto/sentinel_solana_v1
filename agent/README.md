@@ -150,7 +150,7 @@ Phase 22 doesn't lock this in — pick whichever fits when wiring Phase 23.
 
 ## Reference
 
-- Source notebook: `refrence_models/model_1.ipynb`
+- Source notebook: `agent/training/model_1.ipynb` (the Kaggle XGBoost notebook ported into `train.py`; kept side-by-side for diffability)
 - Phase plan: `spec/phases/phase-22-premium-pricing-agent.md`
 - Architecture: `spec/architecture.md` §Off-Chain Executor Layer
 - Consumer: `spec/phases/phase-23-route-repricer-cron.md`
