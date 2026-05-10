@@ -45,6 +45,14 @@ frontend/playwright/.cache/
 # ─── Cron control panel (Phase 17) ───────────────────────────────
 frontend/.cache-cron-runs.jsonl
 
+# ─── Premium pricing agent (Phase 22) ────────────────────────────
+agent/data/
+agent/artifacts/
+agent/__pycache__/
+agent/**/__pycache__/
+agent/.venv/
+agent/.pytest_cache/
+
 # ─── Env files (commit only .env.example) ─────────────────────────
 .env
 .env.local

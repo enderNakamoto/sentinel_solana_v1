@@ -40,11 +40,13 @@ sentinel_solana/
 │   └── tests/             # LiteSVM unit + Surfpool integration
 ├── frontend/              # Next.js dApp (App Router + framework-kit)
 ├── executor/              # Off-chain cron backend (Phase 8+)
+├── agent/                 # Premium pricing FastAPI service (Phase 22 — Python, NOT in pnpm)
 ├── scripts/               # sync-idl, gen-clients, dev-surfpool, keys-bootstrap
 ├── keys/                  # Public keypairs (*.pubkey committed; *.json gitignored)
 ├── spec/                  # Architecture, phase plans, progress
 ├── Anchor.toml            # Anchor workspace config (program IDs pinned here)
 ├── Surfpool.toml          # Surfnet config (mock USDC seed)
+├── Makefile               # Python agent targets (Phase 22)
 └── package.json           # Root scripts
 ```
 
@@ -518,6 +520,37 @@ one function at a time.
 - Stub buttons (Cover / Deposit / Redeem / Claim) log a `TODO: <ix-name>`
   line and fire a Phantom-style toast — proves handler wiring is in
   place ahead of Phase 13.
+
+## Premium pricing agent (Phase 22)
+
+`agent/` is a Python FastAPI service that wraps an XGBoost model trained on
+the Kaggle 2008 flight-delay dataset and returns a USDC premium clamped to
+`[$1, $5]` for any flight tuple. It has no on-chain authority and is called
+only by the Phase 23 `RouteRepricer` cron via `POST /price`.
+
+The agent is **not** in `pnpm-workspace.yaml` — it's Python, run via the
+top-level `Makefile`.
+
+```bash
+# macOS only — xgboost's native lib needs the OpenMP runtime
+brew install libomp
+
+# One-time setup
+python3 -m venv agent/.venv
+agent/.venv/bin/pip install -r agent/requirements.txt   # or: make install
+
+# Drop flight_delays_train.csv into agent/data/ (see `make download-data`)
+make train       # ~30s; produces agent/artifacts/{model,encoder,...}.joblib
+make serve       # FastAPI on http://localhost:8000
+make test        # 4 pytest cases, ~1.5s
+```
+
+For the hackathon demo, run `make serve` — Phase 23 sees
+`AGENT_BASE_URL=http://localhost:8000`. Docker (`agent/Dockerfile`) is
+provided for production-style deploy on Render/Railway but not required.
+
+See `agent/README.md` for the full endpoint contract, env vars, known
+limitations (proxy target, no calibration), and deploy notes.
 
 ## Phase status
 

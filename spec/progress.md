@@ -29,11 +29,16 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 16 | End-to-End Test (Browser)             | in_progress   | `spec/phases/phase-16-e2e-test.md` (started 2026-05-08)     |
 | 17 | Cron Control Panel (Classifier + Settler) | in_progress | `spec/phases/phase-17-cron-control-panel.md` (started 2026-05-08) |
 | 18 | FlightDataFetcher (Centralised Oracle) | in_progress   | `spec/phases/phase-18-fetcher-oracle-centralized.md` (started 2026-05-08) |
-| 19 | Trust-Hardened Oracle (TEE / decentralised) | not generated | — (planning open: Switchboard SGX / Acurast / feed adapter) |
+| 19 | Acurast TEE Oracle                    | deferred      | — (scope locked: Acurast TEE for the FlightDataFetcher; execution deferred past hackathon) |
+| 20 | Chrome Extension (Expedia Surface)    | deferred      | — (scope locked: MV3 + Phantom UX + reused Codama clients; out of hackathon scope) |
+| 21 | Walletless + Sponsored Gas            | deferred      | — (scope locked: Privy embedded wallet + relay + D18 rent_payer schema; depends on Phase 20) |
+| 22 | Premium Pricing Agent (FastAPI + XGBoost) | complete    | `spec/phases/phase-22-premium-pricing-agent.md` (completed 2026-05-10) |
+| 23 | Route Repricer Cron (TS + Grok)       | planned       | `spec/phases/phase-23-route-repricer-cron.md` (planned 2026-05-10) |
 
 ## Current Pointer
 
-Active phase: **Phase 16 — End-to-End Test (Browser)** (in_progress, started 2026-05-08)
+Active phase: **Phase 23 — Route Repricer Cron (TS + Grok)** (planned, ready to start with `/start-phase 23`)
+Other in_progress: Phase 16 (E2E Test), Phase 17 (Cron Control Panel), Phase 18 (Fetcher Oracle Centralized) — all started 2026-05-08
 
-Last updated: 2026-05-08
-Last completed: Phase 15 — Frontend Traveler Dashboard (2026-05-08)
+Last updated: 2026-05-10
+Last completed: Phase 22 — Premium Pricing Agent (FastAPI + XGBoost) (2026-05-10)

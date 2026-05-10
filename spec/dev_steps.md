@@ -984,30 +984,375 @@ active flight's on-chain `date`. Real mode requires `AEROAPI_KEY`.
 
 ---
 
-## Phase 19 — Trust-Hardened Oracle (open)
+## Phase 19 — Acurast TEE Oracle (locked, deferred)
 
-**Status: planning open.** Phase 18 ships a centralised oracle as a
-hackathon-grade default; Phase 19 swaps it for a stronger trust model.
-Two candidate architectures:
+**Status: scope locked, execution deferred.** The trust model is
+**Acurast TEE** — a mobile-TEE worker that runs the existing
+FlightDataFetcher TS code from inside an enclave, holding `AEROAPI_KEY`
+in TEE-protected memory and signing as `authorized_oracle`. The
+on-chain surface stays exactly as Phase 4 shipped it; this phase is
+a deployment + key-rotation exercise, not a program rewrite.
 
-1. **TEE-attested oracle.** SGX (Switchboard On-Demand v2) or mobile
-   TEE (Acurast) worker calls AeroAPI inside an enclave; on-chain
-   attestation proves the published image ran. Strongest trust model.
-   Likely additive (TEE-protected keypair as `authorized_oracle`,
-   no program change) but a program-level Switchboard-feed read is
-   the maximally-strong variant.
-2. **Decentralised oracle network adapter.** If FlightAware-grade flight
-   data ever becomes available as a Pyth/Chainlink-style feed, the
-   protocol switches to a feed-account read. Requires a program change.
+**Why Acurast over Switchboard On-Demand:** evaluated against
+Switchboard On-Demand and ruled it out for this specific use case.
+Switchboard's variable-override mechanism passes API keys from the
+caller's process at fetch time — keys are NOT held inside the TEE,
+so the secret-protection win is illusory. Switchboard also emits
+numeric values only, forcing awkward i128-packing of our
+`(status, eta, actual)` triple, and the queue's median-aggregation
+multiplies AeroAPI quota burn by 4–8× without integrity gain when
+the upstream is a single source. Acurast's general-purpose TEE
+compute model fits cleanly: arbitrary TS, real secret protection,
+zero on-chain changes, single API call per refresh. Switchboard
+On-Demand stays on the table for a future numeric-oracle phase
+(e.g. dynamic premium pricing, FX-pegged payouts).
 
-**Deliverables (TBD when trust model is locked):**
-- TEE worker image (or feed adapter) + deployment runbook.
-- Rotation tx that flips `authorized_oracle` to the new signer (or
-  the program upgrade for option 2).
-- README + architecture.md updated to reflect the chosen trust model.
+**Deliverables (TBD when this phase is started):**
+- Acurast worker bundle — port `executor/src/scripts/run-fetcher.ts`
+  + Codama-generated oracle clients into an Acurast deployment package.
+- Image hash published to IPFS so the published code is auditable.
+- TEE-managed `authorized_oracle` keypair generated inside the
+  enclave; pubkey rotated on-chain via `pnpm rotate-oracle --oracle <tee-pubkey>`.
+- Operational runbook: `AEROAPI_KEY` provisioned to the Acurast
+  deployment as a sealed secret; cadence configured (matches Phase 8's
+  2-hour cron, or pull-driven from the `/crons` UI via a thin proxy).
+- README + architecture.md updated to reflect the TEE trust model.
+
+**Out of scope for this phase:**
+- Numeric oracle integration (Switchboard On-Demand, Pyth) — that's
+  a future phase if we add price-denominated features.
+- Decentralised flight-data feeds — no Pyth/Chainlink-grade source
+  exists for this data today; revisit only if one ships.
+- Program changes — `OracleConfig.authorized_oracle` is already a
+  swap-friendly indirection; this phase exercises that swap.
+
+**Skip rationale:** the centralised Phase 18 oracle is acceptable for
+the hackathon scope (devnet, single-operator deploy, public-unauth
+trigger surface). Phase 19 is the "real-world hardening" follow-up.
+Lock the architecture choice now (Acurast) so any future contributor
+has direction without re-litigating the decision; defer execution
+until production deployment is on the roadmap.
 
 **Depends on:** Phase 18 (the operational surface is already in place;
-Phase 19 swaps the signer/feed underneath it).
+Phase 19 swaps the signer underneath it).
+
+---
+
+## Phase 20 — Chrome Extension (Expedia Surface) (locked, deferred)
+
+**Status: scope locked, execution deferred.** Out of hackathon scope —
+the dApp at `/buy` already covers the same `controller.buy_insurance`
+flow with the same Wallet Standard / framework-kit UX, so a separate
+browser surface is not on the demo's critical path. Lock the design
+choice now (Manifest V3 + sideload + Codama-typed clients reused from
+`frontend/`) so a future contributor has direction without re-litigating
+the architecture; defer execution until post-hackathon.
+
+Ship a Manifest V3 Chrome extension that injects
+on Expedia flight pages, parses the route + date out of the DOM, and
+lets the user buy delay insurance via the existing
+`controller.buy_insurance` flow. This phase is the **extension
+chassis** — wallet UX assumes the user has Phantom (or any
+Wallet-Standard-compatible wallet) installed, identical to the
+current `/buy` page on the dApp. Phase 21 retrofits walletless
+onboarding + sponsored gas on top of this chassis.
+
+**Deliverables:**
+- New `extension/` pnpm workspace alongside `frontend/` and `executor/`.
+- Manifest V3 manifest (background service worker + content script + popup).
+- Content script: Expedia DOM parser → `(flight_id, origin, dest, date)`.
+  Resilient to layout drift (selector fallbacks + a manual-entry escape hatch).
+- Popup UI: matches the frontend design system; shows route, premium,
+  payoff, claim window, "Insure" CTA.
+- Wallet Standard connect via framework-kit (`@solana/client` +
+  `@solana/react-hooks`, `autoDiscover()` — same locked stack as the
+  frontend; **NO** `@solana/wallet-adapter-*`).
+- Reuses Codama-generated typed clients (`@/clients/controller/...`)
+  for `buy_insurance`. Either (a) imports them from `frontend/src/clients`
+  via a workspace path alias, or (b) re-runs `pnpm gen-clients` to emit
+  them into `extension/src/clients/` (gitignored, same pattern as
+  frontend / executor).
+- Reads `deployments/devnet-latest.json` for program IDs + PDAs.
+- Activity feed in the popup showing recent purchases (reuses Phase 17's
+  JSONL pattern at `extension/.cache-extension-runs.jsonl`, gitignored).
+- Sideload-ready `.zip` build + README runbook (`pnpm extension:build`).
+
+**Done when:**
+- Sideload the extension in Chrome → navigate to an Expedia flight
+  detail page → extension recognises the route → click Insure → Phantom
+  signs the `buy_insurance` tx → BuyerRecord exists on devnet →
+  `/portfolio` on the dApp shows the new policy.
+- `pnpm -r typecheck` clean across all 4 workspaces (contracts, frontend,
+  executor, extension).
+
+**Out of scope:**
+- Walletless / embedded-wallet onboarding (Phase 21).
+- Sponsored gas / fee-payer relay (Phase 21).
+- Onramp (card → USDC) — deferred indefinitely; USDC funding stays
+  manual in Phase 20 (Phantom user already holds USDC, or uses the
+  existing `/faucet` route).
+- Chrome Web Store publish — phase ships as sideload-only.
+
+**Depends on:** Phase 7 (devnet deployment + canonical addresses),
+Phase 13 (admin patterns), Phase 15 (frontend `/buy` flow — the
+Codama call site this phase clones).
+
+---
+
+## Phase 21 — Walletless + Sponsored Gas (Privy + Relay) (locked, deferred)
+
+**Status: scope locked, execution deferred.** Out of hackathon scope —
+requires an Anchor schema change on `controller.buy_insurance` (split
+`buyer` from a new `rent_payer: Signer`) and a one-time controller
+redeploy, which is too invasive for the locked stack at this stage.
+Privy + sponsored gas is also orthogonal to the core demo narrative
+(AI-priced premiums via Phase 22 + Phase 23). Lock the design choice
+now (Privy embedded wallet + relay route + D18 `rent_payer` schema +
+devnet faucet drop) so a future contributor can ship without
+re-litigating; defer execution until Phase 20 ships and there is a real
+walletless surface to plug into. Depends on Phase 20.
+
+Layer walletless onboarding + full gas sponsorship
+onto the Phase 20 extension. User signs in with Google via Privy; an
+embedded Solana wallet is provisioned in the extension; a backend
+relay sponsors **all** SOL costs (tx fee + rent for `BuyerRecord` and
+the buyer's USDC ATA); user pays only the USDC premium itself. Onramp
+(card → USDC) is **explicitly deferred** — USDC is faucet-dropped to
+freshly-created embedded wallets so the demo flow never blocks on
+fiat infrastructure.
+
+**Deliverables:**
+- Privy SDK integration in `extension/` — Solana embedded wallet,
+  Google + email login, MV3-compatible popup auth flow. Replaces the
+  Phase 20 wallet-standard connect on the extension surface only
+  (the dApp keeps its existing wallet UX).
+- New backend route `/api/sponsor/relay` (Next.js, `extension`-aware)
+  — builds the `buy_insurance` tx with `feePayer = sponsor`,
+  user signs as `buyer`, sponsor co-signs as both `feePayer` and
+  `rent_payer`, backend submits to RPC. Mirrors the Phase 17 cron
+  route pattern (mutex + JSONL log + concise-error contract).
+- New backend route `/api/sponsor/faucet-usdc` — **devnet-only**
+  one-shot drop of USDC to a freshly-created embedded wallet on
+  first login. Reuses the existing `keys/mock-usdc-authority.json`
+  mint-authority signer.
+- **Anchor schema change** on `controller.buy_insurance`: add a
+  separate `rent_payer: Signer` field (D18 pattern — already applied
+  to `vault.snapshot`, `oracle.init_flight_data`,
+  `flight_pool.register_pool` per MEMORY). `BuyerRecord` and the
+  buyer USDC ATA `init`s use `payer = rent_payer`. The `buyer` field
+  remains a `Signer` for authorisation invariants but no longer
+  pays SOL. Anchor v1 single-lifetime form per Phase 6 D-Phase6-5.
+- Controller program recompile + redeploy (canonical program ID
+  stays the same per MEMORY); IDL regen + Codama regen across
+  `frontend/`, `executor/`, `extension/` workspaces. Frontend `/buy`
+  page updated to set `rent_payer = buyer` (preserves existing UX —
+  Phantom users keep paying their own rent).
+- Sponsor keypair generation + funding runbook
+  (`scripts/bootstrap-sponsor.ts`); pubkey committed at
+  `keys/devnet-sponsor.pubkey`, secret gitignored. Documented top-up
+  cadence + estimated SOL burn per signup
+  (~890K lamports BuyerRecord rent + ~2M lamports ATA rent + ~5K tx fee).
+- Rate-limiting on `/api/sponsor/relay` — IP-based or
+  embedded-wallet-pubkey-based, whichever Privy exposes cleanly.
+  Document mainnet hardening (Turnstile / Captcha / shared-secret
+  header) as a follow-up.
+- Extension UI: replace Phase 20's wallet-standard connect with the
+  Privy login button. Show a "Gas sponsored" indicator in the popup.
+  Activity feed annotates which tx was sponsored.
+
+**Done when:**
+- A user with **no Phantom installed, no SOL, no USDC** sideloads the
+  extension → navigates to Expedia flight page → clicks "Sign in with
+  Google" → embedded Solana wallet provisioned → faucet drops 100
+  mock USDC → clicks Insure → relay returns sponsored tx signature →
+  BuyerRecord exists on devnet → user's lamport balance is `0` from
+  start to finish.
+- `pnpm -r typecheck` clean; all four programs still pass their
+  existing test suites after the schema change (88+ tests today).
+- Operator runbook: `keys/devnet-sponsor.json` funding command,
+  per-signup cost sheet, top-up trigger threshold.
+
+**Out of scope:**
+- Onramp (card → USDC). Real-USDC users on mainnet would need it;
+  hackathon-grade demo runs entirely off the devnet faucet.
+- Mainnet sponsor economics — sponsor budget, abuse vectors, KYC,
+  rate-limiting at scale. Devnet only.
+- Gasless **claim** flow. Phase 21 sponsors `buy_insurance` only;
+  `flight_pool.claim` remains buyer-paid (acceptable — claims happen
+  rarely and post-payout, where the user has USDC and can fund SOL
+  separately if they want).
+- Lazorkit / passkey alternative to Privy — evaluated, deferred.
+  Privy is the lowest-risk MV3 path today.
+
+**Depends on:** Phase 20 (extension chassis), and a one-time
+controller-program redeploy with the `rent_payer` schema change.
+
+---
+
+## Phase 22 — Premium Pricing Agent (FastAPI + XGBoost)
+
+**Status: planned.** Stand up `agent/` as a fourth workspace alongside
+`frontend/`, `executor/`, and `contracts/`. Train and export the Kaggle
+XGBoost model from `refrence_models/model_1.ipynb`, then wrap it in a tiny
+FastAPI service that maps a flight tuple to a USDC premium clamped to
+`[$1, $5]` via `premium_usdc = clamp(1 + 4 * p_delay, 1, 5)`. Hackathon-
+grade pricing — proof-of-concept only, not actuarially sound. The agent has
+no on-chain authority; the only consumer is Phase 23's `RouteRepricer` cron
+via `POST /price`.
+
+**Deliverables:**
+- New `agent/` workspace (Python; sibling of `frontend/`/`executor/`/
+  `contracts/` but NOT in `pnpm-workspace.yaml`). Layout: `agent/app/`,
+  `agent/training/`, `agent/data/` (gitignored), `agent/artifacts/`
+  (gitignored), `agent/tests/`.
+- `agent/training/train.py` — 1:1 port of the notebook's modelling cells.
+  Loads `agent/data/flight_delays_train.csv`, applies the same
+  OHE pipeline (cat features `[Month, DayofMonth, DayOfWeek, UniqueCarrier,
+  Origin, Dest]`, num features `[DepTime, Distance]`), fits `XGBClassifier`
+  with the locked hyperparameters
+  (`n_estimators=200, learning_rate=0.1, max_depth=9, subsample=0.8,
+  colsample_bytree=0.8, random_state=42`). Persists `model.joblib`,
+  `encoder.joblib`, `feature_names.json`, `model_version.txt`.
+- `agent/app/main.py` — FastAPI app. `POST /price` with Pydantic
+  request/response schemas; clamp formula applied in the handler;
+  response carries both `premium_usdc` (float) and `premium_base_units`
+  (int, USDC 6-decimals). `GET /healthz` returns model version + load time.
+- `agent/Dockerfile` (multi-stage; `python:3.11-slim` final). Artifacts
+  copied in at build time — training is a precondition, not part of the
+  image build.
+- `agent/tests/test_price.py` — pytest covering known route, unknown
+  carrier (no 500), `/healthz`, base-units rounding.
+- Top-level `Makefile` — `make train`, `make serve`, `make test`,
+  `make download-data`, `make clean`.
+- `.gitignore` updates for `agent/data/`, `agent/artifacts/`,
+  `agent/__pycache__/`, `agent/.venv/`, `agent/.pytest_cache/`.
+- Root `README.md` §"Premium pricing agent (Phase 22)" — deploy choice
+  (co-host vs separate dyno), env vars, Phase 23 consumer reference.
+
+**Done when:**
+- `make train` produces all four artifacts deterministically; printed
+  validation ROC AUC within ±0.005 of the notebook's ~0.75 reference.
+- `make serve` boots; `curl POST /price` returns valid JSON with
+  `premium_usdc ∈ [1.0, 5.0]` in <100ms warm.
+- `make test` passes.
+- `docker build -t sentinel-agent agent/` succeeds on a clean machine.
+- `pnpm -r typecheck` still clean (Python workspace doesn't break the TS
+  check).
+
+**Out of scope:**
+- Re-labelling against Sentinel's actual `Delayed`/`Cancelled` payout
+  trigger (the Kaggle target is `dep_delayed_15min` — known proxy
+  mismatch, documented in the README).
+- Probability calibration (Platt/isotonic). Note in README; revisit only
+  if predictions look bunched in the demo.
+- Auth on the endpoint. POC is unauthenticated; the cron in Phase 23 is
+  the only caller. Mainnet hardening = shared-secret header
+  (`X-AGENT-TOKEN`), deferred.
+- Online retraining / new datasets / payout-side prediction.
+
+**Depends on:** `refrence_models/model_1.ipynb` (the source pipeline) and
+the Kaggle `flight-delays-fall-2018` dataset (manual download per Kaggle
+ToS).
+
+---
+
+## Phase 23 — Route Repricer Cron (TS + Grok)
+
+**Status: planned.** Add a 4th cron — `RouteRepricer` — that iterates every
+whitelisted `RouteAccount` on devnet, calls the Phase 22 agent for a
+baseline premium, asks Grok (xAI Live Search) whether geopolitical news
+justifies a multiplier or full disable, and submits the resulting
+`update_route_terms` / `disable_route` / idempotent `whitelist_route`
+re-enable tx signed by the deployer. Surfaces on `/crons` as a 4th card
+with the same trigger / mutex / activity-feed posture as the existing three
+crons. Trigger-on-demand only (matches Phase 17/18); daily auto-cadence is
+deferred. No on-chain program changes.
+
+**Deliverables:**
+- `executor/src/core/agent_client.ts` — typed HTTP client for the Phase 22
+  endpoint, with mock-mode (`AGENT_MOCK=1` + `AGENT_MOCK_PREMIUM_USDC`).
+- `executor/src/core/grok_client.ts` — typed xAI client. Live mode uses
+  `https://api.x.ai/v1/chat/completions` with `model: "grok-4"`,
+  `search_parameters: { mode: "on", sources: [{ type: "news" }] }`, and
+  `response_format: json_schema`. Mock-mode `GROK_MOCK=1` +
+  `GROK_MOCK_VERDICT=ok|raise:1.5|disable`. Failure-safe default:
+  `{ action: "ok", multiplier: 1.0, reason: "grok unavailable; baseline only" }`.
+- `executor/src/core/decide_route_actions.ts` — pure decision module
+  emitting one of `noop`, `update_premium(new_bps)`, `disable`,
+  `reenable_with_terms(new_bps)`. Drift threshold: skip
+  `update_premium` if `|new − current| < 100_000` base units (10¢).
+  Re-enable gate: only re-enable routes this cron disabled (tracked via a
+  `disabledByRepricer` field in the JSONL).
+- `executor/src/core/route_repricer.ts` — `runRepricerOnce` orchestrator;
+  `getProgramAccounts(governanceProgramId)` filtered by the
+  `RouteAccount` discriminator; per-route loop calling agent + grok +
+  decision module; returns the per-route decision array.
+- `executor/tests/decide_route_actions.test.ts` +
+  `executor/tests/grok_client.test.ts` — unit tests covering each action
+  variant, drift threshold, re-enable gate, and Grok failure fallback.
+- New frontend route `frontend/app/api/cron/repricer/trigger/route.ts` —
+  per-cron mutex, pre-flight env + agent reachability validation, captured-
+  console sink, JSONL append, `routeActionToIxs` inline translator
+  (Phase 17/18 precedent), green/red response shape. Per-request mode
+  override `?mode=mock|live` and `?dryRun=1`.
+- `frontend/app/api/cron/repricer/config/route.ts` — `GET` returning
+  `{ liveAvailable, agentReachable, defaultMode, agentBaseUrl }` (no
+  keys leaked).
+- `frontend/src/lib/cron-runs.ts` extended — `'repricer'` added to
+  `CronId` union; rotation cap (100) applied per-cron across all four
+  buckets.
+- `frontend/app/api/cron/runs/route.ts` accepts `?cron=repricer`.
+- `frontend/app/crons/page.tsx` — 4th cron card matching fetcher's layout
+  1:1; new `RepricerControls` component (Live/Mock toggle, dry-run
+  checkbox); decision histogram + Grok `reason` surfaced in the activity
+  feed.
+- New env vars documented: `AGENT_BASE_URL`, `XAI_API_KEY`, `GROK_MOCK`,
+  `GROK_MOCK_VERDICT`, `AGENT_MOCK`, `AGENT_MOCK_PREMIUM_USDC`,
+  `REPRICER_DRY_RUN`.
+- README §Cron control panel rewritten for 4 crons.
+- `spec/architecture.md` §Off-Chain Executor Layer updated — 3 crons → 4
+  crons; the new dependency on Phase 22 + xAI documented as a centralised
+  trust assumption.
+
+**Done when:**
+- `pnpm -r typecheck` passes across all 3 TS workspaces.
+- All `decide_route_actions.test.ts` + `grok_client.test.ts` unit tests
+  pass.
+- Trigger from `/crons` repricer card on devnet **in mock mode** (both
+  `GROK_MOCK=1` and `AGENT_MOCK=1`) walks at least 3 whitelisted routes,
+  emits per-route decision logs, applies the resulting txs, and reports
+  green.
+- Trigger with `XAI_API_KEY` set and `AGENT_BASE_URL` reachable hits real
+  Grok + real agent for at least 1 route, surfaces a non-empty `reason`
+  field in the record.
+- One route exercised through each of the three actions (`update_premium`,
+  `disable`, `reenable_with_terms`) — verifiable in `/admin` after the
+  run.
+- `REPRICER_DRY_RUN=1` returns the planned actions without sending any
+  tx; activity feed shows the 💭 indicator.
+- Concurrent button-mash returns 409.
+- The repricer run record persists across a page reload (proves JSONL
+  rotation includes the new bucket).
+
+**Out of scope:**
+- Daily auto-cadence via `node-cron`. Trigger-on-demand from `/crons` is
+  sufficient for the demo. Documented as a follow-up.
+- Per-region Grok batching (one global query for "geopolitical airspace
+  risk this week" applied to many routes). Cleaner but more product-
+  design than POC needs.
+- Auto-retraining of the Phase 22 model on settled flights from
+  `flight_pool_program`. Belongs in a future `agent` v2 phase.
+- Hardened auth on the trigger endpoint. Same posture as Phases 17/18 —
+  public-unauth, shared-secret follow-up documented.
+- Multi-cluster (surfpool) support. Devnet only, per Phase 18 precedent.
+- On-chain program changes. Every action routes through existing
+  governance ixs (`update_route_terms`, `disable_route`, idempotent
+  `whitelist_route`).
+
+**Depends on:** Phase 22 (the agent endpoint contract is the API
+boundary), Phase 1 (`governance_program` ixs verified), Phase 7 (devnet
+deployer keypair), Phase 17 (cron control panel patterns), Phase 18
+(closest sibling — mock-mode + config endpoint + mode-override patterns).
 
 ---
 
