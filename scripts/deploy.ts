@@ -138,7 +138,9 @@ const ANCHOR_NETWORK: Record<string, string> = {
 
 const SUPPORTED_CLUSTERS = new Set(Object.keys(RPC_URLS));
 
-const USDC_DECIMALS = 6;
+const PUSD_DECIMALS = 6;
+// Token-2022 program id — stable side (PUSD) lives here post-Phase-24.
+const TOKEN_2022_PROGRAM_ID = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
 const LAMPORTS_PER_SOL = 1_000_000_000n;
 
 // Tunables — match the values used in `bootstrapController` test setup.
@@ -583,16 +585,16 @@ interface EnsureMintOpts {
 async function ensureMockUsdcMint(p: EnsureMintOpts): Promise<void> {
   const exists = await accountExists(p.rpcUrl, p.mintPubkey);
   if (exists) {
-    console.log(`[deploy] mock USDC mint exists at ${p.mintPubkey}; skipping create.`);
+    console.log(`[deploy] mock PUSD mint exists at ${p.mintPubkey}; skipping create.`);
     return;
   }
-  console.log(`[deploy] mock USDC mint missing on ${p.cluster}; creating via spl-token CLI...`);
+  console.log(`[deploy] mock PUSD mint missing on ${p.cluster}; creating via spl-token CLI (Token-2022)...`);
 
-  const mintKeypair = resolve(KEYS_DIR, 'mock-usdc.json');
-  const mintAuthority = resolve(KEYS_DIR, 'mock-usdc-authority.json');
+  const mintKeypair = resolve(KEYS_DIR, 'mock-pusd.json');
+  const mintAuthority = resolve(KEYS_DIR, 'mock-pusd-authority.json');
   if (!existsSync(mintKeypair) || !existsSync(mintAuthority)) {
     throw new Error(
-      `Mock USDC keypair files missing in ${KEYS_DIR}.\n` +
+      `Mock PUSD keypair files missing in ${KEYS_DIR}.\n` +
         `  Run \`bash scripts/keys-bootstrap.sh\` first.`,
     );
   }
@@ -601,7 +603,8 @@ async function ensureMockUsdcMint(p: EnsureMintOpts): Promise<void> {
   const cmd = [
     `"${splToken}"`,
     'create-token',
-    '--decimals', String(USDC_DECIMALS),
+    '--program-id', TOKEN_2022_PROGRAM_ID,
+    '--decimals', String(PUSD_DECIMALS),
     '--url', p.rpcUrl,
     '--fee-payer', `"${p.deployerKeypairPath}"`,
     '--mint-authority', `"${mintAuthority}"`,
@@ -610,7 +613,7 @@ async function ensureMockUsdcMint(p: EnsureMintOpts): Promise<void> {
 
   console.log(`[deploy] $ ${cmd}`);
   runShell(cmd);
-  console.log(`[deploy] ✓ mock USDC mint created at ${p.mintPubkey}`);
+  console.log(`[deploy] ✓ mock PUSD mint created at ${p.mintPubkey} (Token-2022)`);
 }
 
 // ─── Helpers: program deploy ──────────────────────────────────────────────
@@ -688,6 +691,7 @@ async function initAndWire(p: InitWireOpts): Promise<void> {
     const ix = await getVaultInitializeIxAsync({
       owner: p.deployer,
       stableMint: p.stableMint,
+      stableTokenProgram: kitAddress(TOKEN_2022_PROGRAM_ID),
       stableMintArg: p.stableMint,
     });
     await sendIx(p, [ix], 'vault.initialize');
@@ -715,6 +719,7 @@ async function initAndWire(p: InitWireOpts): Promise<void> {
     const ix = await getFlightPoolInitializeIxAsync({
       owner: p.deployer,
       stableMint: p.stableMint,
+      tokenProgram: kitAddress(TOKEN_2022_PROGRAM_ID),
       stableMintArg: p.stableMint,
     });
     await sendIx(p, [ix], 'flight_pool.initialize');
