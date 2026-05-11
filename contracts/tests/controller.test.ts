@@ -196,7 +196,7 @@ async function buildBuyInsurance(
     buyer: traveler.address,
   });
 
-  const buyerUsdcAta = getAtaAddress(f.ctrl.stableMint, traveler.address);
+  const buyerUsdcAta = getAtaAddress(f.ctrl.stableMint, traveler.address, TOKEN_2022_PROGRAM_ID_KIT);
 
   return getBuyInsuranceInstructionAsync({
     governanceProgram: GOVERNANCE_PROGRAM_ADDRESS,
@@ -305,7 +305,7 @@ describe('Phase 5 — controller: buy_insurance happy paths', () => {
     expect(list.flights[0].date).toBe(FUTURE_DATE);
 
     // Premium moved from traveler ATA → pool treasury.
-    const travelerAta = getAtaAddress(f.ctrl.stableMint, traveler.address);
+    const travelerAta = getAtaAddress(f.ctrl.stableMint, traveler.address, TOKEN_2022_PROGRAM_ID_KIT);
     expect(getTokenAccountAmount(f.client, travelerAta)).toBe(0n);
     expect(getTokenAccountAmount(f.client, f.ctrl.flightPool.treasuryAta)).toBe(PREMIUM);
   });

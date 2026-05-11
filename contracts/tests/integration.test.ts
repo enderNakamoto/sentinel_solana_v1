@@ -175,7 +175,7 @@ async function buildBuyInsurance(
     pool: flightPoolPda,
     buyer: traveler.address,
   });
-  const buyerUsdcAta = getAtaAddress(ctrl.stableMint, traveler.address);
+  const buyerUsdcAta = getAtaAddress(ctrl.stableMint, traveler.address, TOKEN_2022_PROGRAM_ID_KIT);
 
   return getBuyInsuranceInstructionAsync({
     governanceProgram: GOVERNANCE_PROGRAM_ADDRESS,
@@ -476,7 +476,7 @@ describe('Phase 6 — Full protocol lifecycle', () => {
     // vault.send_payout topped it up; traveler 2 has 0 USDC.
     const travelerUsdcBeforeClaim = getTokenAccountAmount(
       client,
-      getAtaAddress(ctrl.stableMint, t2.address),
+      getAtaAddress(ctrl.stableMint, t2.address, TOKEN_2022_PROGRAM_ID_KIT),
     )!;
     expect(travelerUsdcBeforeClaim).toBe(0n);
 
@@ -487,12 +487,13 @@ describe('Phase 6 — Full protocol lifecycle', () => {
         poolTreasury: ctrl.flightPool.treasuryAta,
         stableMint: ctrl.stableMint,
         traveler: t2,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         flightId: FLIGHTS.delayed.flightId,
         date: FUTURE_DATE,
       }),
     ]);
     expect(
-      getTokenAccountAmount(client, getAtaAddress(ctrl.stableMint, t2.address)),
+      getTokenAccountAmount(client, getAtaAddress(ctrl.stableMint, t2.address, TOKEN_2022_PROGRAM_ID_KIT)),
     ).toBe(PAYOFF);
 
     // BuyerRecord.claimed = true.

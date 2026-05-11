@@ -148,6 +148,7 @@ async function addBuyerOf(
       buyerStableAccount: usdcAta,
         stableMint: f.pool.stableMint,
         tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
       poolTreasury: f.pool.treasuryAta,
       buyer: traveler,
       controller,
@@ -314,6 +315,7 @@ describe('Phase 3 — flight_pool: add_buyer', () => {
         buyerStableAccount: usdcAta,
         stableMint: f.pool.stableMint,
         tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         poolTreasury: f.pool.treasuryAta,
         buyer: traveler,
         controller,
@@ -349,6 +351,7 @@ describe('Phase 3 — flight_pool: add_buyer', () => {
           buyerStableAccount: usdcAta,
         stableMint: f.pool.stableMint,
         tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           poolTreasury: f.pool.treasuryAta,
           buyer: traveler,
           controller,
@@ -371,6 +374,7 @@ describe('Phase 3 — flight_pool: add_buyer', () => {
         recipient: recipientAta,
         stableMint: f.pool.stableMint,
         tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         controller,
         flightId: FLIGHT.flightId,
         date: FLIGHT.date,
@@ -389,6 +393,7 @@ describe('Phase 3 — flight_pool: add_buyer', () => {
           pool: poolPda,
           buyerStableAccount: usdcAta,
         stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           poolTreasury: f.pool.treasuryAta,
           buyer: traveler,
@@ -423,6 +428,7 @@ describe('Phase 3 — flight_pool: settle_*', () => {
         poolTreasury: f.pool.treasuryAta,
         recipient: recipientAta,
         stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         controller,
         flightId: FLIGHT.flightId,
@@ -490,6 +496,7 @@ describe('Phase 3 — flight_pool: settle_*', () => {
         recipient: recipientAta,
         stableMint: f.pool.stableMint,
         tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         controller,
         flightId: FLIGHT.flightId,
         date: FLIGHT.date,
@@ -535,6 +542,7 @@ describe('Phase 3 — flight_pool: claim', () => {
     setTokenAccount(f.client, {
       mint: f.pool.stableMint,
       owner: f.pool.treasuryAuthorityPda,
+      tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
       amount: PREMIUM + PAYOFF, // existing premium plus the payoff topup
     });
 
@@ -565,6 +573,7 @@ describe('Phase 3 — flight_pool: claim', () => {
         poolTreasury: f.pool.treasuryAta,
         travelerStableAccount: usdcAta,
         stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         traveler,
         flightId: FLIGHT.flightId,
         date: FLIGHT.date,
@@ -594,6 +603,7 @@ describe('Phase 3 — flight_pool: claim', () => {
           poolTreasury: f.pool.treasuryAta,
           travelerStableAccount: usdcAta,
           stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           traveler,
           flightId: FLIGHT.flightId,
           date: FLIGHT.date,
@@ -609,6 +619,7 @@ describe('Phase 3 — flight_pool: claim', () => {
             poolTreasury: f.pool.treasuryAta,
             travelerStableAccount: usdcAta,
             stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
             traveler,
             flightId: FLIGHT.flightId,
             date: FLIGHT.date,
@@ -632,6 +643,7 @@ describe('Phase 3 — flight_pool: claim', () => {
             poolTreasury: f.pool.treasuryAta,
             travelerStableAccount: usdcAta,
             stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
             traveler,
             flightId: FLIGHT.flightId,
             date: FLIGHT.date,
@@ -653,6 +665,7 @@ describe('Phase 3 — flight_pool: claim', () => {
             poolTreasury: f.pool.treasuryAta,
             travelerStableAccount: usdcAta,
             stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
             traveler,
             flightId: FLIGHT.flightId,
             date: FLIGHT.date,
@@ -677,6 +690,7 @@ describe('Phase 3 — flight_pool: claim', () => {
             poolTreasury: f.pool.treasuryAta,
             travelerStableAccount: strangerAta,
             stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
             traveler: stranger,
             flightId: FLIGHT.flightId,
             date: FLIGHT.date,
@@ -801,9 +815,10 @@ describe('Phase 3 — flight_pool: withdraw_recovered', () => {
     setTokenAccount(f.client, {
       mint: f.pool.stableMint,
       owner: f.pool.treasuryAuthorityPda,
+      tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
       amount: PAYOFF, // top up so withdraw can pull
     });
-    const ownerUsdcAta = getAtaAddress(f.pool.stableMint, f.client.payer.address);
+    const ownerUsdcAta = getAtaAddress(f.pool.stableMint, f.client.payer.address, TOKEN_2022_PROGRAM_ID_KIT);
     mintMockPusdTo(f.client, f.client.payer.address, 0n); // ensure ATA exists
 
     // Withdraw half.
@@ -813,6 +828,7 @@ describe('Phase 3 — flight_pool: withdraw_recovered', () => {
         poolTreasury: f.pool.treasuryAta,
         ownerStableAccount: ownerUsdcAta,
         stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         owner: f.client.payer,
         amount: PAYOFF / 2n,
       }),
@@ -829,6 +845,7 @@ describe('Phase 3 — flight_pool: withdraw_recovered', () => {
           poolTreasury: f.pool.treasuryAta,
           ownerStableAccount: ownerUsdcAta,
           stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           owner: f.client.payer,
           amount: PAYOFF, // exceeds remaining recovered_balance
         }),

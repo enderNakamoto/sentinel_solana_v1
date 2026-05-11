@@ -398,6 +398,7 @@ pub struct Initialize<'info> {
         payer = owner,
         associated_token::mint = stable_mint,
         associated_token::authority = treasury_authority,
+        associated_token::token_program = token_program,
     )]
     pub pool_treasury: InterfaceAccount<'info, TokenAccount>,
 
@@ -634,11 +635,14 @@ pub struct Claim<'info> {
     )]
     pub treasury_authority: UncheckedAccount<'info>,
 
-    /// Strict `ATA(traveler, stable_mint)` (D8).
+    /// Strict `ATA(traveler, stable_mint)` (D8). `associated_token::
+    /// token_program` is explicit so the ATA derivation routes through
+    /// Token-2022 (matches how the client-side packed the ATA).
     #[account(
         mut,
         associated_token::mint = stable_mint,
         associated_token::authority = traveler,
+        associated_token::token_program = token_program,
     )]
     pub traveler_stable_account: InterfaceAccount<'info, TokenAccount>,
 
@@ -703,11 +707,14 @@ pub struct WithdrawRecovered<'info> {
     )]
     pub treasury_authority: UncheckedAccount<'info>,
 
-    /// Strict `ATA(owner, stable_mint)` (D10).
+    /// Strict `ATA(owner, stable_mint)` (D10). `associated_token::
+    /// token_program` is explicit so the ATA derivation routes through
+    /// Token-2022.
     #[account(
         mut,
         associated_token::mint = stable_mint,
         associated_token::authority = owner,
+        associated_token::token_program = token_program,
     )]
     pub owner_stable_account: InterfaceAccount<'info, TokenAccount>,
 
