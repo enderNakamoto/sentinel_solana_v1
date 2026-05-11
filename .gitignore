@@ -11,12 +11,13 @@ target/
 **/*.rs.bk
 
 # ─── Generated (regenerable from IDL/Codama) ──────────────────────
-# NOTE: frontend/src/clients/ is committed so Vercel (which lacks the
-# Anchor toolchain) can run `next build` without a code-gen step.
+# NOTE: frontend/src/clients/ AND executor/src/clients/ are committed so
+# Vercel (which lacks the Anchor toolchain) can run `next build` without
+# a code-gen step. The frontend's API routes import from @executor/clients
+# via the tsconfig path alias, so both must be present at build time.
 # Regenerate locally with `pnpm gen-clients` after any contract change.
 frontend/src/idl/
 executor/src/idl/
-executor/src/clients/
 contracts/tests/clients/
 scripts/clients/
 scripts/dist/
