@@ -1,12 +1,141 @@
-# Sentinel Protocol — Solana
+# Sentinel Protocol
 
-Decentralised flight delay insurance on Solana. Underwriters deposit USDC to back claims; travelers pay a premium and receive a fixed payoff if their flight is delayed beyond a per-route threshold.
+> **A prediction market for flight delays — used as travel insurance. Settled on Solana.**
 
-See:
-- `spec/architecture.md` — full system architecture
-- `spec/dev_steps.md` — phased build plan
-- `spec/workflow.md` — phase lifecycle / agent commands
-- `CLAUDE.md` — locked stack, hard rules
+Sentinel is two things in one. Underneath, it's a two-sided market on whether a given flight will be late. From the traveler's seat, it works exactly like parametric flight insurance: pay a premium in stablecoin, and if your flight is delayed beyond the per-route threshold, the smart contract pays you out automatically. No claim form. No adjuster. No waiting weeks for a decision.
+
+Underwriters take the other side — they deposit **Palm USD (PUSD)** into a shared vault and earn the spread when flights run on time. Pricing, settlement, and payouts all happen on-chain. Off-chain keepers drive the inputs: flight-data oracle, classification, settlement, and per-route premium repricing.
+
+- **Pitch deck:** [`/presentation`](frontend/public/presentation/slides.html) — 10 slides (problem, solution, architecture, oracle on Acurast TEE, the 4 keepers, XGBoost+Grok pricing brain, solvency, Monte Carlo)
+- **Live Monte Carlo:** [`/quant`](frontend/app/quant/page.tsx) — 10,000-trial yield simulator
+- **Frontend:** Next.js 15 dApp in `frontend/`, wired against devnet (Phantom on "Solana Devnet" connects today)
+
+---
+
+## Live on Solana Devnet
+
+Deployed 2026-05-08. Canonical artifact path: `deployments/devnet-latest.json` (gitignored — re-deploy to regenerate, or copy from below).
+
+| Component | Address |
+|---|---|
+| Cluster | `devnet` &middot; `https://api.devnet.solana.com` |
+| Deployer / Owner | [`FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy`](https://explorer.solana.com/address/FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy?cluster=devnet) |
+| Stablecoin mint (mock USDC on devnet, stands in for PUSD) | [`epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K`](https://explorer.solana.com/address/epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K?cluster=devnet) |
+
+**Programs** — canonical IDs, identical on every cluster (declared via committed program keypairs):
+
+| Program | Address |
+|---|---|
+| `governance` | [`6d6QXsZRQ1fXp8wEXFTm4uXAbLWarPKX6XJLcNUY8rcT`](https://explorer.solana.com/address/6d6QXsZRQ1fXp8wEXFTm4uXAbLWarPKX6XJLcNUY8rcT?cluster=devnet) |
+| `vault` | [`3yzuTtfGYUBsdhXf4QGeq9MUGj5RDNLj3hFPtsWGkj8p`](https://explorer.solana.com/address/3yzuTtfGYUBsdhXf4QGeq9MUGj5RDNLj3hFPtsWGkj8p?cluster=devnet) |
+| `oracle_aggregator` | [`EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6`](https://explorer.solana.com/address/EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6?cluster=devnet) |
+| `flight_pool` | [`GW1yq7rswXBect6yR1RWtU7Q7AmY5wWMnq58a1JGcwVq`](https://explorer.solana.com/address/GW1yq7rswXBect6yR1RWtU7Q7AmY5wWMnq58a1JGcwVq?cluster=devnet) |
+| `controller` | [`G4v4i3LoLX7v3cEb3cehNGWMHbvHArRyPSEiZmg5VSot`](https://explorer.solana.com/address/G4v4i3LoLX7v3cEb3cehNGWMHbvHArRyPSEiZmg5VSot?cluster=devnet) |
+
+**Cron authorities:**
+
+| Authority | Pubkey |
+|---|---|
+| `authorized_oracle` (FlightDataFetcher signer) | [`3GjTYVmMyY3H2JomUL4e7YvVYALyskAjdWrmux7i3DNv`](https://explorer.solana.com/address/3GjTYVmMyY3H2JomUL4e7YvVYALyskAjdWrmux7i3DNv?cluster=devnet) |
+| `authorized_keeper` (Classifier + Settler signer) | [`EXZZGnbBZAM8DKimCbpeW9BvF4TxcKe8pCYm5KfWyEJu`](https://explorer.solana.com/address/EXZZGnbBZAM8DKimCbpeW9BvF4TxcKe8pCYm5KfWyEJu?cluster=devnet) |
+
+Full PDA table (governance config, vault state, share mint, controller config, withdrawal queue, etc.) lives further down in [Deploy runbook → Live deployments](#live-deployments).
+
+---
+
+## Architecture
+
+Five Anchor programs on Solana, driven by an off-chain executor that runs four keeper jobs:
+
+```
+                          EXECUTOR (off-chain crons)
+                  Fetch  ·  Classify  ·  Settle  ·  Reprice
+                    ↙              ↓              ↘
+            reprices    classify · settle    writes ETA
+   ┌─────────────────── Solana (on-chain) ───────────────────┐
+   │  ┌──────────┐    ┌────────────┐    ┌─────────────────┐  │
+   │  │Governance│←──→│ Controller │←──→│OracleAggregator │  │
+   │  └──────────┘    └─────┬──────┘    └─────────────────┘  │
+   │                        │                                 │
+   │                ┌───────┴────────┐                        │
+   │  Traveler ←─→  │   FlightPool ⇄ Vault   ←─→ Underwriter  │
+   │                └────────────────┘                        │
+   └──────────────────────────────────────────────────────────┘
+```
+
+| Program | Role |
+|---|---|
+| `governance` | Per-route terms (premium, payout, delay threshold). Routes can be whitelisted, disabled, repriced. |
+| `controller` | Orchestrator. Owns `buy_insurance`, `classify_flights`, `execute_settlements`. CPIs into all other programs. |
+| `flight_pool` | Per-flight pool registry + buyer records. Custodies premiums and pays out claims. |
+| `vault` | Underwriter capital pool. Mints share tokens (RVS). Handles deposits, redemptions, FIFO withdrawal queue, and the solvency check. |
+| `oracle_aggregator` | Flight-data feed. Stores ETA + actual arrival per flight. Forward-only state machine. Authority-gated writes (TEE-attested signer). |
+
+→ Full account layouts, instruction catalog, CPI graph, and PDA seeds: [`spec/architecture.md`](spec/architecture.md).
+→ Phased build plan + per-phase deliverables: [`spec/dev_steps.md`](spec/dev_steps.md).
+
+---
+
+## Oracle — runs on a phone
+
+Sentinel's flight-data oracle runs on **[Acurast](https://acurast.com)** — a DePIN network where the workers are real Android phones, each one a hardware-attested Trusted Execution Environment (TEE).
+
+- **Our TypeScript runs inside the phone's secure chip.** The AeroAPI calls *and* the signed Solana writes both originate from inside the TEE.
+- **Keys can't be extracted.** The signing key lives in attested hardware. Nobody — not even the phone's owner — can read or steal it. Solana verifies the attested signature on every write, or rejects it.
+- **No central operator.** If one phone goes offline, another Acurast Processor picks up the job. We pay per run, not per server. No AWS.
+- **Publicly verifiable.** We can publish the hash of the code running inside the TEE. Anyone can verify what's executing on the phones matches what Sentinel claims.
+
+The on-chain surface — `OracleConfig.authorized_oracle` — is a swap-friendly indirection. It accepts writes from a TEE phone, a Switchboard SGX worker, or (today's devnet posture) a centralised cron on Render, without any program change.
+
+---
+
+## Keepers — 4 off-chain crons
+
+Four idempotent keeper jobs keep the protocol ticking. Each is a single TypeScript function (`runFetcherOnce`, `runClassifierOnce`, `runSettlerOnce`, `runRepricerOnce`) that can be invoked as a one-shot via `pnpm`, run together as a `node-cron` daemon, or triggered manually from the `/crons` operator dashboard.
+
+| Keeper | Frequency | Signer | What it does |
+|---|---|---|---|
+| **FlightDataFetcher** | every 2h | `authorized_oracle` | Reads `ActiveFlightList`, calls AeroAPI for each flight whose ETA has passed by ≥1h, writes ETA/actual arrival to `oracle_aggregator`. Runs inside the Acurast TEE in production. |
+| **FlightClassifier** | every 1h | `authorized_keeper` | For each `Landed` / `Cancelled` flight, calls `controller.classify_flights` to transition it into `ToBeSettled{OnTime, Delayed, Cancelled}`. |
+| **SettlementExecutor** | every 5m | `authorized_keeper` | For each `ToBeSettled*` flight, calls `controller.execute_settlements` — pays out claims, releases locked capital, and drains the FIFO withdrawal queue. |
+| **RouteRepricer** | daily | deployer | For each whitelisted route: fetches a baseline premium from the XGBoost agent + a live disruption signal from Grok, then calls `governance.update_route_terms` (or `disable_route` / idempotent re-`whitelist_route`). See the next section. |
+
+The `/crons` dashboard exposes per-cron manual triggers, a 10s-poll run history, and a live view of `ActiveFlightList` + each entry's `FlightStatus`. Mock / live AeroAPI toggle and mock / live Grok toggle let you demo the full pipeline without burning API credits. See [Cron control panel](#cron-control-panel-phases-17--18--23) for the operational details.
+
+---
+
+## Pricing brain — XGBoost + Grok → Governance
+
+Routes are priced in two layers, then written on-chain by the **RouteRepricer** cron:
+
+**Layer 1 — XGBoost classifier on BTS data.** An XGBoost model trained on the U.S. Bureau of Transportation Statistics on-time-performance dataset predicts `P(delay ≥ 15min)` per `(carrier, origin, destination, departure time, distance, day of week)`. The Phase 22 FastAPI service (`agent/`, Python) exposes this as `POST /price` and returns a USDC premium clamped to `[$1, $5]`. Formula: `premium = clamp(1 + 4·p_delay, 1, 5)`. Validation ROC AUC: **0.7505**.
+
+**Layer 2 — Grok with Live Search.** xAI Grok queries real-time news + weather for each route via Live Search and returns structured JSON (`response_format: json_schema`) — a multiplier on the base premium plus a kill-switch for unsafe conditions. A winter storm bumps the premium ×1.4; an active war zone flips `disable_route: true`.
+
+**On-chain write.** The RouteRepricer cron walks every whitelisted route, calls both layers, and applies the result via the `governance` program:
+
+| Decision | Instruction |
+|---|---|
+| Premium changed beyond a 100k base-unit (~$0.10) drift threshold | `governance.update_route_terms` |
+| Grok flagged the route unsafe | `governance.disable_route` |
+| Conditions cleared on a route the cron previously disabled | `governance.whitelist_route` (idempotent re-enable) |
+
+**Idempotency rule:** the cron only re-enables routes it disabled itself. It never overrides a human admin's `disable_route` decision.
+
+```
+BTS data → XGBoost → Grok (live search) → RouteRepricer cron → governance.update_route_terms
+```
+
+→ Agent service runbook (install, train, serve, env vars, Docker): [Premium pricing agent](#premium-pricing-agent-phase-22).
+→ Cron runbook (one-shot, daemon, mock/live toggles): [Cron control panel](#cron-control-panel-phases-17--18--23).
+
+---
+
+## Stablecoin — Palm USD (PUSD)
+
+Sentinel is designed around **Palm USD (PUSD)** as the unit of account. Travelers pay premiums in PUSD; underwriters deposit PUSD into the vault to back claims; payouts and yield redemptions are denominated in PUSD. Every `controller.buy_insurance`, `vault.deposit / redeem / collect`, and `flight_pool.claim` instruction moves PUSD.
+
+On **devnet** today we use a mock USDC mint as a stand-in for PUSD (mint pubkey [`epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K`](https://explorer.solana.com/address/epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K?cluster=devnet)) so testing is unblocked and `pnpm fund-usdc` can mint test balances on demand. The mint address is the **only** thing that changes when swapping to live PUSD on mainnet — the contracts treat the stablecoin as a single SPL `Mint` address configured at init time. Same instruction set, same authority model, same accounting.
 
 ---
 
@@ -22,7 +151,13 @@ See:
 | Integration tests | **Surfpool** (local Surfnet) |
 | Package manager | **pnpm workspaces** |
 
-5 programs: `governance`, `vault`, `flight_pool`, `oracle_aggregator`, `controller`.
+Five Anchor programs: `governance`, `vault`, `flight_pool`, `oracle_aggregator`, `controller`. Additional Python agent (`agent/`) for the Phase 22 XGBoost service; runs outside the pnpm workspace via the top-level `Makefile`.
+
+See:
+- [`spec/architecture.md`](spec/architecture.md) — full system architecture
+- [`spec/dev_steps.md`](spec/dev_steps.md) — phased build plan
+- [`spec/workflow.md`](spec/workflow.md) — phase lifecycle / agent commands
+- [`CLAUDE.md`](CLAUDE.md) — locked stack, hard rules
 
 ---
 
@@ -264,22 +399,8 @@ Canonical addresses for each cluster the protocol has been deployed to. Frontend
 
 Deployed: 2026-05-08. Canonical artifact path on disk: `deployments/devnet-latest.json` (gitignored — re-deploy to regenerate, or copy from below).
 
-| Component | Address |
-|---|---|
-| **Cluster** | `devnet` (`https://api.devnet.solana.com`) |
-| **Deployer / Owner** | `FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy` (`keys/devnet-deployer.pubkey`) |
-| **Mock USDC mint** | `epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K` (`keys/mock-usdc.pubkey`) |
+Program IDs, deployer / owner, stablecoin mint, and cron authorities are listed in the top-of-README [Live on Solana Devnet](#live-on-solana-devnet) section. Below is the **PDA reference table** — derived from program IDs + seeds, needed by the frontend / executor / external integrations for fast reads without re-deriving:
 
-**Programs** (canonical IDs — same on every cluster, declared via committed program keypairs):
-| Program | Address |
-|---|---|
-| `governance` | `6d6QXsZRQ1fXp8wEXFTm4uXAbLWarPKX6XJLcNUY8rcT` |
-| `vault` | `3yzuTtfGYUBsdhXf4QGeq9MUGj5RDNLj3hFPtsWGkj8p` |
-| `oracle_aggregator` | `EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6` |
-| `flight_pool` | `GW1yq7rswXBect6yR1RWtU7Q7AmY5wWMnq58a1JGcwVq` |
-| `controller` | `G4v4i3LoLX7v3cEb3cehNGWMHbvHArRyPSEiZmg5VSot` |
-
-**PDA addresses** (derived from program IDs + seeds; needed by the frontend / executor for fast reads without re-deriving):
 | PDA | Address | Owner program |
 |---|---|---|
 | `governanceConfig` | `AsVZzrc2ong7kU1bkfE4FM4q8mE5kVdRTa3pDW5yr74x` | governance |
@@ -292,20 +413,11 @@ Deployed: 2026-05-08. Canonical artifact path on disk: `deployments/devnet-lates
 | `controllerConfig` | `mCKrLhjbapVxbD4AGK99jPg1s3neXfpezQLMZFfNPTR` | controller |
 | `activeFlightList` | `8c64now3ENjNohx7NNyoJbtd2p6T1w1qaUner6boh6X1` | controller |
 
-**Cron authority keypairs** (auto-generated by the deploy script; private parts at gitignored paths):
-| Authority | Pubkey | Keypair |
-|---|---|---|
-| `authorized_oracle` (FlightDataFetcher cron signer) | `3GjTYVmMyY3H2JomUL4e7YvVYALyskAjdWrmux7i3DNv` | `keys/devnet-oracle.json` |
-| `authorized_keeper` (FlightClassifier + SettlementExecutor cron signer) | `EXZZGnbBZAM8DKimCbpeW9BvF4TxcKe8pCYm5KfWyEJu` | `keys/devnet-keeper.json` |
+Cron authority keypairs are auto-generated by the deploy script at gitignored paths: `keys/devnet-oracle.json` (FlightDataFetcher signer) and `keys/devnet-keeper.json` (Classifier + Settler signer).
 
 **Frontend wiring (Phase 13+):** point `NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com` (or any devnet RPC provider) in `frontend/.env.local`. The page-level data layer at `frontend/src/data/` swaps from mocks to real RPC reads using these program IDs + PDAs in Phase 13–15. Wallet UX is already live — Phantom set to "Solana Devnet" connects today; Phase 13 wires real `controller.buy_insurance` etc.
 
-**Executor wiring (cron daemon):** point `CLUSTER=devnet`, `ORACLE_KEYPAIR=keys/devnet-oracle.json`, `KEEPER_KEYPAIR=keys/devnet-keeper.json`, plus `AEROAPI_KEY=<your-key>`. The cron core fns load `deployments/devnet-latest.json` automatically — no code change.
-
-**Explorer links:**
-- Deployer: https://explorer.solana.com/address/FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy?cluster=devnet
-- Controller: https://explorer.solana.com/address/G4v4i3LoLX7v3cEb3cehNGWMHbvHArRyPSEiZmg5VSot?cluster=devnet
-- Mock USDC: https://explorer.solana.com/address/epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K?cluster=devnet
+**Executor wiring (cron daemon):** point `CLUSTER=devnet`, `ORACLE_KEYPAIR=keys/devnet-oracle.json`, `KEEPER_KEYPAIR=keys/devnet-keeper.json`, plus `AEROAPI_KEY=<your-key>` and (for the repricer) `AGENT_BASE_URL=<agent host>` + `XAI_API_KEY=<grok key>`. The cron core fns load `deployments/devnet-latest.json` automatically — no code change.
 
 #### Solana Mainnet
 
