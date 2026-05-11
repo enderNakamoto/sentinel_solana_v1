@@ -696,6 +696,119 @@ provided for production-style deploy on Render/Railway but not required.
 See `agent/README.md` for the full endpoint contract, env vars, known
 limitations (proxy target, no calibration), and deploy notes.
 
+## Tests
+
+Sentinel has 5 test surfaces &mdash; one per execution context. Each is a one-liner from the repo root.
+
+### Test matrix
+
+| Surface | Location | Runner | Count | Coverage |
+|---|---|---|---|---|
+| Anchor program unit tests | `contracts/tests/{governance,vault,flight_pool,oracle_aggregator,controller,smoke}.test.ts` | LiteSVM (vitest) | ~88 | Per-instruction coverage + edge cases + auth isolation for each of the 5 programs. Runs entirely in-process &mdash; no validator, no RPC. |
+| Cross-program integration | `contracts/tests/integration.test.ts` | LiteSVM (vitest) | 9 | Full lifecycle on LiteSVM: deploy &rarr; whitelist &rarr; deposit &rarr; buy &rarr; oracle write &rarr; classify &rarr; settle &rarr; claim. Three flight outcomes (on-time / delayed / cancelled) + withdrawal queue + solvency + auth isolation. |
+| Surfpool integration | `contracts/tests/integration/{surfpool,full-flow-deployed}.test.ts` | Surfpool (vitest) | 2 suites | Sanity RPC reachability + multi-actor full-flow lifecycle against a live local Surfnet. Same code paths the frontend hits. |
+| E2E with real crons | `contracts/tests/integration/e2e-with-crons-deployed.test.ts` | Surfpool (vitest) | 8 scenarios | Drives `runFetcherOnce` / `runClassifierOnce` / `runSettlerOnce` against live Surfpool with a parameterized mock AeroAPI. Highest-fidelity test we have &mdash; real RPC, real Anchor programs, real Codama ixs. |
+| Executor unit tests | `executor/tests/*.test.ts` | vitest | 77 | Pure unit tests on each cron's decision module (classifier batches, fetcher actions, settlement batches, route actions), AeroAPI client + 4xx envelope decoder, Grok client + structured-output decoder. |
+| Browser e2e | `frontend/tests/e2e/*.spec.ts` | Playwright + Synpress + Phantom | 8 specs | Headless Phantom wallet driven through every user flow: connect, faucet mint, vault deposit, buy coverage, portfolio view, and the three flight-outcome flows (on-time, delayed, cancelled). |
+| Agent service | `agent/tests/test_price.py` | pytest | 4 | XGBoost service smoke: model loads, `/price` request/response contract, `/healthz` contract, premium clamp invariant. |
+
+### Running the tests
+
+**1. Anchor program unit tests (LiteSVM)** &mdash; fast, no infrastructure, ~88 tests, runs in-process.
+
+```bash
+pnpm test:contracts
+```
+
+`pretest` triggers `anchor build` automatically. Add `--filter <pattern>` to scope: `pnpm --filter @sentinel/contracts test -- vault` runs only `vault.test.ts`.
+
+**2. Surfpool integration suite** &mdash; needs Surfpool running + a fresh deploy.
+
+```bash
+# Terminal 1: keep surfpool running
+pnpm dev:surfpool
+
+# Terminal 2: deploy + run
+pnpm bootstrap-test-actors
+pnpm run deploy --cluster surfpool --owner $(solana-keygen pubkey ~/.config/solana/id.json)
+pnpm test:integration                    # all integration suites
+pnpm test:integration:deployed           # just the multi-actor full-flow
+```
+
+Skips with a clear warning if surfpool is unreachable or no deployment artifact exists at `deployments/surfpool-latest.json` &mdash; will not auto-start surfpool or auto-deploy.
+
+**3. E2E cron suite (highest-fidelity)** &mdash; drives the real cron core fns through 8 parameterized scenarios.
+
+```bash
+# Surfpool + deploy as above, then:
+pnpm test:e2e:crons
+```
+
+Total runtime ~38 seconds on a fresh deploy (Surfpool startup + deploy not counted). See [Running the e2e cron suite](#running-the-e2e-cron-suite-phase-11) for the full scenario matrix.
+
+**4. Executor unit tests** &mdash; pure Vitest on the decision modules + API clients.
+
+```bash
+pnpm --filter @sentinel/executor test
+```
+
+No infrastructure. Tests run in milliseconds. Covers all four crons' decision logic plus the AeroAPI 4xx-envelope decoder and the Grok structured-JSON contract.
+
+**5. Browser e2e (Playwright + Synpress)** &mdash; needs the frontend running + a cached Phantom wallet.
+
+```bash
+# One-time: cache the Phantom wallet state for Synpress
+pnpm --filter @sentinel/frontend test:e2e:cache
+
+# Start the frontend (terminal 1)
+pnpm dev:frontend
+
+# Run the suite (terminal 2)
+pnpm --filter @sentinel/frontend test:e2e
+
+# Headed mode for debugging
+pnpm --filter @sentinel/frontend test:e2e:headed
+```
+
+The 8 specs run in order; specs 10-12 (flight-outcome flows) require the frontend's mock AeroAPI mode plus the cron control panel under `/crons`. See `frontend/tests/e2e/README.md` for the full setup walk-through.
+
+**6. Agent service (Python pytest)** &mdash; needs the Python env + the trained model.
+
+```bash
+# macOS only: xgboost needs libomp
+brew install libomp
+
+# One-time install + train
+make install
+make train      # ~30s; produces agent/artifacts/{model,encoder,...}.joblib
+
+# Run the test suite
+make test       # 4 pytest cases, ~1.5s
+```
+
+**7. Typecheck (all 3 TS workspaces)** &mdash; fast sanity gate.
+
+```bash
+pnpm typecheck
+```
+
+### Fast local check (one shell)
+
+The non-infrastructure suites can be chained &mdash; runs in well under a minute on a fresh checkout:
+
+```bash
+pnpm typecheck && \
+  pnpm test:contracts && \
+  pnpm --filter @sentinel/executor test && \
+  make test
+```
+
+The Surfpool + Playwright suites need extra setup (running Surfpool, a deploy, the dev server) and are excluded from this fast loop.
+
+### CI
+
+No CI workflow today &mdash; deferred. Locally the suites above are the source of truth. First CI workflow lands when there's a real artifact to gate (mainnet deploy or hosted demo).
+
 ## Phase status
 
 See `spec/progress.md` for the live phase dashboard. Each phase has its own plan + work log under `spec/phases/`.
