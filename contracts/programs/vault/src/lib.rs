@@ -1,9 +1,9 @@
 //! Sentinel — vault program.
 //!
-//! The capital-pool layer. Underwriters deposit USDC and receive RVS share
+//! The capital-pool layer. Underwriters deposit PUSD and receive RVS share
 //! tokens (custom SPL Token mint). The vault tracks an internal
 //! `total_managed_assets` counter decoupled from the raw token-account
-//! balance — direct USDC transfers to the vault token account do NOT mutate
+//! balance — direct PUSD transfers to the vault token account do NOT mutate
 //! TMA, defeating the classic ERC-4626 inflation attack alongside the 1000
 //! virtual-share/asset offset.
 //!
@@ -63,7 +63,7 @@ pub mod vault {
     // ─── Initialization ─────────────────────────────────────────────
 
     /// Owner-only. Creates `VaultState`, `WithdrawalQueue` (empty),
-    /// `share_mint` PDA, and the vault USDC ATA. Mint authority + token
+    /// `share_mint` PDA, and the vault PUSD ATA. Mint authority + token
     /// account authority is the `vault_state` PDA itself.
     pub fn initialize(ctx: Context<Initialize>, stable_mint: Pubkey) -> Result<()> {
         require_keys_eq!(
@@ -108,10 +108,10 @@ pub mod vault {
 
     // ─── Underwriter operations ─────────────────────────────────────
 
-    /// Transfers USDC from the depositor → vault token account, mints RVS
+    /// Transfers PUSD from the depositor → vault token account, mints RVS
     /// shares to the depositor's share-mint ATA. Shares rounded DOWN.
-    pub fn deposit(ctx: Context<Deposit>, usdc_amount: u64) -> Result<()> {
-        require!(usdc_amount > 0, VaultError::ZeroAmount);
+    pub fn deposit(ctx: Context<Deposit>, stable_amount: u64) -> Result<()> {
+        require!(stable_amount > 0, VaultError::ZeroAmount);
 
         // 1. Pull stable coin from depositor's ATA into the vault token
         //    account via `transfer_checked` (Token-2022 compliant; works
@@ -125,14 +125,14 @@ pub mod vault {
         };
         token_interface::transfer_checked(
             CpiContext::new(ctx.accounts.stable_token_program.key(), cpi_accounts),
-            usdc_amount,
+            stable_amount,
             decimals,
         )?;
 
         // 2. Compute shares using the virtual offset (rounds DOWN).
         let total_shares = ctx.accounts.share_mint.supply;
         let shares_to_mint = compute_shares_for_deposit(
-            usdc_amount,
+            stable_amount,
             total_shares,
             ctx.accounts.vault_state.total_managed_assets,
         )?;
@@ -160,27 +160,27 @@ pub mod vault {
         let state = &mut ctx.accounts.vault_state;
         state.total_managed_assets = state
             .total_managed_assets
-            .checked_add(usdc_amount)
+            .checked_add(stable_amount)
             .ok_or(VaultError::Overflow)?;
 
         Ok(())
     }
 
-    /// Burns RVS shares, transfers USDC out. Capped at `free_capital`.
-    /// Reverts with `InsufficientFreeCapital` otherwise. USDC out is
+    /// Burns RVS shares, transfers PUSD out. Capped at `free_capital`.
+    /// Reverts with `InsufficientFreeCapital` otherwise. PUSD out is
     /// rounded UP (vault retains rounding).
     pub fn redeem(ctx: Context<Redeem>, shares: u64) -> Result<()> {
         require!(shares > 0, VaultError::ZeroAmount);
 
         let state = &ctx.accounts.vault_state;
         let total_shares = ctx.accounts.share_mint.supply;
-        let usdc_out = compute_assets_for_redeem(shares, total_shares, state.total_managed_assets)?;
+        let stable_out = compute_assets_for_redeem(shares, total_shares, state.total_managed_assets)?;
 
         let free_capital = state
             .total_managed_assets
             .checked_sub(state.locked_capital)
             .ok_or(VaultError::Overflow)?;
-        require!(usdc_out <= free_capital, VaultError::InsufficientFreeCapital);
+        require!(stable_out <= free_capital, VaultError::InsufficientFreeCapital);
 
         // 1. Burn shares from caller's ATA. Burn is signed by the share
         //    holder, NOT the vault PDA.
@@ -210,7 +210,7 @@ pub mod vault {
                 cpi_accounts,
                 signer_seeds,
             ),
-            usdc_out,
+            stable_out,
             decimals,
         )?;
 
@@ -218,7 +218,7 @@ pub mod vault {
         let state = &mut ctx.accounts.vault_state;
         state.total_managed_assets = state
             .total_managed_assets
-            .checked_sub(usdc_out)
+            .checked_sub(stable_out)
             .ok_or(VaultError::Overflow)?;
 
         Ok(())
@@ -354,7 +354,7 @@ pub mod vault {
         Ok(())
     }
 
-    /// Drains the caller's `ClaimableBalance` to their USDC ATA.
+    /// Drains the caller's `ClaimableBalance` to their PUSD ATA.
     pub fn collect(ctx: Context<Collect>) -> Result<()> {
         let amount = ctx.accounts.claimable.amount;
         require!(amount > 0, VaultError::NothingToCollect);
@@ -413,7 +413,7 @@ pub mod vault {
         Ok(())
     }
 
-    /// Transfers USDC from the vault token account to a recipient
+    /// Transfers PUSD from the vault token account to a recipient
     /// (typically `flight_pool_program`'s pool treasury). Decrements TMA.
     pub fn send_payout(ctx: Context<SendPayout>, amount: u64) -> Result<()> {
         require!(amount > 0, VaultError::ZeroAmount);
@@ -447,7 +447,7 @@ pub mod vault {
     }
 
     /// Increments TMA by `amount` to reflect premium income realised
-    /// elsewhere (the actual USDC arrived earlier into the flight_pool
+    /// elsewhere (the actual PUSD arrived earlier into the flight_pool
     /// treasury and is forwarded by `flight_pool.settle_on_time` directly
     /// into the vault token account; this call only updates accounting).
     pub fn record_premium_income(ctx: Context<ControllerOnly>, amount: u64) -> Result<()> {
@@ -466,7 +466,7 @@ pub mod vault {
     /// `ClaimableBalance` PDA via `remaining_accounts` in queue order.
     /// **No re-pricing here** — assets were locked at request time. **No
     /// share burn here** — shares were burned at request time.
-    /// `vault_token_account` (USDC) is unchanged; the actual USDC pull
+    /// `vault_token_account` (PUSD) is unchanged; the actual PUSD pull
     /// happens later in `collect()`.
     pub fn process_withdrawal_queue<'info>(
         ctx: Context<'info, ProcessWithdrawalQueue<'info>>,
@@ -1037,8 +1037,8 @@ pub struct ProcessWithdrawalQueue<'info> {
 
     pub controller: Signer<'info>,
     // `ClaimableBalance` accounts come via `ctx.remaining_accounts` in
-    // queue order (D5). No share-mint or USDC token-account here — drain
-    // is bookkeeping only; the user pulls USDC later via `collect()`.
+    // queue order (D5). No share-mint or PUSD token-account here — drain
+    // is bookkeeping only; the user pulls PUSD later via `collect()`.
 }
 
 #[derive(Accounts)]
@@ -1111,7 +1111,7 @@ impl WithdrawalQueue {
     }
 }
 
-/// `pending_assets` is the USDC owed to the underwriter, snapshotted at
+/// `pending_assets` is the PUSD owed to the underwriter, snapshotted at
 /// `request_withdrawal` time using the virtual-offset formula on the
 /// pre-burn supply + TMA. The drain credits the underwriter's
 /// `ClaimableBalance` by this exact amount — no re-pricing at drain time —

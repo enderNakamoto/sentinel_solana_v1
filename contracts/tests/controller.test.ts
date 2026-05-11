@@ -52,8 +52,9 @@ import {
   getAtaAddress,
   getTokenAccountAmount,
   makeClient,
-  mintMockUsdcTo,
+  mintMockPusdTo,
   setTokenAccount,
+  TOKEN_2022_PROGRAM_ID_KIT,
   VAULT_PROGRAM_ADDRESS,
   type ControllerBootstrap,
 } from './setup.ts';
@@ -151,7 +152,7 @@ async function whitelistRoute(f: Fixture): Promise<void> {
 /** Underwriter deposits USDC into the vault so vault has free_capital. */
 async function fundVault(f: Fixture, usdc: bigint): Promise<void> {
   const underwriter = await fundedSigner(f.client);
-  const { ata: usdcAta } = mintMockUsdcTo(f.client, underwriter.address, usdc);
+  const { ata: usdcAta } = mintMockPusdTo(f.client, underwriter.address, usdc);
   const { ata: shareAta } = setTokenAccount(f.client, {
     mint: f.ctrl.vault.shareMintPda,
     owner: underwriter.address,
@@ -162,10 +163,12 @@ async function fundVault(f: Fixture, usdc: bigint): Promise<void> {
       vaultState: f.ctrl.vault.vaultStatePda,
       shareMint: f.ctrl.vault.shareMintPda,
       vaultTokenAccount: f.ctrl.vault.vaultTokenAccount,
-      depositorUsdcAccount: usdcAta,
+      depositorStableAccount: usdcAta,
       depositorShareAccount: shareAta,
+      stableMint: f.ctrl.stableMint,
       depositor: underwriter,
-      usdcAmount: usdc,
+      stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
+      stableAmount: usdc,
     }),
   ]);
 }
@@ -193,7 +196,7 @@ async function buildBuyInsurance(
     buyer: traveler.address,
   });
 
-  const buyerUsdcAta = getAtaAddress(f.ctrl.usdcMint, traveler.address);
+  const buyerUsdcAta = getAtaAddress(f.ctrl.stableMint, traveler.address);
 
   return getBuyInsuranceInstructionAsync({
     governanceProgram: GOVERNANCE_PROGRAM_ADDRESS,
@@ -206,11 +209,13 @@ async function buildBuyInsurance(
     flightPoolConfig: f.ctrl.flightPool.configPda,
     flightPool: flightPoolPda,
     buyerRecord: buyerRecordPda,
-    buyerUsdcAccount: buyerUsdcAta,
+    buyerStableAccount: buyerUsdcAta,
     poolTreasury: f.ctrl.flightPool.treasuryAta,
+    stableMint: f.ctrl.stableMint,
     vaultProgram: VAULT_PROGRAM_ADDRESS,
     vaultState: f.ctrl.vault.vaultStatePda,
     traveler,
+    stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
     flightId: FLIGHT.flightId,
     origin: FLIGHT.origin,
     destination: FLIGHT.destination,
@@ -230,7 +235,7 @@ describe('Phase 5 — controller: initialize', () => {
     expect(config.vaultState).toBe(ctrl.vault.vaultStatePda);
     expect(config.flightPoolConfig).toBe(ctrl.flightPool.configPda);
     expect(config.oracleConfig).toBe(ctrl.oracle.configPda);
-    expect(config.usdcMint).toBe(ctrl.usdcMint);
+    expect(config.stableMint).toBe(ctrl.stableMint);
     expect(config.solvencyRatio).toBe(100);
     expect(config.minLeadTime).toBe(3_600n);
     expect(config.claimExpiryWindow).toBe(5_184_000n);
@@ -281,7 +286,7 @@ describe('Phase 5 — controller: buy_insurance happy paths', () => {
     await fundVault(f, 10_000_000_000n); // 10,000 USDC — plenty of solvency.
 
     const traveler = await fundedSigner(f.client);
-    mintMockUsdcTo(f.client, traveler.address, PREMIUM); // creates ATA + funds.
+    mintMockPusdTo(f.client, traveler.address, PREMIUM); // creates ATA + funds.
     // Advance clock so far-future date FUTURE_DATE * 86400 - now > min_lead_time.
     // LiteSVM clock starts at 0; FUTURE_DATE = 50000 days → 50000*86400 = 4.32e9s > 3600 ✓.
 
@@ -300,7 +305,7 @@ describe('Phase 5 — controller: buy_insurance happy paths', () => {
     expect(list.flights[0].date).toBe(FUTURE_DATE);
 
     // Premium moved from traveler ATA → pool treasury.
-    const travelerAta = getAtaAddress(f.ctrl.usdcMint, traveler.address);
+    const travelerAta = getAtaAddress(f.ctrl.stableMint, traveler.address);
     expect(getTokenAccountAmount(f.client, travelerAta)).toBe(0n);
     expect(getTokenAccountAmount(f.client, f.ctrl.flightPool.treasuryAta)).toBe(PREMIUM);
   });
@@ -312,7 +317,7 @@ describe('Phase 5 — controller: buy_insurance happy paths', () => {
 
     // First buyer.
     const t1 = await fundedSigner(f.client);
-    mintMockUsdcTo(f.client, t1.address, PREMIUM);
+    mintMockPusdTo(f.client, t1.address, PREMIUM);
     await f.client.sendTransaction([
       setComputeUnitLimitIx(1_400_000),
       await buildBuyInsurance(f, t1),
@@ -320,7 +325,7 @@ describe('Phase 5 — controller: buy_insurance happy paths', () => {
 
     // Second buyer — different traveler, same flight.
     const t2 = await fundedSigner(f.client);
-    mintMockUsdcTo(f.client, t2.address, PREMIUM);
+    mintMockPusdTo(f.client, t2.address, PREMIUM);
     await f.client.sendTransaction([
       setComputeUnitLimitIx(1_400_000),
       await buildBuyInsurance(f, t2),
@@ -344,7 +349,7 @@ describe('Phase 5 — controller: buy_insurance reverts', () => {
     // Skip whitelistRoute(); route account does not exist.
     await fundVault(f, 10_000_000_000n);
     const traveler = await fundedSigner(f.client);
-    mintMockUsdcTo(f.client, traveler.address, PREMIUM);
+    mintMockPusdTo(f.client, traveler.address, PREMIUM);
 
     await expect(
       f.client.sendTransaction([setComputeUnitLimitIx(1_400_000), await buildBuyInsurance(f, traveler)]),
@@ -358,7 +363,7 @@ describe('Phase 5 — controller: buy_insurance reverts', () => {
     await whitelistRoute(f);
     await fundVault(f, 10_000_000_000n);
     const traveler = await fundedSigner(f.client);
-    mintMockUsdcTo(f.client, traveler.address, PREMIUM);
+    mintMockPusdTo(f.client, traveler.address, PREMIUM);
 
     await expect(
       f.client.sendTransaction([setComputeUnitLimitIx(1_400_000), await buildBuyInsurance(f, traveler)]),
@@ -370,7 +375,7 @@ describe('Phase 5 — controller: buy_insurance reverts', () => {
     await whitelistRoute(f);
     // Don't fund the vault; free_capital = 0 < payoff*100.
     const traveler = await fundedSigner(f.client);
-    mintMockUsdcTo(f.client, traveler.address, PREMIUM);
+    mintMockPusdTo(f.client, traveler.address, PREMIUM);
 
     await expect(
       f.client.sendTransaction([setComputeUnitLimitIx(1_400_000), await buildBuyInsurance(f, traveler)]),
@@ -424,7 +429,9 @@ describe('Phase 5 — controller: keeper-only auth', () => {
           snapshotRecord: snapshotPda,
           poolTreasury: f.ctrl.flightPool.treasuryAta,
           treasuryAuthority: f.ctrl.flightPool.treasuryAuthorityPda,
+          stableMint: f.ctrl.stableMint,
           keeper: stranger,
+          stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           day: today,
           nFlights: 0,
         }),

@@ -18,9 +18,9 @@
  *                             `is_route_whitelisted` reader instructions)
  *
  * Phase 2 additions:
- *   - createMockUsdcMint()  — pack `spl_token::Mint` and `setAccount` it at
+ *   - createMockPusdMint()  — pack `spl_token::Mint` and `setAccount` it at
  *                             the canonical mock-USDC pubkey
- *   - mintMockUsdcTo()      — pack `spl_token::Account` (i.e. an ATA) and
+ *   - mintMockPusdTo()      — pack `spl_token::Account` (i.e. an ATA) and
  *                             `setAccount` at ATA(owner, mock-USDC).
  *                             Avoids needing the mint authority's signature.
  *   - bootstrapVault()      — initialise the vault program; return owner +
@@ -104,6 +104,7 @@ import {
   MINT_SIZE,
   ACCOUNT_SIZE,
   TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   getAssociatedTokenAddressSync,
   type RawMint,
   type RawAccount,
@@ -146,6 +147,14 @@ export async function makeClient() {
     .use(litesvm())
     .use(airdropSigner(lamports(10_000_000_000n)));
 
+  // Load the standard SPL programs (SPL Token, Token-2022, Associated Token,
+  // Memo). `new LiteSVM()` does not include Token-2022 by default — without
+  // this call, any Token-2022 CPI fails at the runtime with "missing
+  // account" (the program account itself isn't in the SVM). PUSD is a
+  // Token-2022 mint, so the vault/flight_pool ATAs require Token-2022 to
+  // be loaded. D-Phase24-Litesvm.
+  client.svm.withDefaultPrograms();
+
   for (const p of PROGRAMS) {
     const soPath = resolve(TARGET_DEPLOY, p.soFile);
     if (!existsSync(soPath)) {
@@ -182,10 +191,10 @@ export function advanceClock(svm: { getClock(): any; setClock(c: any): void }, s
  * The actual seeding into LiteSVM is deferred until Phase 1+ tests need
  * an SPL Token mint. Phase 0 smoke tests do not exercise USDC.
  */
-export function readMockUsdcAddresses(): { mint: Address; authority: Address } {
+export function readMockPusdAddresses(): { mint: Address; authority: Address } {
   return {
-    mint:      kitAddress(readPubkey(resolve(KEYS_DIR, 'mock-usdc.pubkey'))),
-    authority: kitAddress(readPubkey(resolve(KEYS_DIR, 'mock-usdc-authority.pubkey'))),
+    mint:      kitAddress(readPubkey(resolve(KEYS_DIR, 'mock-pusd.pubkey'))),
+    authority: kitAddress(readPubkey(resolve(KEYS_DIR, 'mock-pusd-authority.pubkey'))),
   };
 }
 
@@ -326,7 +335,25 @@ function base58FromBytes(bytes: Uint8Array): string {
 type Client = AnyLiteSvmClient;
 type AnyLiteSvmClient = Awaited<ReturnType<typeof makeClient>>;
 
+/**
+ * Classic SPL Token program. Used for the vault's RVS share mint, which is
+ * not migrated to Token-2022 (D24-2: no extension benefit, we own the mint).
+ */
 const TOKEN_PROGRAM_ID_KIT: Address = kitAddress(TOKEN_PROGRAM_ID.toBase58());
+
+/**
+ * Token-2022 program. The mock PUSD mint is packed at this program id so
+ * Anchor's `InterfaceAccount<Mint>` deserialiser routes through the
+ * Token-2022 runtime — matching real PUSD's posture on mainnet
+ * (`CZzgUBvxaMLwMhVSLgqJn3npmxoTo6nzMNQPAnwtHF3s`, owner `TokenzQd...`).
+ *
+ * Exported so tests can reference it directly (every `getDeposit*` /
+ * `getRedeem*` / `getCollect*` / `getSendPayout*` / `getBuyInsurance*` /
+ * `getExecuteSettlements*` ix call needs to pass it as `stableTokenProgram`).
+ */
+export const TOKEN_2022_PROGRAM_ID_KIT: Address = kitAddress(
+  TOKEN_2022_PROGRAM_ID.toBase58(),
+);
 
 /**
  * Lamports for rent exemption of an SPL Token Mint (82 bytes). Matches
@@ -337,16 +364,21 @@ const MINT_RENT_LAMPORTS = lamports(1_461_600n);
 const TOKEN_ACCOUNT_RENT_LAMPORTS = lamports(2_039_280n);
 
 /**
- * Pack an SPL Token Mint state and write it directly to the canonical
- * mock-USDC mint pubkey (`keys/mock-usdc.pubkey`). Bypasses any actual
- * `initialize_mint` CPI — LiteSVM doesn't care about provenance. The mint
- * is configured with 6 decimals (matching real USDC) and the canonical
- * authority from `keys/mock-usdc-authority.pubkey`.
+ * Pack a Token-2022 Mint state at the canonical mock-PUSD mint pubkey
+ * (`keys/mock-pusd.pubkey`). The 82-byte base-mint layout is identical
+ * for classic SPL and Token-2022 — what makes it Token-2022 is the
+ * account owner program. We omit MetadataPointer + TokenMetadata extension
+ * TLV data here since they're inert for transfer flows (no CPI hooks); the
+ * Surfpool harness can clone the real-mainnet PUSD bytes if extension
+ * fidelity is required (Phase 24 §E3).
+ *
+ * Mint: 6 decimals (matches PUSD), no freeze authority (matches PUSD which
+ * has freeze authority unset on mainnet).
  */
-export function createMockUsdcMint(
+export function createMockPusdMint(
   client: Client,
 ): { mint: Address; authority: Address } {
-  const { mint, authority } = readMockUsdcAddresses();
+  const { mint, authority } = readMockPusdAddresses();
 
   const buf = Buffer.alloc(MINT_SIZE);
   const raw: RawMint = {
@@ -364,7 +396,7 @@ export function createMockUsdcMint(
     address: mint,
     executable: false,
     lamports: MINT_RENT_LAMPORTS,
-    programAddress: TOKEN_PROGRAM_ID_KIT,
+    programAddress: TOKEN_2022_PROGRAM_ID_KIT,
     space: BigInt(MINT_SIZE),
     data: new Uint8Array(buf),
   });
@@ -375,17 +407,28 @@ export function createMockUsdcMint(
 /**
  * Pack an SPL Token Account at the ATA(owner, mint) address with the
  * given amount. Bypasses the `MintTo` CPI (which would need the mint
- * authority's keypair). Used to fund test wallets with mock USDC and to
+ * authority's keypair). Used to fund test wallets with mock PUSD and to
  * pre-create share-mint ATAs.
+ *
+ * `tokenProgram` defaults to classic SPL (correct for the RVS share mint).
+ * Pass `TOKEN_2022_PROGRAM_ID_KIT` when packing a PUSD ATA so the ATA
+ * address derivation matches Anchor's `associated_token::token_program`
+ * routing.
  */
 export function setTokenAccount(
   client: Client,
-  args: { mint: Address; owner: Address; amount: bigint },
+  args: { mint: Address; owner: Address; amount: bigint; tokenProgram?: Address },
 ): { ata: Address } {
+  const tokenProgram = args.tokenProgram ?? TOKEN_PROGRAM_ID_KIT;
+  const tokenProgramLegacy =
+    tokenProgram === TOKEN_2022_PROGRAM_ID_KIT
+      ? TOKEN_2022_PROGRAM_ID
+      : TOKEN_PROGRAM_ID;
   const ataLegacy = getAssociatedTokenAddressSync(
     new Web3Pubkey(args.mint.toString()),
     new Web3Pubkey(args.owner.toString()),
     true, // allowOwnerOffCurve — vault_state is a PDA, off-curve
+    tokenProgramLegacy,
   );
   const ata: Address = kitAddress(ataLegacy.toBase58());
 
@@ -409,7 +452,7 @@ export function setTokenAccount(
     address: ata,
     executable: false,
     lamports: TOKEN_ACCOUNT_RENT_LAMPORTS,
-    programAddress: TOKEN_PROGRAM_ID_KIT,
+    programAddress: tokenProgram,
     space: BigInt(ACCOUNT_SIZE),
     data: new Uint8Array(buf),
   });
@@ -417,14 +460,19 @@ export function setTokenAccount(
   return { ata };
 }
 
-/** Convenience wrapper — fund an owner's mock-USDC ATA. */
-export function mintMockUsdcTo(
+/** Convenience wrapper — fund an owner's mock-PUSD ATA (Token-2022). */
+export function mintMockPusdTo(
   client: Client,
   owner: Address,
   amount: bigint,
 ): { ata: Address } {
-  const { mint } = readMockUsdcAddresses();
-  return setTokenAccount(client, { mint, owner, amount });
+  const { mint } = readMockPusdAddresses();
+  return setTokenAccount(client, {
+    mint,
+    owner,
+    amount,
+    tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
+  });
 }
 
 /**
@@ -444,14 +492,33 @@ export function getTokenAccountAmount(
   return decoded.amount;
 }
 
-/** Derive the ATA address for `(mint, owner)` without writing it. */
-export function getAtaAddress(mint: Address, owner: Address): Address {
+/**
+ * Derive the ATA address for `(mint, owner)` without writing it.
+ * `tokenProgram` defaults to classic SPL — pass `TOKEN_2022_PROGRAM_ID_KIT`
+ * for PUSD ATAs so the derivation matches Anchor's runtime.
+ */
+export function getAtaAddress(
+  mint: Address,
+  owner: Address,
+  tokenProgram?: Address,
+): Address {
+  const tokenProgramLegacy =
+    tokenProgram === TOKEN_2022_PROGRAM_ID_KIT
+      ? TOKEN_2022_PROGRAM_ID
+      : TOKEN_PROGRAM_ID;
   const ataLegacy = getAssociatedTokenAddressSync(
     new Web3Pubkey(mint.toString()),
     new Web3Pubkey(owner.toString()),
     true, // allow off-curve owners (PDAs)
+    tokenProgramLegacy,
   );
   return kitAddress(ataLegacy.toBase58());
+}
+
+/** Convenience: derive a PUSD ATA for a given owner. */
+export function getPusdAta(owner: Address): Address {
+  const { mint } = readMockPusdAddresses();
+  return getAtaAddress(mint, owner, TOKEN_2022_PROGRAM_ID_KIT);
 }
 
 // ─── Vault bootstrap (Phase 2) ────────────────────────────────────────────
@@ -462,29 +529,41 @@ export interface VaultBootstrap {
   withdrawalQueuePda: Address;
   shareMintPda: Address;
   vaultTokenAccount: Address;
-  usdcMint: Address;
+  stableMint: Address;
 }
 
 /**
- * Initialise the vault program. The mock USDC mint must already exist
- * at `keys/mock-usdc.pubkey` (call `createMockUsdcMint` first).
+ * Initialise the vault program. The mock PUSD mint (Token-2022) must
+ * already exist at `keys/mock-pusd.pubkey` (call `createMockPusdMint`
+ * first). The vault holds two token programs:
+ *  - `tokenProgram` (classic SPL, default): for the RVS share mint
+ *    `MintTo`/`Burn` CPIs.
+ *  - `stableTokenProgram` (Token-2022 here): for the stable-coin ATA init
+ *    and `transfer_checked` CPIs.
  */
 export async function bootstrapVault(
   client: Awaited<ReturnType<typeof makeClient>>,
 ): Promise<VaultBootstrap> {
-  const { mint: usdcMint } = readMockUsdcAddresses();
+  const { mint: stableMint } = readMockPusdAddresses();
 
   const ix = await getVaultInitializeInstructionAsync({
     owner: client.payer,
-    usdcMint,
-    usdcMintArg: usdcMint,
+    stableMint,
+    stableMintArg: stableMint,
+    stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
   });
   await client.sendTransaction([ix]);
 
   const [vaultStatePda] = await findVaultStatePda();
   const [withdrawalQueuePda] = await findWithdrawalQueuePda();
   const [shareMintPda] = await findShareMintPda();
-  const vaultTokenAccount = getAtaAddress(usdcMint, vaultStatePda);
+  // Vault's stable ATA is owned by Token-2022 (per `stableTokenProgram` arg
+  // passed to initialize), so derive against Token-2022 program seed too.
+  const vaultTokenAccount = getAtaAddress(
+    stableMint,
+    vaultStatePda,
+    TOKEN_2022_PROGRAM_ID_KIT,
+  );
 
   return {
     ownerSigner: client.payer,
@@ -492,7 +571,7 @@ export async function bootstrapVault(
     withdrawalQueuePda,
     shareMintPda,
     vaultTokenAccount,
-    usdcMint,
+    stableMint,
   };
 }
 
@@ -507,28 +586,36 @@ export interface FlightPoolBootstrap {
   treasuryAuthorityPda: Address;
   treasuryAta: Address;
   programAddress: Address;
-  usdcMint: Address;
+  stableMint: Address;
 }
 
 /**
  * Initialise the flight_pool program. The mock USDC mint must already exist
- * at `keys/mock-usdc.pubkey` (call `createMockUsdcMint` first).
+ * at `keys/mock-pusd.pubkey` (call `createMockPusdMint` first).
  */
 export async function bootstrapFlightPool(
   client: Awaited<ReturnType<typeof makeClient>>,
 ): Promise<FlightPoolBootstrap> {
-  const { mint: usdcMint } = readMockUsdcAddresses();
+  const { mint: stableMint } = readMockPusdAddresses();
 
   const ix = await getFlightPoolInitializeInstructionAsync({
     owner: client.payer,
-    usdcMint,
-    usdcMintArg: usdcMint,
+    stableMint,
+    stableMintArg: stableMint,
+    // flight_pool uses `Interface<TokenInterface>` as its single token
+    // program — must explicitly pass Token-2022 (the Codama default of
+    // classic SPL would mis-route the pool treasury ATA init).
+    tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
   });
   await client.sendTransaction([ix]);
 
   const [configPda] = await findFlightPoolConfigPda();
   const [treasuryAuthorityPda] = await findTreasuryAuthorityPda();
-  const treasuryAta = getAtaAddress(usdcMint, treasuryAuthorityPda);
+  const treasuryAta = getAtaAddress(
+    stableMint,
+    treasuryAuthorityPda,
+    TOKEN_2022_PROGRAM_ID_KIT,
+  );
 
   return {
     ownerSigner: client.payer,
@@ -536,7 +623,7 @@ export async function bootstrapFlightPool(
     treasuryAuthorityPda,
     treasuryAta,
     programAddress: FLIGHT_POOL_PROGRAM_ADDRESS,
-    usdcMint,
+    stableMint,
   };
 }
 
@@ -596,7 +683,7 @@ export interface ControllerBootstrap {
   vault: VaultBootstrap;
   flightPool: FlightPoolBootstrap;
   oracle: OracleBootstrap;
-  usdcMint: Address;
+  stableMint: Address;
 }
 
 /**
@@ -616,7 +703,7 @@ export async function bootstrapController(
   overrides: { solvencyRatio?: number; minLeadTime?: bigint; claimExpiryWindow?: bigint } = {},
 ): Promise<ControllerBootstrap> {
   // Step 1: mock USDC mint + governance + vault + flight_pool + oracle.
-  createMockUsdcMint(client);
+  createMockPusdMint(client);
   await bootstrapGovernance(client);
   const vault = await bootstrapVault(client);
   const flightPool = await bootstrapFlightPool(client);
@@ -645,7 +732,7 @@ export async function bootstrapController(
     flightPoolConfig: flightPool.configPda,
     oracleProgram: ORACLE_AGGREGATOR_PROGRAM_ADDRESS,
     oracleConfig: oracle.configPda,
-    usdcMint: vault.usdcMint,
+    stableMint: vault.stableMint,
     solvencyRatio: overrides.solvencyRatio ?? 100,
     minLeadTime: overrides.minLeadTime ?? 3_600n,
     claimExpiryWindow: overrides.claimExpiryWindow ?? 5_184_000n,
@@ -688,7 +775,7 @@ export async function bootstrapController(
     vault,
     flightPool,
     oracle,
-    usdcMint: vault.usdcMint,
+    stableMint: vault.stableMint,
   };
 }
 
@@ -734,8 +821,8 @@ export const TOKEN_PROGRAM_ADDRESS_KIT: Address = kitAddress(
 export interface FullProtocolBootstrap extends ControllerBootstrap {
   underwriter: KeyPairSigner;
   /** Initial USDC the underwriter holds (defaults to 10,000 USDC). */
-  underwriterInitialUsdc: bigint;
-  underwriterUsdcAta: Address;
+  underwriterInitialPusd: bigint;
+  underwriterStableAta: Address;
   underwriterShareAta: Address;
   /** Computed PDA: [b"claimable", underwriter]. */
   underwriterClaimablePda: Address;
@@ -747,7 +834,7 @@ export async function bootstrapFullProtocol(
     solvencyRatio?: number;
     minLeadTime?: bigint;
     claimExpiryWindow?: bigint;
-    underwriterInitialUsdc?: bigint;
+    underwriterInitialPusd?: bigint;
   } = {},
 ): Promise<FullProtocolBootstrap> {
   const ctrl = await bootstrapController(client, overrides);
@@ -758,12 +845,12 @@ export async function bootstrapFullProtocol(
   const underwriter = await generateKeyPairSigner();
   await client.airdrop(underwriter.address, lamports(2_000_000_000n));
 
-  const underwriterInitialUsdc =
-    overrides.underwriterInitialUsdc ?? 10_000_000_000n; // 10,000 USDC
-  const { ata: underwriterUsdcAta } = mintMockUsdcTo(
+  const underwriterInitialPusd =
+    overrides.underwriterInitialPusd ?? 10_000_000_000n; // 10,000 USDC
+  const { ata: underwriterStableAta } = mintMockPusdTo(
     client,
     underwriter.address,
-    underwriterInitialUsdc,
+    underwriterInitialPusd,
   );
   const { ata: underwriterShareAta } = setTokenAccount(client, {
     mint: ctrl.vault.shareMintPda,
@@ -780,8 +867,8 @@ export async function bootstrapFullProtocol(
   return {
     ...ctrl,
     underwriter,
-    underwriterInitialUsdc,
-    underwriterUsdcAta,
+    underwriterInitialPusd,
+    underwriterStableAta,
     underwriterShareAta,
     underwriterClaimablePda,
   };
@@ -946,8 +1033,9 @@ export async function simulateSettler(
     snapshotRecord: snapshotRecordPda,
     poolTreasury: ctrl.flightPool.treasuryAta,
     treasuryAuthority: ctrl.flightPool.treasuryAuthorityPda,
+    stableMint: ctrl.vault.stableMint,
     keeper: ctrl.keeperSigner,
-    tokenProgram: TOKEN_PROGRAM_ADDRESS_KIT,
+    stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
     day,
     nFlights: flights.length,
   });
@@ -1008,24 +1096,26 @@ export async function whitelistRoute(
 }
 
 /**
- * Underwriter deposits USDC into the vault (mints shares to their share-mint ATA).
- * The underwriter must already have a funded USDC ATA + a 0-balance share ATA
- * (both pre-seeded by `bootstrapFullProtocol`).
+ * Underwriter deposits PUSD into the vault (mints shares to their share-mint
+ * ATA). The underwriter must already have a funded PUSD ATA + a 0-balance
+ * share ATA (both pre-seeded by `bootstrapFullProtocol`).
  */
 export async function depositToVault(
   client: Awaited<ReturnType<typeof makeClient>>,
   ctrl: FullProtocolBootstrap,
-  usdcAmount: bigint,
+  stableAmount: bigint,
 ): Promise<void> {
   await client.sendTransaction([
     await getDepositInstructionAsync({
       vaultState: ctrl.vault.vaultStatePda,
       shareMint: ctrl.vault.shareMintPda,
       vaultTokenAccount: ctrl.vault.vaultTokenAccount,
-      depositorUsdcAccount: ctrl.underwriterUsdcAta,
+      depositorStableAccount: ctrl.underwriterStableAta,
       depositorShareAccount: ctrl.underwriterShareAta,
+      stableMint: ctrl.vault.stableMint,
       depositor: ctrl.underwriter,
-      usdcAmount,
+      stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
+      stableAmount,
     }),
   ]);
 }

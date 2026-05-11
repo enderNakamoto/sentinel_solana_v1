@@ -219,7 +219,7 @@ Optional:
   --keeper    Pubkey for controller.authorized_keeper (the Classifier + Settler
               crons' signing key). If omitted, generates keys/<cluster>-keeper.json.
   --usdc      Override USDC mint pubkey. Defaults to the mock mint at
-              keys/mock-usdc.pubkey (auto-created on first run for surfpool/
+              keys/mock-pusd.pubkey (auto-created on first run for surfpool/
               localnet/devnet/testnet). Required on mainnet.
   --deployer  Path to deployer keypair (default ~/.config/solana/id.json or
               \$DEPLOYER_KEYPAIR env var). Pays for all program deploy + init rent
@@ -286,10 +286,10 @@ async function main(): Promise<void> {
   console.log(`[deploy] keeper=${keeperAddr}${keeperPath ? ` (keypair ${keeperPath})` : ''}`);
 
   // Resolve USDC mint pubkey (mock by default, real on mainnet).
-  const usdcMint = args.usdc
+  const stableMint = args.usdc
     ? kitAddress(args.usdc)
-    : kitAddress(readMintPubkeyFile(resolve(KEYS_DIR, 'mock-usdc.pubkey')));
-  console.log(`[deploy] usdc_mint=${usdcMint}`);
+    : kitAddress(readMintPubkeyFile(resolve(KEYS_DIR, 'mock-pusd.pubkey')));
+  console.log(`[deploy] usdc_mint=${stableMint}`);
 
   // ─── Phase 1: pre-flight ─────────────────────────────────────────
   await preflightSolBalance({
@@ -304,7 +304,7 @@ async function main(): Promise<void> {
     await mainnetTypedConfirmation({
       deployer: deployerKeypair.address,
       owner,
-      usdcMint,
+      stableMint,
     });
   }
 
@@ -330,7 +330,7 @@ async function main(): Promise<void> {
     await ensureMockUsdcMint({
       cluster: args.cluster,
       rpcUrl,
-      mintPubkey: usdcMint,
+      mintPubkey: stableMint,
       deployerKeypairPath: args.deployer,
     });
   }
@@ -353,7 +353,7 @@ async function main(): Promise<void> {
       owner,
       oracle,
       keeper: keeperAddr,
-      usdcMint,
+      stableMint,
     });
   }
 
@@ -366,7 +366,7 @@ async function main(): Promise<void> {
     owner,
     oracle,
     keeper: keeperAddr,
-    usdcMint,
+    stableMint,
     oraclePath,
     keeperPath,
   });
@@ -531,14 +531,14 @@ function estimateDeploySolCost(
 interface MainnetConfirmOpts {
   deployer: Address;
   owner: Address;
-  usdcMint: Address;
+  stableMint: Address;
 }
 
 async function mainnetTypedConfirmation(p: MainnetConfirmOpts): Promise<void> {
   console.log('\n────────────────────────────── MAINNET DEPLOY ──────────────────────────────');
   console.log(`  deployer:  ${p.deployer}`);
   console.log(`  owner:     ${p.owner}`);
-  console.log(`  usdc_mint: ${p.usdcMint}`);
+  console.log(`  usdc_mint: ${p.stableMint}`);
   console.log('  programs:');
   for (const prog of PROGRAMS) {
     console.log(`    ${prog.name.padEnd(20)} ${prog.address}`);
@@ -659,7 +659,7 @@ interface InitWireOpts {
   owner: Address;
   oracle: Address;
   keeper: Address;
-  usdcMint: Address;
+  stableMint: Address;
 }
 
 async function initAndWire(p: InitWireOpts): Promise<void> {
@@ -687,8 +687,8 @@ async function initAndWire(p: InitWireOpts): Promise<void> {
   } else {
     const ix = await getVaultInitializeIxAsync({
       owner: p.deployer,
-      usdcMint: p.usdcMint,
-      usdcMintArg: p.usdcMint,
+      stableMint: p.stableMint,
+      stableMintArg: p.stableMint,
     });
     await sendIx(p, [ix], 'vault.initialize');
     console.log(`[deploy] ✓ vault initialized at ${vaultStatePda}`);
@@ -714,8 +714,8 @@ async function initAndWire(p: InitWireOpts): Promise<void> {
   } else {
     const ix = await getFlightPoolInitializeIxAsync({
       owner: p.deployer,
-      usdcMint: p.usdcMint,
-      usdcMintArg: p.usdcMint,
+      stableMint: p.stableMint,
+      stableMintArg: p.stableMint,
     });
     await sendIx(p, [ix], 'flight_pool.initialize');
     console.log(`[deploy] ✓ flight_pool initialized at ${flightPoolConfigPda}`);
@@ -736,7 +736,7 @@ async function initAndWire(p: InitWireOpts): Promise<void> {
       flightPoolConfig: flightPoolConfigPda,
       oracleProgram: ORACLE_AGGREGATOR_PROGRAM_ADDRESS,
       oracleConfig: oracleConfigPda,
-      usdcMint: p.usdcMint,
+      stableMint: p.stableMint,
       solvencyRatio: SOLVENCY_RATIO,
       minLeadTime: MIN_LEAD_TIME,
       claimExpiryWindow: CLAIM_EXPIRY_WINDOW,
@@ -876,7 +876,7 @@ interface VerifyOpts {
   owner: Address;
   oracle: Address;
   keeper: Address;
-  usdcMint: Address;
+  stableMint: Address;
   oraclePath?: string;
   keeperPath?: string;
 }
@@ -902,16 +902,16 @@ async function verifyAndArtifact(p: VerifyOpts): Promise<string> {
   const checks: [string, boolean][] = [
     ['governance.owner == --owner', governance?.owner === p.owner],
     ['vault.owner == --owner', vaultState?.owner === p.owner],
-    ['vault.usdcMint == --usdc', vaultState?.usdcMint === p.usdcMint],
+    ['vault.stableMint == --usdc', vaultState?.stableMint === p.stableMint],
     ['vault.controller == controller_pda', vaultState?.controller === controllerConfigPda],
     ['oracle.owner == --owner', oracleConfig?.owner === p.owner],
     ['oracle.authorizedOracle == --oracle', oracleConfig?.authorizedOracle === p.oracle],
     ['oracle.authorizedConsumer == controller_pda', oracleConfig?.authorizedConsumer === controllerConfigPda],
     ['flight_pool.owner == --owner', fpConfig?.owner === p.owner],
-    ['flight_pool.usdcMint == --usdc', fpConfig?.usdcMint === p.usdcMint],
+    ['flight_pool.stableMint == --usdc', fpConfig?.stableMint === p.stableMint],
     ['flight_pool.controller == controller_pda', fpConfig?.controller === controllerConfigPda],
     ['controller.owner == --owner', ctrlConfig?.owner === p.owner],
-    ['controller.usdcMint == --usdc', ctrlConfig?.usdcMint === p.usdcMint],
+    ['controller.stableMint == --usdc', ctrlConfig?.stableMint === p.stableMint],
     ['controller.authorizedKeeper == --keeper', ctrlConfig?.authorizedKeeper === p.keeper],
   ];
 
@@ -940,7 +940,7 @@ async function verifyAndArtifact(p: VerifyOpts): Promise<string> {
       oracle: p.oraclePath ? p.oraclePath.replace(REPO_ROOT + '/', '') : null,
       keeper: p.keeperPath ? p.keeperPath.replace(REPO_ROOT + '/', '') : null,
     },
-    usdcMint: p.usdcMint,
+    stableMint: p.stableMint,
     programs: Object.fromEntries(PROGRAMS.map((p) => [p.name, p.address.toString()])),
     pdas: {
       governanceConfig: governanceConfigPda,

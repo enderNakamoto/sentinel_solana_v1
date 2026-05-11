@@ -288,27 +288,89 @@ back to life unchanged".
 
 ### B. Test harness (LiteSVM)
 
-- [ ] B1. Generate `keys/mock-pusd.json` (new Token-2022 mint keypair) +
-      `keys/mock-pusd.pubkey` (committed). Same for
-      `keys/mock-pusd-authority.json` / `.pubkey`. The old `keys/mock-usdc.*`
-      files stay on disk for rollback parity (gitignored keypairs remain).
-- [ ] B2. Rewrite `contracts/tests/setup.ts` mock mint creation:
-       - Use Token-2022 program ID
-       - Initialize with `MetadataPointer` + `TokenMetadata` extensions only
-         (matches real PUSD shape)
-       - 6 decimals (unchanged)
-       - All ATA derivations pass `TOKEN_2022_PROGRAM_ADDRESS`
-- [ ] B3. Update `PROGRAMS` table in setup.ts if any program IDs changed
-      (they don't — canonical IDs preserved).
-- [ ] B4. Run vault unit tests (16 tests). Fix until green. Expected break
-      points: account-type assertions, ATA derivation, mint-creation helper.
-- [ ] B5. Run flight_pool unit tests (16 tests). Fix until green.
-- [ ] B6. Run controller unit tests (10 tests). Fix until green.
-- [ ] B7. Run cross-program integration tests (9 tests). Fix until green.
-      This is the highest-fidelity validation surface; D24 invariants must
-      hold here.
-- [ ] B8. Confirm full test suite passes: target 88+ tests green (matches
-      the Phase 6 baseline).
+- [x] B1. Mock PUSD keypairs generated. Committed `.pubkey` files:
+      - Mint: `F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE`
+      - Authority: `5JbXjGvf2UDtBqbAdQwXr8zDUToDjbnDgaXNFLY1wstD`
+      `.json` secrets gitignored per project convention. Old
+      `keys/mock-usdc.{json,pubkey}` remain on disk for rollback parity
+      (tag `pre-pusd-migration` will reuse them).
+- [x] B2. `contracts/tests/setup.ts` rewritten for Token-2022:
+       - `createMockPusdMint()` packs a base Token-2022 mint at
+         `TOKEN_2022_PROGRAM_ID_KIT` (D-Phase24-MintBytes: the 82-byte base-
+         mint layout is identical for classic SPL and Token-2022; what makes
+         it Token-2022 is the owner program. Extensions deferred — real
+         PUSD has `MetadataPointer`+`TokenMetadata` only, but those are inert
+         for transfer flows. Surfpool can later clone real-mainnet bytes for
+         extension fidelity per §E3.)
+       - `setTokenAccount()` takes optional `tokenProgram` arg — defaults
+         to classic SPL (correct for the RVS share mint) — and routes
+         `getAssociatedTokenAddressSync` through the right program for ATA
+         derivation.
+       - `mintMockPusdTo()` always uses `TOKEN_2022_PROGRAM_ID_KIT`.
+       - `getAtaAddress()` gained an optional `tokenProgram` arg + a
+         convenience wrapper `getPusdAta(owner)`.
+       - `bootstrapVault()` passes `stableTokenProgram:
+         TOKEN_2022_PROGRAM_ID_KIT` and derives `vaultTokenAccount` via the
+         Token-2022 ATA path.
+       - `bootstrapFlightPool()` passes `tokenProgram:
+         TOKEN_2022_PROGRAM_ID_KIT` (flight_pool uses a single token-
+         interface field, no separate classic + stable).
+       - `simulateSettler()` passes `stableMint: ctrl.vault.stableMint` and
+         `stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT` (replaced the
+         vestigial classic `tokenProgram` arg).
+       - `depositToVault()` wires `stableMint` + `stableTokenProgram`.
+       - `TOKEN_2022_PROGRAM_ID_KIT` exported so tests can reference it
+         directly at ix call sites.
+       - `makeClient()` calls `client.svm.withDefaultPrograms()` so the
+         LiteSVM instance has SPL Token + Token-2022 + ATA + memo loaded.
+- [x] B3. `PROGRAMS` table unchanged (canonical IDs preserved per Group A).
+      Codama clients regenerated across all 3 (actually 4) workspaces:
+      `frontend/src/clients/`, `executor/src/clients/`,
+      `contracts/tests/clients/`, `scripts/clients/`. IDLs synced via
+      `pnpm sync-idl && pnpm gen-clients`. Generated TS reflects new field
+      names (`stableMint`, `stableTokenProgram`) + new account fields on
+      Deposit/Redeem/Collect/SendPayout/AddBuyer/SettleOnTime/BuyInsurance/
+      ExecuteSettlements.
+- [~] B4. vault unit tests — partial.
+      Bulk renames applied across `vault.test.ts` (`depositorUsdcAccount`
+      → `depositorStableAccount`, etc.). Targeted Edits added `stableMint`
+      + `stableTokenProgram` after every Deposit/Redeem/Collect anchor line.
+      `pnpm typecheck` clean. **Runtime status:** subset passes; the rest
+      fail at fixture setup (see B-blocker below).
+- [~] B5. flight_pool unit tests — same status as B4.
+- [~] B6. controller unit tests — same status as B4.
+- [~] B7. integration tests — same status as B4. Bulk-renamed + ix-arg-
+      fixed across `integration.test.ts`,
+      `integration/full-flow-deployed.test.ts`,
+      `integration/e2e-with-crons-deployed.test.ts`.
+- [~] B8. **Suite runtime status: 53/88 LiteSVM tests pass; 35 fail.**
+      All 35 failures share the same root cause: `bootstrapFlightPool` →
+      flight_pool.initialize fails with
+      `An account required by the instruction is missing (instruction #1)`.
+      Symptoms point to the Anchor `associated_token::*` constraint
+      creating the pool_treasury ATA against a Token-2022 mint — the
+      inner ATA-program CPI cannot resolve a required account. Adding
+      `client.svm.withDefaultPrograms()` to `makeClient` (so SPL Token +
+      Token-2022 + ATA programs are in the SVM) did NOT resolve the
+      failure.
+
+      **B-blocker (D-Phase24-AtaInit):** untriaged. Hypothesis stack:
+      (1) Anchor's `Interface<TokenInterface>` may not propagate the
+      runtime-resolved token program ID into the `associated_token::*`
+      ATA-creation CPI; an explicit `associated_token::token_program =
+      stable_token_program` constraint on the `pool_treasury` field in
+      flight_pool's `Initialize` struct may fix it.
+      (2) LiteSVM 1.0's `withDefaultPrograms()` may not actually load the
+      Token-2022 program in this version; an explicit
+      `addProgramFromFile()` for `TokenzQd...` may be needed.
+      (3) The regenerated `findTreasuryAuthorityPda` could be using the
+      wrong seed — a quick check that the PDA address matches what the
+      program expects would confirm.
+
+      Next session work: triage hypothesis (1) first by inspecting the
+      built program's account meta order for `flight_pool.initialize`,
+      then add the explicit `associated_token::token_program` constraint
+      if absent. Re-run the test suite and iterate.
 
 ### C. Frontend
 
@@ -504,6 +566,24 @@ D-Phase24-Stack (vault Deposit/Redeem stack frame requires Box<> on the
 new InterfaceAccount fields) and the Anchor 1.0 `CpiContext::new` signature
 note (takes `Pubkey`, not `AccountInfo`). Ready to proceed to Group B
 (test harness + Codama client regen) in the next working session.
+
+**Session 2026-05-10 → 2026-05-11 (partial Group B).** Mock PUSD keypairs
+generated. setup.ts rewritten for Token-2022 (mint packed at Token-2022
+program ID; ATA derivation routes through Token-2022; bootstrap helpers
+pass `stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT`). Codama clients
+regenerated across 4 workspaces. Bulk renames + manual ix-arg additions
+applied across 11 source files (test + executor + scripts). `pnpm
+typecheck` clean across contracts workspace.
+
+**Runtime status at end of session: 53/88 LiteSVM tests pass.** All 35
+failures share the same root cause at the test-fixture setup step
+(bootstrapFlightPool → flight_pool.initialize → ATA-create inner CPI
+"missing account"). Logged as **D-Phase24-AtaInit** in the B8 subtask
+above with a 3-hypothesis triage plan for the next session. Group B is
+**~75% done** by file coverage but blocked on this single runtime issue
+that gates the remaining 35 tests.
+
+
 
 
 

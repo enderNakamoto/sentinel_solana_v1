@@ -36,12 +36,13 @@ import {
 import {
   advanceClock,
   bootstrapVault,
-  createMockUsdcMint,
+  createMockPusdMint,
   getAtaAddress,
   getTokenAccountAmount,
   makeClient,
-  mintMockUsdcTo,
+  mintMockPusdTo,
   setTokenAccount,
+  TOKEN_2022_PROGRAM_ID_KIT,
   type VaultBootstrap,
 } from './setup.ts';
 
@@ -81,7 +82,7 @@ interface Fixture {
 
 async function freshFixture(): Promise<Fixture> {
   const client = await makeClient();
-  createMockUsdcMint(client);
+  createMockPusdMint(client);
   const vault = await bootstrapVault(client);
   return { client, vault };
 }
@@ -109,7 +110,7 @@ async function makeUnderwriter(
   usdc: bigint,
 ): Promise<{ signer: KeyPairSigner; usdcAta: Address; shareAta: Address }> {
   const signer = await fundedSigner(client);
-  const { ata: usdcAta } = mintMockUsdcTo(client, signer.address, usdc);
+  const { ata: usdcAta } = mintMockPusdTo(client, signer.address, usdc);
   const { ata: shareAta } = setTokenAccount(client, {
     mint: vault.shareMintPda,
     owner: signer.address,
@@ -145,7 +146,7 @@ describe('Phase 2 — vault: initialize', () => {
     const state = getVaultStateDecoder().decode(readAccount(client, vault.vaultStatePda));
     expect(state.owner).toBe(client.payer.address);
     expect(state.controller).toBe('11111111111111111111111111111111');
-    expect(state.usdcMint).toBe(vault.usdcMint);
+    expect(state.stableMint).toBe(vault.stableMint);
     expect(state.shareMint).toBe(vault.shareMintPda);
     expect(state.vaultTokenAccount).toBe(vault.vaultTokenAccount);
     expect(state.totalManagedAssets).toBe(0n);
@@ -229,10 +230,12 @@ describe('Phase 2 — vault: deposit math + inflation defense', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: usdcAta,
+        depositorStableAccount: usdcAta,
         depositorShareAccount: shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: signer,
-        usdcAmount: 1n,
+        stableAmount: 1n,
       }),
     ]);
 
@@ -253,17 +256,19 @@ describe('Phase 2 — vault: deposit math + inflation defense', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: usdcAta,
+        depositorStableAccount: usdcAta,
         depositorShareAccount: shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: signer,
-        usdcAmount: 1n,
+        stableAmount: 1n,
       }),
     ]);
 
     // "Donate" 1,000,000 USDC straight to the vault token account by
     // overwriting the packed Account state. TMA must NOT change.
     setTokenAccount(f.client, {
-      mint: f.vault.usdcMint,
+      mint: f.vault.stableMint,
       owner: f.vault.vaultStatePda,
       amount: 1_000_000n + 1n, // existing 1 + donation
     });
@@ -282,17 +287,19 @@ describe('Phase 2 — vault: deposit math + inflation defense', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: mallory.usdcAta,
+        depositorStableAccount: mallory.usdcAta,
         depositorShareAccount: mallory.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: mallory.signer,
-        usdcAmount: 1n,
+        stableAmount: 1n,
       }),
     ]);
     expect(getTokenAccountAmount(f.client, mallory.shareAta)).toBe(1n);
 
     // Mallory pumps the vault token account directly with 1,000,000 USDC.
     setTokenAccount(f.client, {
-      mint: f.vault.usdcMint,
+      mint: f.vault.stableMint,
       owner: f.vault.vaultStatePda,
       amount: 1n + 1_000_000n,
     });
@@ -304,10 +311,12 @@ describe('Phase 2 — vault: deposit math + inflation defense', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: bob.usdcAta,
+        depositorStableAccount: bob.usdcAta,
         depositorShareAccount: bob.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: bob.signer,
-        usdcAmount: 100n,
+        stableAmount: 100n,
       }),
     ]);
 
@@ -329,10 +338,12 @@ describe('Phase 2 — vault: redeem', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: u.usdcAta,
+        depositorStableAccount: u.usdcAta,
         depositorShareAccount: u.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: u.signer,
-        usdcAmount: 1000n,
+        stableAmount: 1000n,
       }),
     ]);
 
@@ -343,7 +354,9 @@ describe('Phase 2 — vault: redeem', () => {
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
         redeemerShareAccount: u.shareAta,
-        redeemerUsdcAccount: u.usdcAta,
+        redeemerStableAccount: u.usdcAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         redeemer: u.signer,
         shares: 500n,
       }),
@@ -365,10 +378,12 @@ describe('Phase 2 — vault: redeem', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: u.usdcAta,
+        depositorStableAccount: u.usdcAta,
         depositorShareAccount: u.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: u.signer,
-        usdcAmount: 1000n,
+        stableAmount: 1000n,
       }),
     ]);
 
@@ -390,7 +405,9 @@ describe('Phase 2 — vault: redeem', () => {
           shareMint: f.vault.shareMintPda,
           vaultTokenAccount: f.vault.vaultTokenAccount,
           redeemerShareAccount: u.shareAta,
-          redeemerUsdcAccount: u.usdcAta,
+          redeemerStableAccount: u.usdcAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           redeemer: u.signer,
           shares: 600n,
         }),
@@ -411,10 +428,12 @@ describe('Phase 2 — vault: request_withdrawal', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: u.usdcAta,
+        depositorStableAccount: u.usdcAta,
         depositorShareAccount: u.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: u.signer,
-        usdcAmount: 1000n,
+        stableAmount: 1000n,
       }),
     ]);
 
@@ -459,10 +478,12 @@ describe('Phase 2 — vault: request_withdrawal', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: u.usdcAta,
+        depositorStableAccount: u.usdcAta,
         depositorShareAccount: u.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: u.signer,
-        usdcAmount: 100n,
+        stableAmount: 100n,
       }),
     ]);
 
@@ -499,10 +520,12 @@ describe('Phase 2 — vault: cancel_withdrawal', () => {
           vaultState: f.vault.vaultStatePda,
           shareMint: f.vault.shareMintPda,
           vaultTokenAccount: f.vault.vaultTokenAccount,
-          depositorUsdcAccount: u.usdcAta,
+          depositorStableAccount: u.usdcAta,
           depositorShareAccount: u.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           depositor: u.signer,
-          usdcAmount: 100n,
+          stableAmount: 100n,
         }),
       ]);
       await f.client.sendTransaction([
@@ -574,10 +597,12 @@ describe('Phase 2 — vault: controller-only mutators', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: u.usdcAta,
+        depositorStableAccount: u.usdcAta,
         depositorShareAccount: u.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: u.signer,
-        usdcAmount: 1000n,
+        stableAmount: 1000n,
       }),
     ]);
 
@@ -650,23 +675,27 @@ describe('Phase 2 — vault: controller-only mutators', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: u.usdcAta,
+        depositorStableAccount: u.usdcAta,
         depositorShareAccount: u.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: u.signer,
-        usdcAmount: 1000n,
+        stableAmount: 1000n,
       }),
     ]);
 
     // Recipient is a fresh underwriter's USDC ATA.
     const recipient = await fundedSigner(f.client);
-    const { ata: recipientAta } = mintMockUsdcTo(f.client, recipient.address, 0n);
+    const { ata: recipientAta } = mintMockPusdTo(f.client, recipient.address, 0n);
 
     await f.client.sendTransaction([
       await getSendPayoutInstructionAsync({
         vaultState: f.vault.vaultStatePda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
         recipient: recipientAta,
+        stableMint: f.vault.stableMint,
         controller,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         amount: 300n,
       }),
     ]);
@@ -694,10 +723,12 @@ describe('Phase 2 — vault: process_withdrawal_queue', () => {
           vaultState: f.vault.vaultStatePda,
           shareMint: f.vault.shareMintPda,
           vaultTokenAccount: f.vault.vaultTokenAccount,
-          depositorUsdcAccount: u.usdcAta,
+          depositorStableAccount: u.usdcAta,
           depositorShareAccount: u.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           depositor: u.signer,
-          usdcAmount: 100n,
+          stableAmount: 100n,
         }),
       ]);
       await f.client.sendTransaction([
@@ -758,10 +789,12 @@ describe('Phase 2 — vault: collect', () => {
         vaultState: f.vault.vaultStatePda,
         shareMint: f.vault.shareMintPda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
-        depositorUsdcAccount: u.usdcAta,
+        depositorStableAccount: u.usdcAta,
         depositorShareAccount: u.shareAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         depositor: u.signer,
-        usdcAmount: 100n,
+        stableAmount: 100n,
       }),
     ]);
     await f.client.sendTransaction([
@@ -793,7 +826,9 @@ describe('Phase 2 — vault: collect', () => {
         vaultState: f.vault.vaultStatePda,
         vaultTokenAccount: f.vault.vaultTokenAccount,
         owner: u.signer.address,
-        collectorUsdcAccount: u.usdcAta,
+        collectorStableAccount: u.usdcAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         collector: u.signer,
       }),
     ]);
@@ -810,7 +845,9 @@ describe('Phase 2 — vault: collect', () => {
           vaultState: f.vault.vaultStatePda,
           vaultTokenAccount: f.vault.vaultTokenAccount,
           owner: u.signer.address,
-          collectorUsdcAccount: u.usdcAta,
+          collectorStableAccount: u.usdcAta,
+        stableMint: f.vault.stableMint,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           collector: u.signer,
         }),
       ]),

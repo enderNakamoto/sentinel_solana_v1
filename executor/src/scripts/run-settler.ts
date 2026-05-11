@@ -119,6 +119,9 @@ function deriveAtaSync(mint: string, owner: string): Address {
 const TOKEN_PROGRAM_ADDRESS_KIT: Address = kitAddress(
   'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
 );
+const TOKEN_2022_PROGRAM_ID_KIT: Address = kitAddress(
+  'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+);
 
 async function buildSettleBatchIxs(
   solana: SolanaClient,
@@ -128,8 +131,8 @@ async function buildSettleBatchIxs(
 ): Promise<Instruction[]> {
   const dep = solana.deployment;
   const snapshotRecord = deriveSnapshotRecordPda(dep.programs.vault, day);
-  const vaultTokenAccount = deriveAtaSync(dep.usdcMint, dep.pdas.vaultState);
-  const poolTreasury = deriveAtaSync(dep.usdcMint, dep.pdas.poolTreasuryAuthority);
+  const vaultTokenAccount = deriveAtaSync(dep.stableMint, dep.pdas.vaultState);
+  const poolTreasury = deriveAtaSync(dep.stableMint, dep.pdas.poolTreasuryAuthority);
 
   const baseIx = await getExecuteSettlementsInstructionAsync({
     controllerConfig: kitAddress(dep.pdas.controllerConfig),
@@ -146,8 +149,9 @@ async function buildSettleBatchIxs(
     snapshotRecord,
     poolTreasury,
     treasuryAuthority: kitAddress(dep.pdas.poolTreasuryAuthority),
+    stableMint: kitAddress(dep.stableMint),
     keeper: solana.signer,
-    tokenProgram: TOKEN_PROGRAM_ADDRESS_KIT,
+    stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
     day,
     nFlights: batch.length,
   });

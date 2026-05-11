@@ -111,7 +111,7 @@ const UNDERWRITER_KEYPAIR_PATH = resolve(
   REPO_ROOT,
   'keys/test-actors/investor-a.json',
 );
-const MOCK_USDC_MINT_PUBKEY_PATH = resolve(REPO_ROOT, 'keys/mock-usdc.pubkey');
+const MOCK_PUSD_MINT_PUBKEY_PATH = resolve(REPO_ROOT, 'keys/mock-pusd.pubkey');
 
 // ─── Step 1: surfpool reachable ──────────────────────────────────────────
 
@@ -203,19 +203,19 @@ async function loadUnderwriterSigner(): Promise<KeyPairSigner> {
 
 async function underwriterDeposit(rpc: Rpc<SolanaRpcApi>): Promise<void> {
   const underwriter = await loadUnderwriterSigner();
-  const usdcMint = readPubkeyFile(MOCK_USDC_MINT_PUBKEY_PATH);
+  const stableMint = readPubkeyFile(MOCK_PUSD_MINT_PUBKEY_PATH);
 
   const [vaultStatePda] = await findVaultStatePda();
   const [shareMintPda] = await findShareMintPda();
 
   const [vaultUsdcAta] = await findAssociatedTokenPda({
     owner: vaultStatePda,
-    mint: usdcMint,
+    mint: stableMint,
     tokenProgram: TOKEN_PROGRAM_ADDRESS,
   });
   const [depositorUsdcAta] = await findAssociatedTokenPda({
     owner: underwriter.address,
-    mint: usdcMint,
+    mint: stableMint,
     tokenProgram: TOKEN_PROGRAM_ADDRESS,
   });
   const [depositorShareAta] = await findAssociatedTokenPda({
@@ -232,10 +232,10 @@ async function underwriterDeposit(rpc: Rpc<SolanaRpcApi>): Promise<void> {
 
   const depositIx = await getDepositInstructionAsync({
     vaultTokenAccount: vaultUsdcAta,
-    depositorUsdcAccount: depositorUsdcAta,
+    depositorStableAccount: depositorUsdcAta,
     depositorShareAccount: depositorShareAta,
     depositor: underwriter,
-    usdcAmount: UNDERWRITER_DEPOSIT_USDC,
+    stableAmount: UNDERWRITER_DEPOSIT_USDC,
   });
 
   const { value: blockhash } = await rpc.getLatestBlockhash().send();

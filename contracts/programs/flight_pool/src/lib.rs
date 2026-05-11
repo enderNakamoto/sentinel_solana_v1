@@ -1,7 +1,7 @@
 //! Sentinel — flight_pool program.
 //!
 //! Per-flight pool registry, shared pool treasury, buyer records, claim/sweep
-//! paths, and recovery accounting. All in-flight USDC sits in a single
+//! paths, and recovery accounting. All in-flight PUSD sits in a single
 //! program-owned token account (the pool treasury). Per-flight money state
 //! lives in `FlightPool` PDA fields — there are no per-flight token accounts.
 //!
