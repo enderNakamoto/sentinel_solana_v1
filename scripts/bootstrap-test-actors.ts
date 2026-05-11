@@ -8,7 +8,7 @@
  *
  * Idempotent: skips any keypair file that already exists. `--reset`
  * regenerates everything (existing pubkeys will change — re-run
- * `pnpm fund-sol` / `pnpm fund-usdc` after a reset).
+ * `pnpm fund-sol` / `pnpm fund-pusd` after a reset).
  *
  * Run: `pnpm bootstrap-test-actors [--reset]`
  *

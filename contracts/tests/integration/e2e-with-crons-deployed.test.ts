@@ -111,7 +111,7 @@ const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const SURFPOOL_RPC = process.env.SURFNET_RPC ?? 'http://127.0.0.1:8899';
 const DEPLOYMENT_PATH = resolve(REPO_ROOT, 'deployments/surfpool-latest.json');
 const TEST_ACTORS_DIR = resolve(REPO_ROOT, 'keys/test-actors');
-const MOCK_PUSD_AUTHORITY_PATH = resolve(REPO_ROOT, 'keys/mock-usdc-authority.json');
+const MOCK_PUSD_AUTHORITY_PATH = resolve(REPO_ROOT, 'keys/mock-pusd-authority.json');
 const TOKEN_PROGRAM_ADDRESS_KIT: Address = kitAddress(TOKEN_PROGRAM_ID.toBase58());
 const TOKEN_2022_PROGRAM_ID_KIT: Address = kitAddress(TOKEN_2022_PROGRAM_ID.toBase58());
 
@@ -177,14 +177,24 @@ async function loadKeypair(path: string): Promise<KeyPairSigner> {
   return createKeyPairSignerFromBytes(new Uint8Array(bytes));
 }
 
-function deriveAta(mint: Address, owner: Address): Address {
+function deriveAta(
+  mint: Address,
+  owner: Address,
+  tokenProgram: Web3Pubkey = TOKEN_PROGRAM_ID,
+): Address {
   return kitAddress(
     getAssociatedTokenAddressSync(
       new Web3Pubkey(mint.toString()),
       new Web3Pubkey(owner.toString()),
       true,
+      tokenProgram,
     ).toBase58(),
   );
+}
+
+// Stable side (PUSD) lives under Token-2022 post-Phase-24.
+function deriveStableAta(mint: Address, owner: Address): Address {
+  return deriveAta(mint, owner, TOKEN_2022_PROGRAM_ID);
 }
 
 // ─── RPC helpers ─────────────────────────────────────────────────────────
@@ -294,31 +304,37 @@ async function sendIxs(
   throw new Error(`tx ${sig} not confirmed within 30s`);
 }
 
-// ─── USDC mint / share ATA helpers ───────────────────────────────────────
+// ─── PUSD mint / share ATA helpers ───────────────────────────────────────
 
-async function mintUsdcTo(
+async function mintPusdTo(
   rpc: Rpc<SolanaRpcApi>,
   mintAuthority: KeyPairSigner,
   mintPubkey: Address,
   recipient: Address,
-  amountUsdc: bigint,
+  amountPusd: bigint,
 ): Promise<Address> {
   const { getCreateAssociatedTokenIdempotentInstructionAsync, getMintToCheckedInstruction } =
     await import('@solana-program/token');
-  const ata = deriveAta(mintPubkey, recipient);
-  const createAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
-    payer: mintAuthority,
-    ata,
-    owner: recipient,
-    mint: mintPubkey,
-  });
-  const mintToIx = getMintToCheckedInstruction({
-    mint: mintPubkey,
-    token: ata,
-    mintAuthority,
-    amount: amountUsdc * 1_000_000n,
-    decimals: 6,
-  });
+  const ata = deriveStableAta(mintPubkey, recipient);
+  const createAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync(
+    {
+      payer: mintAuthority,
+      ata,
+      owner: recipient,
+      mint: mintPubkey,
+      tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
+    },
+  );
+  const mintToIx = getMintToCheckedInstruction(
+    {
+      mint: mintPubkey,
+      token: ata,
+      mintAuthority,
+      amount: amountPusd * 1_000_000n,
+      decimals: 6,
+    },
+    { programAddress: TOKEN_2022_PROGRAM_ID_KIT },
+  );
   await sendIxs(rpc, mintAuthority, [createAtaIx, mintToIx]);
   return ata;
 }
@@ -387,7 +403,7 @@ async function buyInsurance(
     pool: flightPoolPda,
     buyer: buyer.address,
   });
-  const buyerUsdc = deriveAta(stableMint, buyer.address);
+  const buyerUsdc = deriveStableAta(stableMint, buyer.address);
 
   const buyIx = await getBuyInsuranceInstructionAsync({
     controllerConfig: kitAddress(deployment.pdas.controllerConfig),
@@ -403,7 +419,7 @@ async function buyInsurance(
     flightPool: flightPoolPda,
     buyerRecord: buyerRecordPda,
     buyerStableAccount: buyerUsdc,
-    poolTreasury: deriveAta(stableMint, kitAddress(deployment.pdas.poolTreasuryAuthority)),
+    poolTreasury: deriveStableAta(stableMint, kitAddress(deployment.pdas.poolTreasuryAuthority)),
     stableMint,
     vaultProgram: VAULT_PROGRAM_ADDRESS,
     vaultState: kitAddress(deployment.pdas.vaultState),
@@ -535,11 +551,11 @@ describe('Phase 11 — End-to-End Cron Validation (Surfpool)', () => {
     await new Promise((r) => setTimeout(r, 1000));
 
     // Pre-mint USDC. Investors get 50k for deposits; buyers get 100 for premiums.
-    await mintUsdcTo(rpc, mintAuthority, stableMint, investorA.address, 50_000n);
-    await mintUsdcTo(rpc, mintAuthority, stableMint, investorB.address, 50_000n);
-    await mintUsdcTo(rpc, mintAuthority, stableMint, buyerA.address, 100n);
-    await mintUsdcTo(rpc, mintAuthority, stableMint, buyerB.address, 100n);
-    await mintUsdcTo(rpc, mintAuthority, stableMint, buyerC.address, 100n);
+    await mintPusdTo(rpc, mintAuthority, stableMint, investorA.address, 50_000n);
+    await mintPusdTo(rpc, mintAuthority, stableMint, investorB.address, 50_000n);
+    await mintPusdTo(rpc, mintAuthority, stableMint, buyerA.address, 100n);
+    await mintPusdTo(rpc, mintAuthority, stableMint, buyerB.address, 100n);
+    await mintPusdTo(rpc, mintAuthority, stableMint, buyerC.address, 100n);
 
     // Build two SolanaClients — oracle for fetcher, keeper for classifier
     // + settler. Mirrors the daemon's authority isolation per Phase 4 D2.
@@ -563,7 +579,7 @@ describe('Phase 11 — End-to-End Cron Validation (Surfpool)', () => {
 
     // Pre-fund the vault so all buy_insurance calls have capital.
     // Investor A deposits 50k USDC (50 billion in 6-decimal fixed-point).
-    const investorAUsdc = deriveAta(stableMint, investorA.address);
+    const investorAUsdc = deriveStableAta(stableMint, investorA.address);
     const investorAShare = await ensureShareAta(
       rpc,
       investorA,
@@ -577,7 +593,7 @@ describe('Phase 11 — End-to-End Cron Validation (Surfpool)', () => {
         await getDepositInstructionAsync({
           vaultState: kitAddress(deployment.pdas.vaultState),
           shareMint: kitAddress(deployment.pdas.shareMint),
-          vaultTokenAccount: deriveAta(stableMint, kitAddress(deployment.pdas.vaultState)),
+          vaultTokenAccount: deriveStableAta(stableMint, kitAddress(deployment.pdas.vaultState)),
           depositorStableAccount: investorAUsdc,
           depositorShareAccount: investorAShare,
           stableMint,
@@ -671,7 +687,7 @@ describe('Phase 11 — End-to-End Cron Validation (Surfpool)', () => {
     // Buyer's USDC ATA: they paid the premium, no payout — net = -PREMIUM
     // versus before-buy. Just sanity-check no payout was credited above
     // the pre-buy balance.
-    const buyerUsdc = deriveAta(stableMint, buyerA.address);
+    const buyerUsdc = deriveStableAta(stableMint, buyerA.address);
     const buyerBal = await getTokenBalance(rpc, buyerUsdc);
     expect(buyerBal).toBeGreaterThanOrEqual(0n);
 
@@ -721,14 +737,14 @@ describe('Phase 11 — End-to-End Cron Validation (Surfpool)', () => {
     expect(pool?.status).toBe(SettlementStatus.SettledDelayed);
 
     // Buyer claims and receives PAYOFF.
-    const buyerUsdc = deriveAta(stableMint, buyerB.address);
+    const buyerUsdc = deriveStableAta(stableMint, buyerB.address);
     const buyerBalBefore = await getTokenBalance(rpc, buyerUsdc);
     await sendIxs(rpc, buyerB, [
       await getClaimInstructionAsync({
         config: kitAddress(deployment!.pdas.flightPoolConfig),
         pool: flightPoolPda,
         buyer: buyerB.address,
-        poolTreasury: deriveAta(stableMint, kitAddress(deployment!.pdas.poolTreasuryAuthority)),
+        poolTreasury: deriveStableAta(stableMint, kitAddress(deployment!.pdas.poolTreasuryAuthority)),
         treasuryAuthority: kitAddress(deployment!.pdas.poolTreasuryAuthority),
         stableMint,
         traveler: buyerB,
@@ -789,14 +805,14 @@ describe('Phase 11 — End-to-End Cron Validation (Surfpool)', () => {
     expect(pool?.status).toBe(SettlementStatus.SettledCancelled);
 
     // Claim → buyer receives PAYOFF.
-    const buyerUsdc = deriveAta(stableMint, buyerC.address);
+    const buyerUsdc = deriveStableAta(stableMint, buyerC.address);
     const buyerBalBefore = await getTokenBalance(rpc, buyerUsdc);
     await sendIxs(rpc, buyerC, [
       await getClaimInstructionAsync({
         config: kitAddress(deployment!.pdas.flightPoolConfig),
         pool: flightPoolPda,
         buyer: buyerC.address,
-        poolTreasury: deriveAta(stableMint, kitAddress(deployment!.pdas.poolTreasuryAuthority)),
+        poolTreasury: deriveStableAta(stableMint, kitAddress(deployment!.pdas.poolTreasuryAuthority)),
         treasuryAuthority: kitAddress(deployment!.pdas.poolTreasuryAuthority),
         stableMint,
         traveler: buyerC,
@@ -851,14 +867,14 @@ describe('Phase 11 — End-to-End Cron Validation (Surfpool)', () => {
     const pool = await fetchAccount(rpc, flightPoolPda, getFlightPoolDecoder());
     expect(pool?.status).toBe(SettlementStatus.SettledCancelled);
 
-    const buyerUsdc = deriveAta(stableMint, buyerA.address);
+    const buyerUsdc = deriveStableAta(stableMint, buyerA.address);
     const buyerBalBefore = await getTokenBalance(rpc, buyerUsdc);
     await sendIxs(rpc, buyerA, [
       await getClaimInstructionAsync({
         config: kitAddress(deployment!.pdas.flightPoolConfig),
         pool: flightPoolPda,
         buyer: buyerA.address,
-        poolTreasury: deriveAta(stableMint, kitAddress(deployment!.pdas.poolTreasuryAuthority)),
+        poolTreasury: deriveStableAta(stableMint, kitAddress(deployment!.pdas.poolTreasuryAuthority)),
         treasuryAuthority: kitAddress(deployment!.pdas.poolTreasuryAuthority),
         stableMint,
         traveler: buyerA,
@@ -890,7 +906,7 @@ describe('Phase 11 — End-to-End Cron Validation (Surfpool)', () => {
     const dateIso = new Date(Number(date) * 86_400 * 1000).toISOString().slice(0, 10);
 
     // Investor B deposits 5k USDC + queues a 1k-share withdrawal.
-    const investorBUsdc = deriveAta(stableMint, investorB.address);
+    const investorBUsdc = deriveStableAta(stableMint, investorB.address);
     const shareMint = kitAddress(deployment!.pdas.shareMint);
     const investorBShare = await ensureShareAta(rpc, investorB, shareMint, investorB.address);
     const depositAmount = 5_000_000_000n; // 5,000 USDC at 6 decimals
@@ -898,7 +914,7 @@ describe('Phase 11 — End-to-End Cron Validation (Surfpool)', () => {
       await getDepositInstructionAsync({
         vaultState: kitAddress(deployment!.pdas.vaultState),
         shareMint,
-        vaultTokenAccount: deriveAta(stableMint, kitAddress(deployment!.pdas.vaultState)),
+        vaultTokenAccount: deriveStableAta(stableMint, kitAddress(deployment!.pdas.vaultState)),
         depositorStableAccount: investorBUsdc,
         depositorShareAccount: investorBShare,
           stableMint,
@@ -967,7 +983,7 @@ describe('Phase 11 — End-to-End Cron Validation (Surfpool)', () => {
     await sendIxs(rpc, investorB, [
       await getCollectInstructionAsync({
         vaultState: kitAddress(deployment!.pdas.vaultState),
-        vaultTokenAccount: deriveAta(stableMint, kitAddress(deployment!.pdas.vaultState)),
+        vaultTokenAccount: deriveStableAta(stableMint, kitAddress(deployment!.pdas.vaultState)),
         claimable: claimablePda,
         owner: investorB.address,
         collectorStableAccount: investorBUsdc,

@@ -19,8 +19,8 @@
  *      Phantom and the on-chain account agree.
  *   6. Airdrop SOL to investor-a (the e2e underwriter) and to the
  *      traveler address.
- *   7. Mint 50,000 mock USDC to investor-a so they can fund the vault.
- *   8. Underwriter deposit: investor-a signs vault.deposit(20,000 USDC)
+ *   7. Mint 50,000 mock PUSD to investor-a so they can fund the vault.
+ *   8. Underwriter deposit: investor-a signs vault.deposit(20,000 PUSD)
  *      so the pool has liquidity for the traveler scenarios.
  *
  * Run:
@@ -40,6 +40,7 @@ import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 
 import {
+  address as kitAddress,
   appendTransactionMessageInstructions,
   createKeyPairSignerFromBytes,
   createSolanaRpc,
@@ -61,6 +62,12 @@ import {
   TOKEN_PROGRAM_ADDRESS,
 } from '@solana-program/token';
 
+// Token-2022 program — the stable side (PUSD) lives here; RVS shares stay
+// on the classic SPL Token program.
+const STABLE_TOKEN_PROGRAM = kitAddress(
+  'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+);
+
 import {
   findShareMintPda,
   findVaultStatePda,
@@ -68,7 +75,7 @@ import {
 } from './clients/vault/src/generated/index.ts';
 
 import { fundSol } from './fund-sol.ts';
-import { fundUsdc } from './fund-usdc.ts';
+import { fundPusd } from './fund-pusd.ts';
 
 // ─── Constants (must mirror frontend/tests/wallet-setup/basic.setup.ts) ─
 
@@ -77,8 +84,8 @@ const TRAVELER_SEED_PHRASE =
 const SOLANA_DERIVATION_PATH = "m/44'/501'/0'/0'";
 
 const SURFPOOL_RPC = 'http://127.0.0.1:8899';
-const UNDERWRITER_USDC_AMOUNT = 50_000; // mock-USDC units the underwriter receives
-const UNDERWRITER_DEPOSIT_USDC = 20_000n * 1_000_000n; // 20k USDC, 6 decimals
+const UNDERWRITER_PUSD_AMOUNT = 50_000; // mock-PUSD units the underwriter receives
+const UNDERWRITER_DEPOSIT_PUSD = 20_000n * 1_000_000n; // 20k PUSD, 6 decimals
 const TRAVELER_AIRDROP_SOL = 5;
 const UNDERWRITER_AIRDROP_SOL = 5;
 
@@ -165,7 +172,7 @@ function deriveTravelerAddress(): DerivedKey {
   };
 }
 
-// ─── Step 6 + 7: airdrop SOL + mint USDC ─────────────────────────────────
+// ─── Step 6 + 7: airdrop SOL + mint PUSD ─────────────────────────────────
 
 function readPubkeyFile(path: string): Address {
   if (!existsSync(path)) {
@@ -181,11 +188,11 @@ async function airdrop(recipient: Address, amountSol: number): Promise<void> {
   await fundSol({ cluster: 'surfpool', recipient, amountSol });
 }
 
-async function mintUsdcTo(recipient: Address, amount: number): Promise<void> {
+async function mintPusdTo(recipient: Address, amount: number): Promise<void> {
   console.log(
-    `[bootstrap-e2e] mint ${amount} mock USDC → ${recipient.slice(0, 4)}…${recipient.slice(-4)}`,
+    `[bootstrap-e2e] mint ${amount} mock PUSD → ${recipient.slice(0, 4)}…${recipient.slice(-4)}`,
   );
-  await fundUsdc({ cluster: 'surfpool', recipient, amount });
+  await fundPusd({ cluster: 'surfpool', recipient, amount });
 }
 
 // ─── Step 8: underwriter deposit ─────────────────────────────────────────
@@ -208,15 +215,15 @@ async function underwriterDeposit(rpc: Rpc<SolanaRpcApi>): Promise<void> {
   const [vaultStatePda] = await findVaultStatePda();
   const [shareMintPda] = await findShareMintPda();
 
-  const [vaultUsdcAta] = await findAssociatedTokenPda({
+  const [vaultStableAta] = await findAssociatedTokenPda({
     owner: vaultStatePda,
     mint: stableMint,
-    tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    tokenProgram: STABLE_TOKEN_PROGRAM,
   });
-  const [depositorUsdcAta] = await findAssociatedTokenPda({
+  const [depositorStableAta] = await findAssociatedTokenPda({
     owner: underwriter.address,
     mint: stableMint,
-    tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    tokenProgram: STABLE_TOKEN_PROGRAM,
   });
   const [depositorShareAta] = await findAssociatedTokenPda({
     owner: underwriter.address,
@@ -231,11 +238,13 @@ async function underwriterDeposit(rpc: Rpc<SolanaRpcApi>): Promise<void> {
   });
 
   const depositIx = await getDepositInstructionAsync({
-    vaultTokenAccount: vaultUsdcAta,
-    depositorStableAccount: depositorUsdcAta,
+    vaultTokenAccount: vaultStableAta,
+    depositorStableAccount: depositorStableAta,
     depositorShareAccount: depositorShareAta,
     depositor: underwriter,
-    stableAmount: UNDERWRITER_DEPOSIT_USDC,
+    stableMint,
+    stableTokenProgram: STABLE_TOKEN_PROGRAM,
+    stableAmount: UNDERWRITER_DEPOSIT_PUSD,
   });
 
   const { value: blockhash } = await rpc.getLatestBlockhash().send();
@@ -254,7 +263,7 @@ async function underwriterDeposit(rpc: Rpc<SolanaRpcApi>): Promise<void> {
     .send();
   await confirmSig(rpc, sig);
   console.log(
-    `[bootstrap-e2e] underwriter deposit landed: ${sig.slice(0, 8)}…  (20,000 USDC)`,
+    `[bootstrap-e2e] underwriter deposit landed: ${sig.slice(0, 8)}…  (20,000 PUSD)`,
   );
 }
 
@@ -322,7 +331,7 @@ async function main() {
 
   await airdrop(traveler.pubkey, TRAVELER_AIRDROP_SOL);
   await airdrop(underwriter.address, UNDERWRITER_AIRDROP_SOL);
-  await mintUsdcTo(underwriter.address, UNDERWRITER_USDC_AMOUNT);
+  await mintPusdTo(underwriter.address, UNDERWRITER_PUSD_AMOUNT);
   await underwriterDeposit(rpc);
 
   console.log('\n[bootstrap-e2e] DONE — surfpool ready for e2e tests.');

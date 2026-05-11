@@ -17,8 +17,10 @@ The script is idempotent — it skips files that already exist.
 
 | File | Purpose | Committed |
 |---|---|---|
-| `mock-usdc.json` / `mock-usdc.pubkey` | Mock USDC SPL Token mint, used identically in LiteSVM, Surfpool, and devnet | pubkey only |
-| `mock-usdc-authority.json` / `.pubkey` | Mint authority for the mock USDC | pubkey only |
+| `mock-pusd.json` / `mock-pusd.pubkey` | Mock PUSD Token-2022 mint (stable side), used identically in LiteSVM, Surfpool, and devnet | pubkey only |
+| `mock-pusd-authority.json` / `.pubkey` | Mint authority for the mock PUSD | pubkey only |
+| `mock-usdc.json` / `mock-usdc.pubkey` | Legacy classic-SPL mock USDC mint — kept for rollback to the `pre-pusd-migration` tag; **not used by current programs** | pubkey only |
+| `mock-usdc-authority.json` / `.pubkey` | Legacy mint authority for the classic mock USDC — see above | pubkey only |
 | `executor.json` / `executor.pubkey` | Off-chain executor signer (oracle/keeper duties post-Phase 7) | pubkey only |
 
 The five Anchor program keypairs live in `contracts/target/deploy/<name>-keypair.json`

@@ -23,7 +23,7 @@
     "test:e2e:crons": "pnpm --filter @sentinel/contracts test:e2e:crons",
     "deploy": "bash scripts/run.sh deploy",
     "fund-sol": "bash scripts/run.sh fund-sol",
-    "fund-usdc": "bash scripts/run.sh fund-usdc",
+    "fund-pusd": "bash scripts/run.sh fund-pusd",
     "seed-routes": "bash scripts/run.sh seed-routes",
     "rotate-keeper": "bash scripts/run.sh rotate-keeper",
     "rotate-oracle": "bash scripts/run.sh rotate-oracle",

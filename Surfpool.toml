@@ -1,13 +1,15 @@
-# Surfpool configuration for Sentinel Solana (Phase 0).
+# Surfpool configuration for Sentinel Solana.
 #
 # Surfnet runs at http://127.0.0.1:8899 (default). The `[network]` section
 # below configures clock + slot defaults. The `[[setup]]` block seeds the
-# canonical mock USDC mint at the address committed in keys/mock-usdc.pubkey
+# canonical mock PUSD mint at the address committed in keys/mock-pusd.pubkey
 # so integration tests find the same mint pubkey they'd see on devnet.
 #
-# Phase 0 risk note: Surfpool.toml schema is young; if `surfnet_setAccount`
-# at startup is unstable in the version you have installed, fall back to
-# running it via `scripts/surfpool-seed.ts` once the surfnet is healthy.
+# Phase 24 note: the stable side is Token-2022 (PUSD on mainnet is Token-2022
+# with MetadataPointer + TokenMetadata extensions; this mock mirror keeps the
+# base layout only — no extensions). The `[[setup]]` owner field must be the
+# Token-2022 program id (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb), NOT
+# the classic SPL Token program (TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA).
 
 [network]
 # Default Surfnet behaviour. Override by passing flags to `surfpool start`.
@@ -15,26 +17,26 @@ block_production_mode = "clock"
 log_level             = "info"
 startup_wait_ms       = 5000
 
-# ─── Mock USDC mint seed ─────────────────────────────────────────────────
-# The mint address must match keys/mock-usdc.pubkey. The mint authority
-# matches keys/mock-usdc-authority.pubkey. Decimals = 6.
+# ─── Mock PUSD mint seed ─────────────────────────────────────────────────
+# The mint address below must match keys/mock-pusd.pubkey. The mint authority
+# matches keys/mock-pusd-authority.pubkey. Decimals = 6.
 #
 # Surfpool's `surfnet_setAccount` cheatcode rebuilds the account at the
-# given address with the supplied data + owner = TOKEN_PROGRAM_ID.
+# given address with the supplied data + owner = TOKEN_2022_PROGRAM_ID.
 [[setup]]
 kind     = "set_account"
-# Replace the mint address below with the actual content of
-# keys/mock-usdc.pubkey after running `bash scripts/keys-bootstrap.sh`.
-address  = "epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K"
-owner    = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+address  = "F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE"
+owner    = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 lamports = 1461600
-# 82 bytes of base64-encoded `spl_token::state::Mint` data with:
-#   mint_authority    = <keys/mock-usdc-authority.pubkey>
+# 82 bytes of base64-encoded `spl_token::state::Mint` data (the base mint
+# layout is identical for classic SPL and Token-2022; only the program-owner
+# differs) with:
+#   mint_authority    = 5JbXjGvf2UDtBqbAdQwXr8zDUToDjbnDgaXNFLY1wstD
 #   supply            = 0
 #   decimals          = 6
 #   is_initialized    = true
 #   freeze_authority  = None
-# Generate this blob with `scripts/surfpool-seed.ts` (TODO: write helper if
-# the seed format isn't already in spec). Until then, leave commented out
-# and seed manually post-startup.
+# Generate the blob via `scripts/surfpool-seed.ts` or seed manually post-
+# startup via `scripts/fund-pusd.ts` (which also creates the mint on first
+# run when --usdc is omitted from `pnpm deploy`).
 # data_base64 = "..."

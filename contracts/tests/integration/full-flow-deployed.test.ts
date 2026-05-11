@@ -144,13 +144,23 @@ function loadKeypair(path: string): Promise<KeyPairSigner> {
   return createKeyPairSignerFromBytes(new Uint8Array(bytes));
 }
 
-function deriveAta(mint: Address, owner: Address): Address {
+function deriveAta(
+  mint: Address,
+  owner: Address,
+  tokenProgram: Web3Pubkey = TOKEN_PROGRAM_ID,
+): Address {
   const ataLegacy = getAssociatedTokenAddressSync(
     new Web3Pubkey(mint.toString()),
     new Web3Pubkey(owner.toString()),
     true, // allow off-curve owners (PDAs)
+    tokenProgram,
   );
   return kitAddress(ataLegacy.toBase58());
+}
+
+// Stable side (PUSD) lives under Token-2022 post-Phase-24.
+function deriveStableAta(mint: Address, owner: Address): Address {
+  return deriveAta(mint, owner, TOKEN_2022_PROGRAM_ID);
 }
 
 // ─── Surfpool airdrop + USDC mint helpers (programmatic, not shell-out) ───
@@ -244,36 +254,41 @@ async function sendIxs(
   throw new Error(`tx ${sig} not confirmed within 30s`);
 }
 
-// ─── USDC mint helpers ───────────────────────────────────────────────────
+// ─── PUSD mint helpers ───────────────────────────────────────────────────
 //
 // We don't shell out — we build + send the same `mint_to_checked` ix that
-// fund-usdc.ts uses, signed by the mock USDC authority keypair. This exercises
-// the same code path as the production cron (Phase 8+) would for any ATA
-// preseed step.
+// fund-pusd.ts uses, signed by the mock PUSD authority keypair. The stable
+// mint lives under Token-2022 so the CPI must target Token-2022.
 
-async function mintUsdcTo(
+async function mintPusdTo(
   rpc: Rpc<SolanaRpcApi>,
   mintAuthority: KeyPairSigner,
   mintPubkey: Address,
   recipient: Address,
-  amountUsdc: bigint,
+  amountPusd: bigint,
 ): Promise<Address> {
   const { getCreateAssociatedTokenIdempotentInstructionAsync, getMintToCheckedInstruction } =
     await import('@solana-program/token');
-  const ata = deriveAta(mintPubkey, recipient);
-  const createAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
-    payer: mintAuthority,
-    ata,
-    owner: recipient,
-    mint: mintPubkey,
-  });
-  const mintToIx = getMintToCheckedInstruction({
-    mint: mintPubkey,
-    token: ata,
-    mintAuthority,
-    amount: amountUsdc * 1_000_000n, // 6 decimals
-    decimals: 6,
-  });
+  const ata = deriveStableAta(mintPubkey, recipient);
+  const createAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync(
+    {
+      payer: mintAuthority,
+      ata,
+      owner: recipient,
+      mint: mintPubkey,
+      tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
+    },
+  );
+  const mintToIx = getMintToCheckedInstruction(
+    {
+      mint: mintPubkey,
+      token: ata,
+      mintAuthority,
+      amount: amountPusd * 1_000_000n, // 6 decimals
+      decimals: 6,
+    },
+    { programAddress: TOKEN_2022_PROGRAM_ID_KIT },
+  );
   await sendIxs(rpc, mintAuthority, [createAtaIx, mintToIx]);
   return ata;
 }
@@ -315,7 +330,7 @@ describe('Phase 7 — Deployed surfpool full-flow', () => {
 
     oracleSigner = await loadKeypair(resolve(REPO_ROOT, deployment.keypairPaths.oracle));
     keeperSigner = await loadKeypair(resolve(REPO_ROOT, deployment.keypairPaths.keeper));
-    mintAuthoritySigner = await loadKeypair(resolve(REPO_ROOT, 'keys/mock-usdc-authority.json'));
+    mintAuthoritySigner = await loadKeypair(resolve(REPO_ROOT, 'keys/mock-pusd-authority.json'));
 
     investorA = await loadKeypair(resolve(TEST_ACTORS_DIR, 'investor-a.json'));
     buyerA = await loadKeypair(resolve(TEST_ACTORS_DIR, 'buyer-a.json'));
@@ -331,8 +346,8 @@ describe('Phase 7 — Deployed surfpool full-flow', () => {
     await new Promise((r) => setTimeout(r, 1000));
 
     // Pre-mint USDC for actors that need it.
-    await mintUsdcTo(rpc, mintAuthoritySigner, stableMint, investorA.address, 50_000n);
-    await mintUsdcTo(rpc, mintAuthoritySigner, stableMint, buyerA.address, 100n);
+    await mintPusdTo(rpc, mintAuthoritySigner, stableMint, investorA.address, 50_000n);
+    await mintPusdTo(rpc, mintAuthoritySigner, stableMint, buyerA.address, 100n);
   }, 120_000);
 
   it('deployed protocol round-trips: deposit → buy → oracle post → classify → settle', async () => {
@@ -373,7 +388,7 @@ describe('Phase 7 — Deployed surfpool full-flow', () => {
     }
 
     // ─── Step 2: investor deposits to the vault ──────────────────────
-    const investorUsdcAta = deriveAta(stableMint, investorA.address);
+    const investorUsdcAta = deriveStableAta(stableMint, investorA.address);
     const investorShareAta = deriveAta(kitAddress(deployment.pdas.shareMint), investorA.address);
 
     // Pre-create the investor's share ATA (the deposit ix expects it to exist).
@@ -393,7 +408,7 @@ describe('Phase 7 — Deployed surfpool full-flow', () => {
       await getDepositInstructionAsync({
         vaultState: kitAddress(deployment.pdas.vaultState),
         shareMint: kitAddress(deployment.pdas.shareMint),
-        vaultTokenAccount: deriveAta(stableMint, kitAddress(deployment.pdas.vaultState)),
+        vaultTokenAccount: deriveStableAta(stableMint, kitAddress(deployment.pdas.vaultState)),
         depositorStableAccount: investorUsdcAta,
         depositorShareAccount: investorShareAta,
         stableMint,
@@ -425,7 +440,7 @@ describe('Phase 7 — Deployed surfpool full-flow', () => {
       pool: flightPoolPda,
       buyer: buyerA.address,
     });
-    const buyerUsdcAta = deriveAta(stableMint, buyerA.address);
+    const buyerUsdcAta = deriveStableAta(stableMint, buyerA.address);
 
     const buyIx = await getBuyInsuranceInstructionAsync({
       controllerConfig: kitAddress(deployment.pdas.controllerConfig),
@@ -441,7 +456,7 @@ describe('Phase 7 — Deployed surfpool full-flow', () => {
       flightPool: flightPoolPda,
       buyerRecord: buyerRecordPda,
       buyerStableAccount: buyerUsdcAta,
-      poolTreasury: deriveAta(stableMint, kitAddress(deployment.pdas.poolTreasuryAuthority)),
+      poolTreasury: deriveStableAta(stableMint, kitAddress(deployment.pdas.poolTreasuryAuthority)),
       stableMint,
       vaultProgram: VAULT_PROGRAM_ADDRESS,
       vaultState: kitAddress(deployment.pdas.vaultState),
@@ -533,11 +548,11 @@ describe('Phase 7 — Deployed surfpool full-flow', () => {
       flightPoolConfig: kitAddress(deployment.pdas.flightPoolConfig),
       oracleConfig: kitAddress(deployment.pdas.oracleConfig),
       vaultState: kitAddress(deployment.pdas.vaultState),
-      vaultTokenAccount: deriveAta(stableMint, kitAddress(deployment.pdas.vaultState)),
+      vaultTokenAccount: deriveStableAta(stableMint, kitAddress(deployment.pdas.vaultState)),
       withdrawalQueue: kitAddress(deployment.pdas.withdrawalQueue),
       shareMint: kitAddress(deployment.pdas.shareMint),
       snapshotRecord: snapshotRecordPda,
-      poolTreasury: deriveAta(stableMint, kitAddress(deployment.pdas.poolTreasuryAuthority)),
+      poolTreasury: deriveStableAta(stableMint, kitAddress(deployment.pdas.poolTreasuryAuthority)),
       treasuryAuthority: kitAddress(deployment.pdas.poolTreasuryAuthority),
       stableMint,
       keeper: keeperSigner,

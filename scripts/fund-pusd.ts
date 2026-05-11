@@ -1,30 +1,36 @@
 /**
- * scripts/fund-usdc.ts
+ * scripts/fund-pusd.ts
  *
- * Fund a recipient pubkey with mock USDC on Surfpool / localnet / devnet /
- * testnet. Mainnet is explicitly refused (real USDC has no mint authority).
+ * Fund a recipient pubkey with mock PUSD on Surfpool / localnet / devnet /
+ * testnet. Mainnet is explicitly refused (real PUSD has no mock mint
+ * authority — use a DEX or live PUSD transfer).
+ *
+ * The stable-side mint is Token-2022 (PalmUSD on mainnet is Token-2022 with
+ * MetadataPointer + TokenMetadata extensions; the mock mirror keeps the
+ * base layout only, no extensions). ATAs derive against the Token-2022
+ * program id and the mint_to CPI must target Token-2022.
  *
  * Two paths:
  *   1. **Surfpool**: try `surfnet_setTokenBalance` cheat-RPC first (instant,
  *      no SOL needed). If the cheat is unavailable in the running Surfpool
  *      version, fall back to the real `mint_to` path below.
  *   2. **Localnet / devnet / testnet**: real on-chain `mint_to_checked`
- *      transaction signed by `keys/mock-usdc-authority.json`. Idempotent
+ *      transaction signed by `keys/mock-pusd-authority.json`. Idempotent
  *      ATA creation is done in the same tx. The mint authority pays the
  *      tx fee — on surfpool this script auto-airdrops SOL to the authority
  *      if its balance is low; on other clusters the user must pre-fund.
  *
- * Pre-condition: the mock USDC mint must exist at the canonical pubkey
- * (`keys/mock-usdc.pubkey`) on the target cluster. The deploy script
+ * Pre-condition: the mock PUSD mint must exist at the canonical pubkey
+ * (`keys/mock-pusd.pubkey`) on the target cluster. The deploy script
  * auto-creates it on first run; the error path below points the user at
  * the manual `spl-token create-token` command if missing.
  *
  * Run:
- *   pnpm fund-usdc --cluster <surfpool|localnet|devnet|testnet> --recipient <pubkey> --amount <usdc>
+ *   pnpm fund-pusd --cluster <surfpool|localnet|devnet|testnet> --recipient <pubkey> --amount <pusd>
  *
  * Programmatic API:
- *   import { fundUsdc } from './scripts/fund-usdc.ts';
- *   await fundUsdc({ cluster: 'devnet', recipient: '<pubkey>', amount: 100 });
+ *   import { fundPusd } from './scripts/fund-pusd.ts';
+ *   await fundPusd({ cluster: 'devnet', recipient: '<pubkey>', amount: 100 });
  */
 
 import { createClient, address as kitAddress, type Address } from '@solana/kit';
@@ -38,7 +44,10 @@ import {
   getCreateAssociatedTokenIdempotentInstructionAsync,
   getMintToCheckedInstruction,
 } from '@solana-program/token';
-import { getAssociatedTokenAddressSync } from '@solana/spl-token';
+import {
+  getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
+} from '@solana/spl-token';
 import { PublicKey as Web3Pubkey } from '@solana/web3.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -66,13 +75,14 @@ function findRepoRoot(start: string): string {
   return process.cwd();
 }
 
-const MINT_PUBKEY_PATH = resolve(REPO_ROOT, 'keys/mock-usdc.pubkey');
+const MINT_PUBKEY_PATH = resolve(REPO_ROOT, 'keys/mock-pusd.pubkey');
 const MINT_AUTHORITY_KEYPAIR_PATH = resolve(
   REPO_ROOT,
-  'keys/mock-usdc-authority.json',
+  'keys/mock-pusd-authority.json',
 );
 
-const USDC_DECIMALS = 6;
+const PUSD_DECIMALS = 6;
+const STABLE_TOKEN_PROGRAM: Address = kitAddress(TOKEN_2022_PROGRAM_ID.toBase58());
 
 const RPC_URLS: Record<string, string> = {
   surfpool: 'http://127.0.0.1:8899',
@@ -83,10 +93,10 @@ const RPC_URLS: Record<string, string> = {
 
 const SUPPORTED_CLUSTERS = new Set(Object.keys(RPC_URLS));
 
-export interface FundUsdcOpts {
+export interface FundPusdOpts {
   cluster: string;
   recipient: string;
-  /** Amount in whole USDC units (multiplied by 10^6 internally). */
+  /** Amount in whole PUSD units (multiplied by 10^6 internally). */
   amount: number;
   /** Override RPC endpoint. */
   rpcUrl?: string;
@@ -94,7 +104,7 @@ export interface FundUsdcOpts {
   mintAuthorityKeypairPath?: string;
 }
 
-export interface FundUsdcResult {
+export interface FundPusdResult {
   ata: Address;
   amountUnits: bigint;
   /** "cheat" if surfnet_setTokenBalance succeeded, "mint_to" if real mint_to ran. */
@@ -102,10 +112,10 @@ export interface FundUsdcResult {
   signature?: string;
 }
 
-export async function fundUsdc(opts: FundUsdcOpts): Promise<FundUsdcResult> {
+export async function fundPusd(opts: FundPusdOpts): Promise<FundPusdResult> {
   if (opts.cluster === 'mainnet') {
     throw new Error(
-      `Real USDC has no mint authority — fund ${opts.recipient} via DEX or transfer.`,
+      `Real PUSD has no mock mint authority — fund ${opts.recipient} via DEX or transfer.`,
     );
   }
   if (!SUPPORTED_CLUSTERS.has(opts.cluster)) {
@@ -115,13 +125,13 @@ export async function fundUsdc(opts: FundUsdcOpts): Promise<FundUsdcResult> {
   }
   validatePubkey(opts.recipient);
   if (!Number.isFinite(opts.amount) || opts.amount <= 0) {
-    throw new Error(`--amount must be a positive number of USDC (got ${opts.amount})`);
+    throw new Error(`--amount must be a positive number of PUSD (got ${opts.amount})`);
   }
 
   const rpcUrl = opts.rpcUrl ?? RPC_URLS[opts.cluster];
   const mintPubkey = readMintPubkey();
   const recipient = kitAddress(opts.recipient);
-  const amountUnits = usdcToRawUnits(opts.amount);
+  const amountUnits = pusdToRawUnits(opts.amount);
 
   // Pre-flight: confirm mint exists. If missing, error with the create-mint command.
   await ensureMintExists(rpcUrl, mintPubkey, opts.cluster);
@@ -139,7 +149,7 @@ export async function fundUsdc(opts: FundUsdcOpts): Promise<FundUsdcResult> {
       return { ata, amountUnits, path: 'cheat' };
     } catch (cheatErr) {
       console.log(
-        `[fund-usdc] surfnet_setTokenBalance unavailable (${(cheatErr as Error).message}); ` +
+        `[fund-pusd] surfnet_setTokenBalance unavailable (${(cheatErr as Error).message}); ` +
           `falling back to real mint_to.`,
       );
       // fall through to mint_to path
@@ -167,7 +177,7 @@ interface MintToParams {
   mintAuthorityKeypairPath: string;
 }
 
-async function mintToRecipient(p: MintToParams): Promise<FundUsdcResult> {
+async function mintToRecipient(p: MintToParams): Promise<FundPusdResult> {
   if (!existsSync(p.mintAuthorityKeypairPath)) {
     throw new Error(
       `Mint authority keypair missing: ${p.mintAuthorityKeypairPath}\n` +
@@ -183,7 +193,7 @@ async function mintToRecipient(p: MintToParams): Promise<FundUsdcResult> {
     const balance = await getBalance(p.rpcUrl, authorityPubkey);
     if (balance < 100_000_000n) {
       console.log(
-        `[fund-usdc] mint authority ${authorityPubkey} has ${balance} lamports; airdropping 1 SOL on surfpool.`,
+        `[fund-pusd] mint authority ${authorityPubkey} has ${balance} lamports; airdropping 1 SOL on surfpool.`,
       );
       await fundSol({
         cluster: 'surfpool',
@@ -200,19 +210,25 @@ async function mintToRecipient(p: MintToParams): Promise<FundUsdcResult> {
 
   const ata = deriveAta(p.mintPubkey, p.recipient);
 
-  const createAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
-    payer: client.payer,
-    ata,
-    owner: p.recipient,
-    mint: p.mintPubkey,
-  });
-  const mintToIx = getMintToCheckedInstruction({
-    mint: p.mintPubkey,
-    token: ata,
-    mintAuthority: client.identity,
-    amount: p.amountUnits,
-    decimals: USDC_DECIMALS,
-  });
+  const createAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync(
+    {
+      payer: client.payer,
+      ata,
+      owner: p.recipient,
+      mint: p.mintPubkey,
+      tokenProgram: STABLE_TOKEN_PROGRAM,
+    },
+  );
+  const mintToIx = getMintToCheckedInstruction(
+    {
+      mint: p.mintPubkey,
+      token: ata,
+      mintAuthority: client.identity,
+      amount: p.amountUnits,
+      decimals: PUSD_DECIMALS,
+    },
+    { programAddress: STABLE_TOKEN_PROGRAM },
+  );
 
   await client.sendTransaction([createAtaIx, mintToIx]);
   return { ata, amountUnits: p.amountUnits, path: 'mint_to' };
@@ -281,6 +297,7 @@ function deriveAta(mint: Address, owner: Address): Address {
     new Web3Pubkey(mint.toString()),
     new Web3Pubkey(owner.toString()),
     true, // allowOwnerOffCurve — needed for PDA owners (vault state, treasury)
+    TOKEN_2022_PROGRAM_ID, // stable-side ATAs live under Token-2022 (PUSD)
   );
   return kitAddress(ataLegacy.toBase58());
 }
@@ -288,7 +305,7 @@ function deriveAta(mint: Address, owner: Address): Address {
 function readMintPubkey(): Address {
   if (!existsSync(MINT_PUBKEY_PATH)) {
     throw new Error(
-      `Mock USDC mint pubkey missing: ${MINT_PUBKEY_PATH}\n` +
+      `Mock PUSD mint pubkey missing: ${MINT_PUBKEY_PATH}\n` +
         `Run \`bash scripts/keys-bootstrap.sh\` to generate the mint keypair.`,
     );
   }
@@ -325,11 +342,11 @@ async function ensureMintExists(
   }
   if (!json.result || !json.result.value) {
     throw new Error(
-      `Mock USDC not found on ${cluster} at ${mint.toString()}.\n` +
+      `Mock PUSD not found on ${cluster} at ${mint.toString()}.\n` +
         `  Option 1: run \`pnpm deploy --cluster ${cluster} --owner <pubkey>\` first ` +
         `(it auto-creates the mint).\n` +
         `  Option 2: run \`spl-token create-token --decimals 6 --url ${rpcUrl} ` +
-        `keys/mock-usdc.json --mint-authority keys/mock-usdc-authority.json\` manually.`,
+        `keys/mock-pusd.json --mint-authority keys/mock-pusd-authority.json\` manually.`,
     );
   }
 }
@@ -396,11 +413,11 @@ function pickRpcPlugin(cluster: string) {
   }
 }
 
-function usdcToRawUnits(usdc: number): bigint {
-  // 6 decimals; clamp precision to avoid float drift on values like 0.1 USDC.
-  const fixed = usdc.toFixed(USDC_DECIMALS);
+function pusdToRawUnits(pusd: number): bigint {
+  // 6 decimals; clamp precision to avoid float drift on values like 0.1 PUSD.
+  const fixed = pusd.toFixed(PUSD_DECIMALS);
   const [whole, frac = ''] = fixed.split('.');
-  const fracPadded = (frac + '000000').slice(0, USDC_DECIMALS);
+  const fracPadded = (frac + '000000').slice(0, PUSD_DECIMALS);
   return BigInt(whole) * 1_000_000n + BigInt(fracPadded);
 }
 
@@ -450,25 +467,25 @@ function parseCliArgs(argv: string[]): CliArgs {
   }
   if (!args.cluster) throw new Error('--cluster is required');
   if (!args.recipient) throw new Error('--recipient <pubkey> is required');
-  if (!args.amount) throw new Error('--amount <usdc> is required');
+  if (!args.amount) throw new Error('--amount <pusd> is required');
   return args as CliArgs;
 }
 
 function printUsage(): void {
-  console.log(`Usage: pnpm fund-usdc --cluster <surfpool|localnet|devnet|testnet> --recipient <pubkey> --amount <usdc>
+  console.log(`Usage: pnpm fund-pusd --cluster <surfpool|localnet|devnet|testnet> --recipient <pubkey> --amount <pusd>
 
-Mints <usdc> mock USDC to the recipient's ATA, signed by keys/mock-usdc-authority.json.
+Mints <pusd> mock PUSD to the recipient's ATA, signed by keys/mock-pusd-authority.json.
 
 Options:
   --cluster   surfpool / localnet / devnet / testnet (mainnet refused).
   --recipient Base58 Solana pubkey to mint to.
-  --amount    Amount in whole USDC units (e.g. 100 = 100 USDC).
+  --amount    Amount in whole PUSD units (e.g. 100 = 100 PUSD).
   --rpc-url   Override RPC endpoint.
   --help      Print this help.
 
-The mock USDC mint must already exist on the target cluster. The deploy
+The mock PUSD mint must already exist on the target cluster. The deploy
 script auto-creates it on first run; alternatively, run:
-  spl-token create-token --decimals 6 --url <rpc> keys/mock-usdc.json --mint-authority keys/mock-usdc-authority.json`);
+  spl-token create-token --decimals 6 --url <rpc> keys/mock-pusd.json --mint-authority keys/mock-pusd-authority.json`);
 }
 
 async function main(): Promise<void> {
@@ -476,29 +493,29 @@ async function main(): Promise<void> {
   try {
     args = parseCliArgs(process.argv.slice(2));
   } catch (err) {
-    console.error(`[fund-usdc] ${(err as Error).message}\n`);
+    console.error(`[fund-pusd] ${(err as Error).message}\n`);
     printUsage();
     process.exit(1);
   }
 
-  const result = await fundUsdc({
+  const result = await fundPusd({
     cluster: args.cluster,
     recipient: args.recipient,
     amount: Number(args.amount),
     rpcUrl: args.rpcUrl,
   });
   console.log(
-    `[fund-usdc] ✓ ${args.recipient} (ata ${result.ata}) +${args.amount} USDC ` +
+    `[fund-pusd] ✓ ${args.recipient} (ata ${result.ata}) +${args.amount} PUSD ` +
       `(${result.amountUnits} raw units) on ${args.cluster} via ${result.path}` +
       (result.signature ? `\n         signature: ${result.signature}` : ''),
   );
 }
 
 // Bundle-safe isMain check (see fund-sol.ts for rationale).
-const isMain = /\/fund-usdc\.(ts|mjs|js)$/.test(process.argv[1] ?? '');
+const isMain = /\/fund-pusd\.(ts|mjs|js)$/.test(process.argv[1] ?? '');
 if (isMain) {
   main().catch((err) => {
-    console.error('[fund-usdc] failed:', (err as Error).message ?? err);
+    console.error('[fund-pusd] failed:', (err as Error).message ?? err);
     if ((err as Error).stack) console.error((err as Error).stack);
     process.exit(1);
   });
