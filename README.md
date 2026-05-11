@@ -14,13 +14,14 @@ Underwriters take the other side — they deposit **Palm USD (PUSD)** into a sha
 
 ## Live on Solana Devnet
 
-Deployed 2026-05-08. Canonical artifact path: `deployments/devnet-latest.json` (gitignored — re-deploy to regenerate, or copy from below).
+Deployed 2026-05-08, re-deployed in place on **2026-05-11** as part of the Phase 24 Token-2022 / PUSD migration (program IDs unchanged; v2 PDAs and Token-2022 mock-PUSD now canonical — see [§Token-2022 / PUSD migration](#token-2022--pusd-migration) and [pre_pusd_migration.md](pre_pusd_migration.md) for the rollback recipe). Canonical artifact path: `deployments/devnet-latest.json` (gitignored — re-deploy to regenerate, or copy from below).
 
 | Component | Address |
 |---|---|
 | Cluster | `devnet` &middot; `https://api.devnet.solana.com` |
 | Deployer / Owner | [`FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy`](https://explorer.solana.com/address/FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy?cluster=devnet) |
-| Stablecoin mint (mock USDC on devnet, stands in for PUSD) | [`epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K`](https://explorer.solana.com/address/epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K?cluster=devnet) |
+| Stablecoin mint (mock PUSD on devnet, Token-2022; mirrors live PUSD on mainnet) | [`F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE`](https://explorer.solana.com/address/F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE?cluster=devnet) |
+| Stable token program (Token-2022) | [`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`](https://explorer.solana.com/address/TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb) |
 
 **Programs** — canonical IDs, identical on every cluster (declared via committed program keypairs):
 
@@ -133,9 +134,27 @@ BTS data → XGBoost → Grok (live search) → RouteRepricer cron → governanc
 
 ## Stablecoin — Palm USD (PUSD)
 
-Sentinel is designed around **Palm USD (PUSD)** as the unit of account. Travelers pay premiums in PUSD; underwriters deposit PUSD into the vault to back claims; payouts and yield redemptions are denominated in PUSD. Every `controller.buy_insurance`, `vault.deposit / redeem / collect`, and `flight_pool.claim` instruction moves PUSD.
+Sentinel is built around **Palm USD (PUSD)** as the unit of account. Travelers pay premiums in PUSD; underwriters deposit PUSD into the vault to back claims; payouts and yield redemptions are denominated in PUSD. Every `controller.buy_insurance`, `vault.deposit / redeem / collect`, and `flight_pool.claim` instruction moves PUSD.
 
-On **devnet** today we use a mock USDC mint as a stand-in for PUSD (mint pubkey [`epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K`](https://explorer.solana.com/address/epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K?cluster=devnet)) so testing is unblocked and `pnpm fund-usdc` can mint test balances on demand. The mint address is the **only** thing that changes when swapping to live PUSD on mainnet — the contracts treat the stablecoin as a single SPL `Mint` address configured at init time. Same instruction set, same authority model, same accounting.
+PUSD is a **Token-2022** mint (program `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`). Mainnet PUSD is at [`CZzgUBvxaMLwMhVSLgqJn3npmxoTo6nzMNQPAnwtHF3s`](https://explorer.solana.com/address/CZzgUBvxaMLwMhVSLgqJn3npmxoTo6nzMNQPAnwtHF3s) with the `MetadataPointer` + `TokenMetadata` extensions only — no transfer fee, no hooks, no permanent delegate, no freeze. On **devnet / Surfpool / LiteSVM** the protocol uses a mock-PUSD mirror at [`F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE`](https://explorer.solana.com/address/F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE?cluster=devnet) (Token-2022, base mint layout only, no extensions) so testing is unblocked and `pnpm fund-pusd` can mint test balances on demand.
+
+The mint address is the **only** thing that changes when swapping to live PUSD on mainnet — the contracts treat the stablecoin as a single Token-2022 `Mint` address configured at init time. Same instruction set, same authority model, same accounting. RVS vault shares stay on the classic SPL Token program (Sentinel-native mint, no metadata needed); the protocol uses Anchor's `token_interface` on the stable side to support both Token-2022 and classic SPL transparently.
+
+---
+
+## Token-2022 / PUSD migration
+
+The protocol migrated from a classic-SPL mock USDC mint to **Token-2022 mock PUSD** as of 2026-05-11. Program IDs are unchanged (in-place `solana program deploy` upgrade). What changed:
+
+- **Stable mint**: classic SPL `epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K` → Token-2022 `F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE` on devnet (Token-2022 program `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`). Mainnet target: live PUSD at `CZzgUBvxaMLwMhVSLgqJn3npmxoTo6nzMNQPAnwtHF3s`.
+- **Stable-side accounts**: programs moved from `Program<Token>` + `Account<TokenAccount>` to `Interface<TokenInterface>` + `InterfaceAccount<TokenAccount>` (Anchor's `token_interface` module). SPL transfers go through `transfer_checked` so the same binary handles classic-SPL or Token-2022 mints.
+- **ATAs**: stable-side associated token accounts now derive against Token-2022 (`associated_token::token_program = token_program` constraint must be explicit; Anchor defaults to classic SPL). The frontend, executor, scripts, and tests all pass the Token-2022 program id to `findAssociatedTokenPda` / `getAssociatedTokenAddressSync` for stable-side derivations.
+- **PDA seeds bumped to `_v2`**: `vault_state`, `withdrawal_queue`, `share_mint`, `flight_pool_config`, `pool_treasury`, `controller_config`, `active_flights`, `oracle_config`. Pre-Phase-24 v1 PDAs are still on chain (orphaned, no longer referenced by the deployed binaries). `governance_config` kept its v1 seed (governance schema unchanged).
+- **Share-side unchanged**: RVS shares remain on classic SPL Token. The vault PDA still owns the share mint and signs `token::transfer` / `mint_to` / `burn` against `Program<Token>`.
+- **CLI surface**: `pnpm fund-usdc` → `pnpm fund-pusd` (passes `--program-id <Token-2022>` to `spl-token create-token`).
+- **Frontend e2e tests removed**: the Synpress + Playwright suite at `frontend/tests/` was deleted because Synpress did not work reliably with the Solana Wallet Standard flow under the pinned framework-kit version. Cross-program protocol behavior is still covered by the 88-test LiteSVM suite and the 8-scenario Phase 11 Surfpool cron e2e.
+
+**Rollback** — if the migration needs to be reverted, see [pre_pusd_migration.md](pre_pusd_migration.md). The pre-migration state is pinned at git tag `pre-pusd-migration`; the keys `keys/mock-usdc.{json,pubkey,-authority.json,-authority.pubkey}` are retained on disk for that path.
 
 ---
 
@@ -180,7 +199,7 @@ sentinel_solana/
 ├── keys/                  # Public keypairs (*.pubkey committed; *.json gitignored)
 ├── spec/                  # Architecture, phase plans, progress
 ├── Anchor.toml            # Anchor workspace config (program IDs pinned here)
-├── Surfpool.toml          # Surfnet config (mock USDC seed)
+├── Surfpool.toml          # Surfnet config (mock PUSD seed, Token-2022)
 ├── Makefile               # Python agent targets (Phase 22)
 └── package.json           # Root scripts
 ```
@@ -241,12 +260,13 @@ pnpm test:integration
 
 ## Local development
 
-### Mock USDC mint (single, shared across envs)
+### Mock PUSD mint (single, shared across envs)
 
-A single mock USDC mint is committed via its keypair (`keys/mock-usdc.json`, gitignored) so the same mint pubkey is reused across LiteSVM unit tests, Surfpool integration tests, and devnet deploys. Public addresses are committed at:
+A single mock PUSD mint (Token-2022) is committed via its keypair (`keys/mock-pusd.json`, gitignored) so the same mint pubkey is reused across LiteSVM unit tests, Surfpool integration tests, and devnet deploys. Public addresses are committed at:
 
-- `keys/mock-usdc.pubkey` — mint address
-- `keys/mock-usdc-authority.pubkey` — mint authority address
+- `keys/mock-pusd.pubkey` — mint address (`F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE`)
+- `keys/mock-pusd-authority.pubkey` — mint authority address
+- `keys/mock-usdc{,authority}.pubkey` — **legacy** classic-SPL mock USDC, retained only for rollback to the `pre-pusd-migration` git tag; not used by current binaries (see [pre_pusd_migration.md](pre_pusd_migration.md))
 - `keys/executor.pubkey` — oracle/keeper signer address
 
 Hardcoded into all instruction builders so tests and devnet share the same `Address`. Bootstrap or rotate via:
@@ -267,7 +287,7 @@ pnpm dev:executor   # builds Kit client against $SOLANA_RPC_URL, exits 0
 
 ### Frontend cluster switch (devnet ↔ Surfpool)
 
-The same frontend bundle runs against devnet (default) or a local Surfpool ledger. The switch is a single env var; all program IDs / PDAs / mock USDC mint / mock-usdc-authority stay identical across clusters because we never rotate those keypairs. Only four things differ per cluster:
+The same frontend bundle runs against devnet (default) or a local Surfpool ledger. The switch is a single env var; all program IDs / PDAs / mock-PUSD mint / mock-pusd-authority stay identical across clusters because we never rotate those keypairs. Only four things differ per cluster:
 
 | Value | Devnet | Surfpool (localnet) |
 |---|---|---|
@@ -397,21 +417,21 @@ Canonical addresses for each cluster the protocol has been deployed to. Frontend
 
 #### Solana Devnet
 
-Deployed: 2026-05-08. Canonical artifact path on disk: `deployments/devnet-latest.json` (gitignored — re-deploy to regenerate, or copy from below).
+Deployed: 2026-05-08, re-deployed in place 2026-05-11 (Phase 24 Token-2022 migration). Canonical artifact path on disk: `deployments/devnet-latest.json` (gitignored — re-deploy to regenerate, or copy from below).
 
-Program IDs, deployer / owner, stablecoin mint, and cron authorities are listed in the top-of-README [Live on Solana Devnet](#live-on-solana-devnet) section. Below is the **PDA reference table** — derived from program IDs + seeds, needed by the frontend / executor / external integrations for fast reads without re-deriving:
+Program IDs, deployer / owner, stablecoin mint, and cron authorities are listed in the top-of-README [Live on Solana Devnet](#live-on-solana-devnet) section. Below is the **PDA reference table** — all v2 PDAs (post-Phase-24); the pre-Phase-24 v1 PDAs are still on chain but orphaned (referenced only from the `pre-pusd-migration` git tag):
 
-| PDA | Address | Owner program |
-|---|---|---|
-| `governanceConfig` | `AsVZzrc2ong7kU1bkfE4FM4q8mE5kVdRTa3pDW5yr74x` | governance |
-| `vaultState` | `FpUBQSCehFHhSLjLhspNwFeknqTKeLG8FhjZqunaEkxw` | vault |
-| `shareMint` | `JS95NxFcdefTANTiLNL8mjmAHrirR8qQJJGUpYkvZPr` | vault (PDA-owned mint) |
-| `withdrawalQueue` | `AdrAPEPqELwJUAcqmZkx2tigBkEKdSXdZwTRRFSaKVER` | vault |
-| `oracleConfig` | `jkTcNGgvbPVXRsUF6QSdk28jN7g9f7AYhYUP7DniBPg` | oracle_aggregator |
-| `flightPoolConfig` | `89YRV2EdUtCi321YgLfuMCzzHWKJyEtoNo3c8gLsvXkq` | flight_pool |
-| `poolTreasuryAuthority` | `491ShdDXTEGFpYhzhLmdAPyEMXSuQms2iygBqepuRZxa` | flight_pool |
-| `controllerConfig` | `mCKrLhjbapVxbD4AGK99jPg1s3neXfpezQLMZFfNPTR` | controller |
-| `activeFlightList` | `8c64now3ENjNohx7NNyoJbtd2p6T1w1qaUner6boh6X1` | controller |
+| PDA | v2 seed | Address | Owner program |
+|---|---|---|---|
+| `governanceConfig` | `governance_config` | `AsVZzrc2ong7kU1bkfE4FM4q8mE5kVdRTa3pDW5yr74x` | governance |
+| `vaultState` | `vault_state_v2` | `CZ7Cnntu7uSWmzKNudfd6v8UHJqjELiCJuBX1pn43ecc` | vault |
+| `shareMint` | `share_mint_v2` | `68SbS4XW5ACfbWr6TBFxLK7rHc6P7uLkBRd26o4ZGQM` | vault (PDA-owned mint, classic SPL) |
+| `withdrawalQueue` | `withdrawal_queue_v2` | `2iXD7wBgunLeVXaSDGSzHKC89ms8RKXpzSLoPJPLcvaT` | vault |
+| `oracleConfig` | `oracle_config_v2` | `7FimnDxjyVw2T4cGR2fTv3vG1t5zS8iVEHBxNmR4J8xt` | oracle_aggregator |
+| `flightPoolConfig` | `flight_pool_config_v2` | `G9RRspS8p9R1wvSVCJ8kgefKMJDjRTDQtfwbTHK2D7eV` | flight_pool |
+| `poolTreasuryAuthority` | `pool_treasury_v2` | `6VDsbh8nxpwj9tj8F27Ftfior3Wc8C5vDW9LKAr1KVR7` | flight_pool |
+| `controllerConfig` | `controller_config_v2` | `496TgyNMNYDoGgGmUEviJ2hvc9cvvf788sSn5WTsEKqw` | controller |
+| `activeFlightList` | `active_flights_v2` | `6Jisfz6sgbMZiCN2iKhjrkdRRTBwRyYLB4Tb4gFyJxJs` | controller |
 
 Cron authority keypairs are auto-generated by the deploy script at gitignored paths: `keys/devnet-oracle.json` (FlightDataFetcher signer) and `keys/devnet-keeper.json` (Classifier + Settler signer).
 
@@ -436,9 +456,9 @@ pnpm test:integration:deployed                            # multi-actor lifecycl
 ```
 
 The deploy script:
-- creates the mock USDC mint at the canonical `keys/mock-usdc.pubkey` (auto-runs `spl-token create-token` on first invocation)
-- deploys all 5 programs sequentially via `solana program deploy`
-- initializes governance / vault / oracle_aggregator / flight_pool / controller in dependency order
+- creates the mock PUSD mint (Token-2022) at the canonical `keys/mock-pusd.pubkey` (auto-runs `spl-token create-token --program-id <Token-2022>` on first invocation)
+- deploys all 5 programs sequentially via `solana program deploy` (in-place upgrade if program IDs already exist on chain)
+- initializes governance / vault / oracle_aggregator / flight_pool / controller in dependency order using v2 PDA seeds (post-Phase-24)
 - wires authorities (`vault.set_controller`, `flight_pool.set_controller`, `oracle.set_authorized_consumer`)
 - emits a deployment artifact at `deployments/<cluster>-<unix-ts>.json` + `<cluster>-latest.json`
 - is fully idempotent: re-running detects existing state and skips
@@ -449,11 +469,11 @@ The deploy script:
 # Pre-fund the deployer keypair (~10–15 SOL on devnet/testnet)
 solana airdrop 5 --url devnet --keypair ~/.config/solana/id.json
 
-# First-run: auto-creates the mock USDC mint
+# First-run: auto-creates the mock PUSD (Token-2022) mint
 pnpm run deploy --cluster devnet --owner $(solana-keygen pubkey ~/.config/solana/id.json)
 
-# Seed test actors with mock USDC
-pnpm fund-usdc --cluster devnet --recipient <pubkey> --amount 10000
+# Seed test actors with mock PUSD
+pnpm fund-pusd --cluster devnet --recipient <pubkey> --amount 10000
 ```
 
 ### Mainnet (gated)
@@ -462,20 +482,20 @@ pnpm fund-usdc --cluster devnet --recipient <pubkey> --amount 10000
 # Required: --confirm-mainnet flag + typed confirmation prompt
 pnpm run deploy --cluster mainnet \
                 --owner <funded-pubkey> \
-                --usdc EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v \
+                --usdc CZzgUBvxaMLwMhVSLgqJn3npmxoTo6nzMNQPAnwtHF3s \
                 --confirm-mainnet
 ```
 
-The script prints a cost preview (estimated ~14 SOL) and demands you type `deploy to mainnet` before any RPC call. Mainnet refuses to use the mock USDC — `--usdc <real-pubkey>` is required.
+The script prints a cost preview (estimated ~14 SOL) and demands you type `deploy to mainnet` before any RPC call. Mainnet refuses the mock mint — `--usdc <real-pubkey>` is required. The `--usdc` flag is named for backwards compat; pass the live **PUSD** mint there (Token-2022 program, mainnet pubkey `CZzgUBvxaMLwMhVSLgqJn3npmxoTo6nzMNQPAnwtHF3s`).
 
 ### Funding scripts
 
 | Script | Cluster scope | Purpose |
 |---|---|---|
 | `pnpm fund-sol --cluster surfpool --recipient <pk> --amount <sol>` | surfpool only | Airdrop SOL via `requestAirdrop` (unlimited locally) |
-| `pnpm fund-usdc --cluster <surfpool\|localnet\|devnet\|testnet> --recipient <pk> --amount <usdc>` | dev clusters | Mint mock USDC via the committed mint authority (`keys/mock-usdc-authority.json`) |
+| `pnpm fund-pusd --cluster <surfpool\|localnet\|devnet\|testnet> --recipient <pk> --amount <pusd>` | dev clusters | Mint mock PUSD (Token-2022) via the committed mint authority (`keys/mock-pusd-authority.json`) |
 
-Mainnet has no mock-USDC mint authority — fund recipients via DEX or transfer.
+Mainnet has no mock-PUSD mint authority — fund recipients via DEX or transfer.
 
 ### Troubleshooting
 
@@ -483,7 +503,7 @@ Mainnet has no mock-USDC mint authority — fund recipients via DEX or transfer.
 |---|---|---|
 | `--owner ... does not match the deployer keypair ...` | Different pubkey passed than the deployer keypair holds | The deployer signs init txs and becomes config.owner. Pass `--owner <deployer-pubkey>` or use `--deployer <path-to-owner-keypair>`. |
 | `Need ~X SOL, deployer ... has Y SOL on <cluster>` | Pre-flight balance check failed | Fund the deployer keypair on the target cluster (e.g. `solana airdrop 5 --url devnet`). |
-| `Mock USDC not found on <cluster>` | Mint never created on this cluster | `pnpm run deploy --cluster <cluster> --owner <pk>` auto-creates it on first run. |
+| `Mock PUSD not found on <cluster>` | Mint never created on this cluster | `pnpm run deploy --cluster <cluster> --owner <pk>` auto-creates it on first run (Token-2022 program). |
 | `Mainnet deploys require --confirm-mainnet` | Safety guardrail | Re-run with `--confirm-mainnet` to see the cost preview. |
 | Surfpool integration test skipped with warning | Surfpool not running, or no deployment artifact | `pnpm dev:surfpool` in another terminal, then `pnpm run deploy --cluster surfpool --owner <pk>`. |
 | `Cannot find package '@solana/program-client-core'` | Codama runtime dep missing | `pnpm install` (root package.json includes it). |
@@ -598,8 +618,7 @@ auto-start surfpool or auto-deploy.
   so the suite avoids ever shrinking by keeping the multi-flight scenario at
   the end. Phase 6 D-Phase6-2 already flagged this for a future compaction ix.
 - Surfpool clock advances slot-only by default; if the test ever needs cross-
-  day snapshot validation, use the `surfnet_setTime` cheatcode (deferred to
-  Phase 16 — browser e2e).
+  day snapshot validation, use the `surfnet_setTime` cheatcode.
 - Total runtime: ~38 seconds on a fresh deploy (Surfpool startup + deploy not
   counted; assume those are pre-flight).
 
@@ -708,8 +727,7 @@ Sentinel has 5 test surfaces &mdash; one per execution context. Each is a one-li
 | Cross-program integration | `contracts/tests/integration.test.ts` | LiteSVM (vitest) | 9 | Full lifecycle on LiteSVM: deploy &rarr; whitelist &rarr; deposit &rarr; buy &rarr; oracle write &rarr; classify &rarr; settle &rarr; claim. Three flight outcomes (on-time / delayed / cancelled) + withdrawal queue + solvency + auth isolation. |
 | Surfpool integration | `contracts/tests/integration/{surfpool,full-flow-deployed}.test.ts` | Surfpool (vitest) | 2 suites | Sanity RPC reachability + multi-actor full-flow lifecycle against a live local Surfnet. Same code paths the frontend hits. |
 | E2E with real crons | `contracts/tests/integration/e2e-with-crons-deployed.test.ts` | Surfpool (vitest) | 8 scenarios | Drives `runFetcherOnce` / `runClassifierOnce` / `runSettlerOnce` against live Surfpool with a parameterized mock AeroAPI. Highest-fidelity test we have &mdash; real RPC, real Anchor programs, real Codama ixs. |
-| Executor unit tests | `executor/tests/*.test.ts` | vitest | 77 | Pure unit tests on each cron's decision module (classifier batches, fetcher actions, settlement batches, route actions), AeroAPI client + 4xx envelope decoder, Grok client + structured-output decoder. |
-| Browser e2e | `frontend/tests/e2e/*.spec.ts` | Playwright + Synpress + Phantom | 8 specs | Headless Phantom wallet driven through every user flow: connect, faucet mint, vault deposit, buy coverage, portfolio view, and the three flight-outcome flows (on-time, delayed, cancelled). |
+| Executor unit tests | `executor/tests/*.test.ts` | vitest | 114 | Pure unit tests on each cron's decision module (classifier batches, fetcher actions, settlement batches, route actions), AeroAPI client + 4xx envelope decoder, Grok client + structured-output decoder. |
 | Agent service | `agent/tests/test_price.py` | pytest | 4 | XGBoost service smoke: model loads, `/price` request/response contract, `/healthz` contract, premium clamp invariant. |
 
 ### Running the tests
@@ -754,25 +772,7 @@ pnpm --filter @sentinel/executor test
 
 No infrastructure. Tests run in milliseconds. Covers all four crons' decision logic plus the AeroAPI 4xx-envelope decoder and the Grok structured-JSON contract.
 
-**5. Browser e2e (Playwright + Synpress)** &mdash; needs the frontend running + a cached Phantom wallet.
-
-```bash
-# One-time: cache the Phantom wallet state for Synpress
-pnpm --filter @sentinel/frontend test:e2e:cache
-
-# Start the frontend (terminal 1)
-pnpm dev:frontend
-
-# Run the suite (terminal 2)
-pnpm --filter @sentinel/frontend test:e2e
-
-# Headed mode for debugging
-pnpm --filter @sentinel/frontend test:e2e:headed
-```
-
-The 8 specs run in order; specs 10-12 (flight-outcome flows) require the frontend's mock AeroAPI mode plus the cron control panel under `/crons`. See `frontend/tests/e2e/README.md` for the full setup walk-through.
-
-**6. Agent service (Python pytest)** &mdash; needs the Python env + the trained model.
+**5. Agent service (Python pytest)** &mdash; needs the Python env + the trained model.
 
 ```bash
 # macOS only: xgboost needs libomp

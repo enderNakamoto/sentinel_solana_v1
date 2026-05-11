@@ -21,8 +21,9 @@ Decentralised flight delay insurance on Solana. This file is loaded automaticall
 
 - 5 Anchor programs: `governance`, `vault`, `flight_pool`, `oracle_aggregator`, `controller` (per `spec/architecture.md` §Program Architecture — do not consolidate). Oracle authority lives on `oracle_aggregator_program`; keeper authority lives on `controller_program`.
 - 3 off-chain crons: `FlightDataFetcher` (2h), `FlightClassifier` (1h), `SettlementExecutor` (5min)
-- Single mock USDC mint shared across LiteSVM, Surfpool, and devnet (keypair at `keys/mock-usdc.json`, pubkey committed at `keys/mock-usdc.pubkey`)
-- Vault shares (RVS) as a separate SPL mint owned by `vault_program` PDA
+- **Stablecoin is Palm USD (PUSD)** — Token-2022 mint at `CZzgUBvxaMLwMhVSLgqJn3npmxoTo6nzMNQPAnwtHF3s` (mainnet) with MetadataPointer + TokenMetadata extensions, no fees / no transfer hooks. On dev/test clusters a mock PUSD mirror lives at `F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE` (Token-2022, base layout only, no extensions). Single keypair `keys/mock-pusd.json` shared across LiteSVM, Surfpool, devnet.
+- **Two token programs in play**: the stable side (PUSD) lives under **Token-2022** (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`); vault shares (RVS) live under **classic SPL Token** (`TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`), PDA-owned by `vault_program`. Stable-side ATAs derive against Token-2022; share-side ATAs derive against classic SPL. Programs use `token_interface` (`Interface<TokenInterface>` + `InterfaceAccount<Mint/TokenAccount>`) on the stable side; share side uses concrete `Program<Token>`.
+- v2 PDA seeds (post-Phase-24): `vault_state_v2`, `withdrawal_queue_v2`, `share_mint_v2`, `flight_pool_config_v2`, `pool_treasury_v2`, `controller_config_v2`, `active_flights_v2`, `oracle_config_v2`. `governance_config` kept at v1 (governance schema unchanged). Pre-Phase-24 v1 PDAs are orphaned on chain — Codama-generated PDA helpers always derive v2.
 
 ## Source-of-truth files
 
