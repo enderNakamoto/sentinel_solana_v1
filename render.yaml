@@ -21,14 +21,16 @@
 
 services:
   - type: web
-    name: sentinel-executor
+    name: sentinel-executor-solana
     runtime: node
     plan: starter # free tier sleeps after 15min idle — starter stays warm
     rootDir: .
     # esbuild bundles the daemon (Codama-generated clients use bare
     # directory imports — `tsx` / native `--experimental-strip-types`
     # can't resolve them at runtime; bundling sidesteps the issue).
-    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    # Render auto-detects pnpm from `packageManager` in package.json,
+    # so `corepack enable` would only fail on Render's read-only FS.
+    buildCommand: pnpm install --frozen-lockfile
     startCommand: bash scripts/run.sh run-cron
     healthCheckPath: /api/health
     numInstances: 1
@@ -97,3 +99,35 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
+
+  # ─── Next.js frontend ───────────────────────────────────────────────
+  # Server-rendered Next 15 app. Build runs at the repo root so pnpm
+  # workspaces resolve correctly; `pnpm --filter` keeps the build scoped
+  # to the frontend package. Listens on Render's injected $PORT.
+  - type: web
+    name: sentinel-frontend-solana
+    runtime: node
+    plan: starter
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @sentinel/frontend build
+    startCommand: pnpm --filter @sentinel/frontend start
+    healthCheckPath: /
+    numInstances: 1
+    envVars:
+      # Public RPC + faucet (frontend reads NEXT_PUBLIC_* at build time
+      # so these MUST be set before the build runs).
+      - key: NEXT_PUBLIC_SOLANA_RPC_URL
+        value: https://api.devnet.solana.com
+      - key: FAUCET_RPC_URL
+        value: https://api.devnet.solana.com
+      # Cron proxy target — points at the executor Render service.
+      - key: EXECUTOR_BASE_URL
+        sync: false
+      - key: EXECUTOR_TRIGGER_SECRET
+        sync: false
+      # Faucet keypairs (server-side mint authority + fee payer for
+      # /api/faucet/mint). Same values as your local frontend/.env.local.
+      - key: FAUCET_FEE_PAYER_BASE58
+        sync: false
+      - key: FAUCET_MINT_AUTHORITY_BASE58
+        sync: false
