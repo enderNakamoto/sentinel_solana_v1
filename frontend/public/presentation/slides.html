@@ -648,55 +648,67 @@
   <!-- SLIDE s-oracle — Oracle Infra & Executor Overview    -->
   <!-- ══════════════════════════════════════════════════ -->
   <section class="slide" id="s-oracle">
-    <div style="max-width:1060px; width:100%">
-      <div style="text-align:center; margin-bottom:24px">
-        <div class="tag" style="background:rgba(169,139,255,0.12); color:var(--stellar); margin-bottom:8px">Decentralised Oracle</div>
-        <h2 style="margin-top:10px">The Oracle runs on a <em>phone.</em></h2>
-        <p class="lead" style="margin:10px auto 0; text-align:center; max-width:760px">Sentinel's flight data oracle is deployed on <strong style="color:var(--white)">Acurast</strong> &mdash; a decentralised confidential compute network where the workers are real Android phones running attested TEEs.</p>
+    <div style="max-width:1100px; width:100%">
+      <div style="text-align:center; margin-bottom:20px">
+        <div class="tag" style="background:rgba(169,139,255,0.12); color:var(--stellar); margin-bottom:8px">Decentralised Oracle &middot; DePIN</div>
+        <h2 style="margin-top:8px">The Oracle runs on a <em>phone.</em></h2>
+        <p class="lead" style="margin:8px auto 0; text-align:center; max-width:780px; font-size:15px">Sentinel's flight-data oracle runs on <strong style="color:var(--white)">Acurast</strong> &mdash; a DePIN network where the workers are real Android phones. Our TypeScript runs inside each phone's secure chip; the API calls and the on-chain writes both happen from inside the TEE.</p>
       </div>
 
-      <div style="display:grid; grid-template-columns:1.1fr 1fr; gap:24px; margin-top:8px">
+      <div style="display:grid; grid-template-columns:0.95fr 1.1fr; gap:22px; align-items:stretch">
 
-        <div class="card" style="border-color:rgba(169,139,255,0.35); padding:24px; background:rgba(169,139,255,0.04)">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(169,139,255,0.18);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">&#128241;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--stellar)">Phone-as-TEE worker</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            Acurast turns retired Android phones into trusted compute nodes. Our oracle code runs inside the phone's secure chip &mdash; nobody, not even the phone's owner, can read or steal the keys it uses to sign.
+        <!-- LEFT — Acurast Processor cluster photo -->
+        <div style="border-radius:14px; overflow:hidden; border:1px solid var(--border); background:#000; position:relative; min-height:420px">
+          <img src="/presentation/acurast-cluster.jpg" alt="Acurast Processor cluster — real Android phones running attested TEEs" style="width:100%; height:100%; object-fit:cover; display:block; position:absolute; inset:0"/>
+          <div style="position:absolute; bottom:0; left:0; right:0; padding:14px 16px; background:linear-gradient(180deg, transparent, rgba(7,9,14,0.92)); font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--stellar); letter-spacing:0.05em">
+            Acurast Processor cluster &middot; each phone &#9410; a trusted compute node
           </div>
         </div>
 
-        <div class="card" style="border-color:rgba(94,224,210,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128274;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--blue)">Attested signing key</div>
-          </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            The oracle's signing key only lives inside the phone's secure hardware. Solana checks the signature on every write &mdash; if it's not from that hardware-protected key, the write is rejected.
-          </div>
-        </div>
+        <!-- RIGHT — 4 stacked cards -->
+        <div style="display:grid; grid-template-rows:repeat(4, 1fr); gap:10px">
 
-        <div class="card" style="border-color:rgba(126,231,135,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(126,231,135,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#127760;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--green)">No central operator</div>
+          <div class="card" style="border-color:rgba(169,139,255,0.35); padding:14px 16px; background:rgba(169,139,255,0.04)">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px">
+              <span style="font-size:18px">&#128241;</span>
+              <div style="font-size:15px; font-weight:800; color:var(--stellar)">DePIN &mdash; phones as workers</div>
+            </div>
+            <div style="font-size:13px; color:#b6becd; line-height:1.5">
+              Acurast is a DePIN network that turns retired Android phones into trusted compute nodes. We pay per run, not per server &mdash; no AWS, no single operator. If one phone goes offline, another picks up the job.
+            </div>
           </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            Anyone with an old Android phone can run our oracle. We pay per run, not per server. No AWS, no single operator to bribe &mdash; if one phone goes offline, another picks up the job.
-          </div>
-        </div>
 
-        <div class="card" style="border-color:rgba(255,181,71,0.3); padding:24px">
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
-            <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,181,71,0.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#9881;</div>
-            <div style="font-size:19px; font-weight:800; color:var(--yellow)">Same code, swappable host</div>
+          <div class="card" style="border-color:rgba(94,224,210,0.3); padding:14px 16px">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px">
+              <span style="font-size:18px">&#128187;</span>
+              <div style="font-size:15px; font-weight:800; color:var(--blue)">Our TypeScript runs inside the TEE</div>
+            </div>
+            <div style="font-size:13px; color:#b6becd; line-height:1.5">
+              The fetcher's TS code is deployed straight to the phone's secure chip. The AeroAPI calls go out from inside the TEE, and the signed write to Solana comes back out the same way.
+            </div>
           </div>
-          <div style="font-size:15px; color:#b6becd; line-height:1.6">
-            The same code runs in tests and on the phone &mdash; no special build. If we ever need to rotate keys or move the job to different hardware, we just redeploy. The Solana programs never change.
-          </div>
-        </div>
 
+          <div class="card" style="border-color:rgba(126,231,135,0.3); padding:14px 16px">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px">
+              <span style="font-size:18px">&#128274;</span>
+              <div style="font-size:15px; font-weight:800; color:var(--green)">Attested signing &mdash; keys can't be extracted</div>
+            </div>
+            <div style="font-size:13px; color:#b6becd; line-height:1.5">
+              The signing key lives inside the secure hardware. Nobody &mdash; not even the phone's owner &mdash; can read or steal it. Solana verifies the signature came from an attested key on every write, or rejects it.
+            </div>
+          </div>
+
+          <div class="card" style="border-color:rgba(255,181,71,0.3); padding:14px 16px">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px">
+              <span style="font-size:18px">&#128221;</span>
+              <div style="font-size:15px; font-weight:800; color:var(--yellow)">Publicly verifiable code hash</div>
+            </div>
+            <div style="font-size:13px; color:#b6becd; line-height:1.5">
+              We can publish the hash of the code running inside the TEE. Anyone can verify that the oracle Sentinel <em>claims</em> to run is what's actually executing on the phones.
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   </section>
