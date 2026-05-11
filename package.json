@@ -28,8 +28,6 @@
     "rotate-keeper": "bash scripts/run.sh rotate-keeper",
     "rotate-oracle": "bash scripts/run.sh rotate-oracle",
     "bootstrap-test-actors": "bash scripts/run.sh bootstrap-test-actors",
-    "bootstrap-e2e": "bash scripts/run.sh bootstrap-e2e",
-    "test:e2e:bootstrap": "bash scripts/run.sh bootstrap-e2e",
     "run-fetcher": "bash scripts/run.sh run-fetcher",
     "run-classifier": "bash scripts/run.sh run-classifier",
     "run-settler": "bash scripts/run.sh run-settler",
