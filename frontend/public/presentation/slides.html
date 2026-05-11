@@ -709,9 +709,9 @@
   <section class="slide" id="s-oracle-flow">
     <div style="max-width:1060px; width:100%">
       <div style="text-align:center; margin-bottom:14px">
-        <div class="tag" style="background:rgba(94,224,210,0.1); color:var(--blue); margin-bottom:8px">How It Works</div>
-        <h2 style="margin-top:10px">How the oracle tracks flights</h2>
-        <p class="lead" style="margin:8px auto 0; text-align:center; max-width:720px">The oracle only watches flights people have actually bought coverage on. It only calls the flight-data API after a flight should have landed &mdash; saving most of the calls a naive system would make.</p>
+        <div class="tag" style="background:rgba(94,224,210,0.1); color:var(--blue); margin-bottom:8px">How we scale</div>
+        <h2 style="margin-top:10px">One API call per insured flight.</h2>
+        <p class="lead" style="margin:8px auto 0; text-align:center; max-width:780px">A naive insurer polls every flight, every hour. We don't. Flights enter the oracle's watch list only when someone buys coverage. We only call the API <em>after</em> a flight should have landed. The moment settlement runs, the flight drops off the list. Cost scales with active policies &mdash; not with flights in the sky.</p>
       </div>
 
       <svg viewBox="0 0 960 340" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
@@ -821,10 +821,10 @@
 
         <!-- Bottom key insight -->
         <rect x="780" y="120" width="160" height="80" rx="10" fill="rgba(94,224,210,0.06)" stroke="rgba(94,224,210,0.2)" stroke-width="1.5"/>
-        <text x="860" y="142" fill="#5ee0d2" font-size="10" font-weight="800" text-anchor="middle">KEY INSIGHT</text>
-        <text x="860" y="160" fill="#eef1f7" font-size="11" text-anchor="middle" font-weight="600">Fetcher only calls API</text>
-        <text x="860" y="176" fill="#eef1f7" font-size="11" text-anchor="middle" font-weight="600">for Active flights</text>
-        <text x="860" y="192" fill="#5ee0d2" font-size="11" text-anchor="middle" font-weight="700">after ETA + 1 hour</text>
+        <text x="860" y="142" fill="#5ee0d2" font-size="10" font-weight="800" text-anchor="middle">SCALING WIN</text>
+        <text x="860" y="160" fill="#eef1f7" font-size="11" text-anchor="middle" font-weight="600">1 API call</text>
+        <text x="860" y="176" fill="#eef1f7" font-size="11" text-anchor="middle" font-weight="600">per insured flight.</text>
+        <text x="860" y="192" fill="#5ee0d2" font-size="11" text-anchor="middle" font-weight="700">Cost scales linearly.</text>
 
         <!-- Bottom flow -->
         <rect x="780" y="220" width="160" height="92" rx="10" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
