@@ -211,7 +211,7 @@ export default function HomePage() {
                 'If delay > threshold, payout hits your wallet automatically.',
               ],
             ]}
-            example="UA1437 SFO→JFK · 12.40 USDC premium · 180 USDC payout if >60min late"
+            example="UA1437 SFO→JFK · 12.40 PUSD premium · 180 PUSD payout if >60min late"
           />
           <SideCard
             tag="For underwriters"
@@ -220,7 +220,7 @@ export default function HomePage() {
             steps={[
               [
                 '01',
-                'Deposit USDC into a risk tier (Conservative / Balanced / Aggressive).',
+                'Deposit PUSD into a risk tier (Conservative / Balanced / Aggressive).',
               ],
               [
                 '02',
@@ -286,12 +286,12 @@ export default function HomePage() {
                   </td>
                   <td>
                     <span className="num">
-                      {f.premium.toFixed(2)} <span className="muted">USDC</span>
+                      {f.premium.toFixed(2)} <span className="muted">PUSD</span>
                     </span>
                   </td>
                   <td>
                     <span className="num" style={{ color: 'var(--cyan)' }}>
-                      {f.payout} <span className="muted">USDC</span>
+                      {f.payout} <span className="muted">PUSD</span>
                     </span>
                   </td>
                   <td>

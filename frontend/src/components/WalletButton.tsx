@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useWalletConnection, useWalletSession } from '@solana/react-hooks';
-import { fmtUsdcLocal } from '@/lib/usdc';
-import { useUsdcBalance } from '@/lib/useUsdcBalance';
+import { fmtPusdLocal } from '@/lib/pusd';
+import { usePusdBalance } from '@/lib/usePusdBalance';
 
 /**
  * Topbar wallet chip — Wallet Standard via framework-kit.
  *
  * Disconnected: "Connect" button → opens a modal listing all detected
- * connectors. Connected: truncated address + live mock-USDC balance +
+ * connectors. Connected: truncated address + live mock-PUSD balance +
  * dropdown with "Copy address" + "Disconnect".
  */
 
@@ -22,7 +22,7 @@ export function WalletButton() {
   const { connectors, connect, disconnect, connected, connecting } =
     useWalletConnection();
   const session = useWalletSession();
-  const { balance, loading: balanceLoading } = useUsdcBalance();
+  const { balance, loading: balanceLoading } = usePusdBalance();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -32,8 +32,8 @@ export function WalletButton() {
     balance == null
       ? balanceLoading
         ? '…'
-        : '— USDC'
-      : `${fmtUsdcLocal(balance)} USDC`;
+        : '— PUSD'
+      : `${fmtPusdLocal(balance)} PUSD`;
 
   // Close dropdown on outside click.
   useEffect(() => {

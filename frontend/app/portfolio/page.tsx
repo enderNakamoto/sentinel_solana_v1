@@ -13,13 +13,13 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { useRpc } from '@/lib/rpc';
 import { useSendTx } from '@/lib/sendTx';
 import { useToast } from '@/components/Toast';
-import { fmtUsdc } from '@/lib/usdc';
-import { userUsdcAta } from '@/lib/ata';
+import { fmtPusd } from '@/lib/pusd';
+import { userStableAta } from '@/lib/ata';
 import { useTxSuccess } from '@/lib/txEvents';
 import { useWalletSigner } from '@/lib/useWalletSigner';
 import { readMyPolicies, type MyPolicy } from '@/data';
 import { getClaimInstructionAsync } from '@/clients/flight_pool/src/generated';
-import { MOCK_USDC_MINT, PDAS, TOKEN_PROGRAM, explorerLink } from '@/config/devnet';
+import { MOCK_PUSD_MINT, PDAS, TOKEN_PROGRAM, explorerLink } from '@/config/devnet';
 
 type Status = 'Active' | 'SettledOnTime' | 'SettledDelayed' | 'SettledCancelled';
 
@@ -91,21 +91,21 @@ export default function PortfolioPage() {
   const handleClaim = async (p: MyPolicy) => {
     if (!wallet || !walletSigner) return;
     const signer = walletSigner;
-    const usdcAta = await userUsdcAta(wallet);
+    const usdcAta = await userStableAta(wallet);
     const [poolTreasuryAta] = await findAssociatedTokenPda({
       owner: PDAS.poolTreasuryAuthority,
-      mint: MOCK_USDC_MINT,
+      mint: MOCK_PUSD_MINT,
       tokenProgram: TOKEN_PROGRAM,
     });
     const createAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
       payer: signer,
       owner: wallet,
-      mint: MOCK_USDC_MINT,
+      mint: MOCK_PUSD_MINT,
     });
     const claimIx = await getClaimInstructionAsync({
       buyer: wallet,
       poolTreasury: poolTreasuryAta,
-      usdcMint: MOCK_USDC_MINT,
+      stableMint: MOCK_PUSD_MINT,
       traveler: signer,
       flightId: p.pool.flightId,
       date: p.pool.date,
@@ -297,7 +297,7 @@ function PolicyCard({
           PREMIUM PAID
         </span>
         <span className="num" style={{ fontSize: 12 }}>
-          {fmtUsdc(p.pool.premium)} USDC
+          {fmtPusd(p.pool.premium)} PUSD
         </span>
       </div>
 
@@ -306,7 +306,7 @@ function PolicyCard({
           PAYOFF
         </span>
         <span className="num" style={{ fontSize: 12 }}>
-          {fmtUsdc(p.pool.payoff)} USDC
+          {fmtPusd(p.pool.payoff)} PUSD
         </span>
       </div>
 
@@ -318,7 +318,7 @@ function PolicyCard({
             onClick={() => void onClaim(p)}
             style={{ fontSize: 11 }}
           >
-            Claim {fmtUsdc(p.pool.payoff)}
+            Claim {fmtPusd(p.pool.payoff)}
           </button>
         ) : (
           <span className="muted mono" style={{ fontSize: 10 }}>

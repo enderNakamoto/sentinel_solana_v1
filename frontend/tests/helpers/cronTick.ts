@@ -257,19 +257,19 @@ async function settlerTick(flightId: string, date: bigint): Promise<void> {
   const [poolPda] = await findPoolPda({ flightId, date });
 
   // Vault USDC ATA + pool treasury ATA — both are
-  // ATA(authorityPda, MOCK_USDC_MINT). Mock USDC mint addresses are
+  // ATA(authorityPda, MOCK_PUSD_MINT). Mock USDC mint addresses are
   // fixed across clusters (see config/devnet.ts).
   const { findAssociatedTokenPda } = await import('@solana-program/token');
-  const { MOCK_USDC_MINT } = await import('@/config/devnet');
+  const { MOCK_PUSD_MINT, STABLE_TOKEN_PROGRAM } = await import('@/config/devnet');
 
   const [vaultTokenAccount] = await findAssociatedTokenPda({
     owner: PDAS.vaultState,
-    mint: MOCK_USDC_MINT,
+    mint: MOCK_PUSD_MINT,
     tokenProgram: TOKEN_PROGRAM_ADDRESS,
   });
   const [poolTreasury] = await findAssociatedTokenPda({
     owner: PDAS.poolTreasuryAuthority,
-    mint: MOCK_USDC_MINT,
+    mint: MOCK_PUSD_MINT,
     tokenProgram: TOKEN_PROGRAM_ADDRESS,
   });
 
@@ -286,8 +286,9 @@ async function settlerTick(flightId: string, date: bigint): Promise<void> {
     snapshotRecord: snapshotRecordPda,
     poolTreasury,
     treasuryAuthority: PDAS.poolTreasuryAuthority,
+    stableMint: MOCK_PUSD_MINT,
     keeper,
-    tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    stableTokenProgram: STABLE_TOKEN_PROGRAM,
     day,
     nFlights: 1,
   });

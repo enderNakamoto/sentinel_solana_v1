@@ -1,10 +1,12 @@
 /**
  * POST /api/faucet/mint
  *
- * Public-facing mock-USDC faucet. Two server-side keypairs sign:
+ * Public-facing mock-PUSD faucet. PUSD is a Token-2022 mint, so both the
+ * ATA-create CPI and the mint_to CPI target the Token-2022 program id
+ * (`TokenzQd...`). Two server-side keypairs sign:
  *   - Fee payer: deployer keypair (has SOL on devnet for fees + ATA rent).
- *   - Mint authority: mock-usdc-authority keypair (the only key the SPL
- *     Token program will accept for `mint_to` against MOCK_USDC_MINT).
+ *   - Mint authority: mock-pusd-authority keypair (the only key the
+ *     Token-2022 program will accept for `mint_to` against MOCK_PUSD_MINT).
  *
  * Source priority for each keypair:
  *   1. <X>_BASE58  — base58-encoded 64-byte secret key (prod / hosted)
@@ -14,7 +16,7 @@
  *
  * Where <X> is FAUCET_FEE_PAYER for the fee payer (default
  * `devnet-deployer.json`) and FAUCET_MINT_AUTHORITY for the mint authority
- * (default `mock-usdc-authority.json`).
+ * (default `mock-pusd-authority.json`).
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -45,12 +47,12 @@ import {
 
 export const runtime = 'nodejs';
 
-const MOCK_USDC_MINT = 'epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K' as Address;
-const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address;
+const MOCK_PUSD_MINT = 'F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE' as Address;
+const STABLE_TOKEN_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' as Address;
 const DEFAULT_RPC = 'https://api.devnet.solana.com';
-const DEFAULT_AMOUNT_USDC = 10_000;
-const MAX_AMOUNT_USDC = 100_000;
-const USDC_FACTOR = 1_000_000n; // 6 decimals
+const DEFAULT_AMOUNT_PUSD = 10_000;
+const MAX_AMOUNT_PUSD = 100_000;
+const PUSD_FACTOR = 1_000_000n; // 6 decimals
 
 interface MintRequestBody {
   recipient?: unknown;
@@ -72,7 +74,7 @@ const FEE_PAYER_SOURCE: SignerSource = {
 const MINT_AUTHORITY_SOURCE: SignerSource = {
   envBase58: 'FAUCET_MINT_AUTHORITY_BASE58',
   envPath: 'FAUCET_MINT_AUTHORITY_PATH',
-  defaultFile: 'mock-usdc-authority.json',
+  defaultFile: 'mock-pusd-authority.json',
 };
 
 const cache = new Map<string, KeyPairSigner>();
@@ -135,10 +137,10 @@ export async function POST(req: Request) {
   const requestedAmount =
     typeof body.amount === 'number' && Number.isFinite(body.amount)
       ? body.amount
-      : DEFAULT_AMOUNT_USDC;
-  if (requestedAmount <= 0 || requestedAmount > MAX_AMOUNT_USDC) {
+      : DEFAULT_AMOUNT_PUSD;
+  if (requestedAmount <= 0 || requestedAmount > MAX_AMOUNT_PUSD) {
     return NextResponse.json(
-      { ok: false, error: `\`amount\` must be 1 .. ${MAX_AMOUNT_USDC}` },
+      { ok: false, error: `\`amount\` must be 1 .. ${MAX_AMOUNT_PUSD}` },
       { status: 400 },
     );
   }
@@ -163,22 +165,30 @@ export async function POST(req: Request) {
   const rpc = createSolanaRpc(rpcUrl);
 
   try {
+    // PUSD is Token-2022, so every ATA + mint_to CPI routes through
+    // `STABLE_TOKEN_PROGRAM` (TokenzQd...). The instruction binary layout
+    // is identical to classic SPL for these two ops; we re-use the
+    // @solana-program/token builders and override the program id.
     const [ata] = await findAssociatedTokenPda({
       owner: recipient,
-      mint: MOCK_USDC_MINT,
-      tokenProgram: TOKEN_PROGRAM,
+      mint: MOCK_PUSD_MINT,
+      tokenProgram: STABLE_TOKEN_PROGRAM,
     });
     const createIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
       payer: feePayer,
       owner: recipient,
-      mint: MOCK_USDC_MINT,
+      mint: MOCK_PUSD_MINT,
+      tokenProgram: STABLE_TOKEN_PROGRAM,
     });
-    const mintIx = getMintToInstruction({
-      mint: MOCK_USDC_MINT,
-      token: ata,
-      mintAuthority,
-      amount: BigInt(Math.floor(requestedAmount)) * USDC_FACTOR,
-    });
+    const mintIx = getMintToInstruction(
+      {
+        mint: MOCK_PUSD_MINT,
+        token: ata,
+        mintAuthority,
+        amount: BigInt(Math.floor(requestedAmount)) * PUSD_FACTOR,
+      },
+      { programAddress: STABLE_TOKEN_PROGRAM },
+    );
 
     const { value: blockhash } = await rpc.getLatestBlockhash().send();
     const message = pipe(

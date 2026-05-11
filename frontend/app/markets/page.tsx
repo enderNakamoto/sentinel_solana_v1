@@ -189,8 +189,8 @@ export default function MarketsPage() {
             <div className="panel-section col" style={{ gap: 8 }}>
               {[
                 ['Delay odds', `${Math.round(selected.risk * 100)}%`],
-                ['Premium', `${selected.premium.toFixed(2)} USDC`],
-                ['Payout', `${selected.payout} USDC`],
+                ['Premium', `${selected.premium.toFixed(2)} PUSD`],
+                ['Payout', `${selected.payout} PUSD`],
                 ['Threshold', `>${selected.threshold}min`],
                 ['Pool TVL', `$${selected.tvl.toLocaleString()}`],
                 ['Coverage left', `${selected.slots} slots`],

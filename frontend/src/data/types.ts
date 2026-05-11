@@ -31,9 +31,9 @@ export interface MarketView {
   arr: string;         // HH:MM local
   date: string;        // 'May 9' display label
   risk: number;        // 0..1 — currently mocked from the design
-  premium: number;     // USDC display
-  payout: number;      // USDC display
-  tvl: number;         // USDC pool TVL
+  premium: number;     // PUSD display
+  payout: number;      // PUSD display
+  tvl: number;         // PUSD pool TVL
   slots: number;       // remaining coverage slots
   threshold: number;   // delay threshold in minutes
   depTs: string;       // 'T+18h' relative timestamp
@@ -45,8 +45,8 @@ export interface MarketView {
  * `apy` and `avgPayoutSpeedSec` need calculator logic that's deferred.
  */
 export interface ProtocolStats {
-  tvl: number;             // USDC
-  tvl24hChange: number;    // USDC delta
+  tvl: number;             // PUSD
+  tvl24hChange: number;    // PUSD delta
   apy: number;             // percent
   apy7dChange: number;     // percent delta
   openMarkets: number;
@@ -117,7 +117,7 @@ export interface PolicyHistory {
   to: string;
   premium: number;
   payout: number;
-  settled: number;            // USDC actually received
+  settled: number;            // PUSD actually received
   result: 'paid' | 'expired';
   delay: number;              // minutes
 }

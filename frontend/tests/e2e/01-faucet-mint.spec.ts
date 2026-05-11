@@ -11,8 +11,8 @@ const { expect } = test;
  * D1 — faucet smoke. Highest-value first test because:
  *   - Exercises Wallet Standard handshake (Phantom → framework-kit).
  *   - Exercises the /api/faucet/mint server route (no wallet signature
- *     needed; deployer pays + mock-usdc-authority signs server-side).
- *   - Exercises the tx-success burst pipeline + useUsdcBalance hook
+ *     needed; deployer pays + mock-pusd-authority signs server-side).
+ *   - Exercises the tx-success burst pipeline + usePusdBalance hook
  *     (navbar pill should bump within ~6s of the success toast).
  *
  * Requires: surfpool running, frontend in surfpool mode, bootstrap-e2e
@@ -46,7 +46,7 @@ test('D1 faucet: mint mock USDC, navbar pill bumps without page reload', async (
   await page.getByRole('button', { name: /Mint 10,000 USDC/i }).click();
 
   // Wait for the 3-shot useTxSuccess burst to propagate to the
-  // useUsdcBalance hook.
+  // usePusdBalance hook.
   await waitForBurst(page);
 
   const after = (await balPill.textContent())?.trim() ?? '— USDC';
