@@ -45,7 +45,7 @@ export interface AgentClient {
   healthz(): Promise<AgentHealth>;
 }
 
-const USDC_BASE_UNITS_PER_USDC = 1_000_000;
+const PUSD_BASE_UNITS_PER_PUSD = 1_000_000;
 
 // ─── Live HTTP client ────────────────────────────────────────────────────
 
@@ -118,7 +118,7 @@ export function createMockAgentClient(opts: MockAgentClientOpts = {}): AgentClie
       return {
         p_delay: (fixed - 1.0) / 4.0,
         premium_usdc: fixed,
-        premium_base_units: Math.round(fixed * USDC_BASE_UNITS_PER_USDC),
+        premium_base_units: Math.round(fixed * PUSD_BASE_UNITS_PER_PUSD),
         model_version: modelVersion,
       };
     },

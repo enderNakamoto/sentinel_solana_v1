@@ -7,7 +7,7 @@ import { Card } from '@/components/admin/Card';
 import { AddressBadge } from '@/components/admin/AddressBadge';
 import { useToast } from '@/components/Toast';
 import { emitTxSuccessBurst } from '@/lib/txEvents';
-import { MOCK_USDC_AUTHORITY, MOCK_USDC_MINT, explorerLink } from '@/config/devnet';
+import { MOCK_PUSD_AUTHORITY, MOCK_PUSD_MINT, explorerLink } from '@/config/devnet';
 
 interface MintResponse {
   ok: boolean;
@@ -53,7 +53,7 @@ export default function FaucetPage() {
       }
       show({
         kind: 'success',
-        title: `Minted ${data.amount ?? 10_000} USDC to ${target.slice(0, 4)}…`,
+        title: `Minted ${data.amount ?? 10_000} PUSD to ${target.slice(0, 4)}…`,
         body: data.signature
           ? `${data.signature.slice(0, 8)}… · ${explorerLink(data.signature, 'tx')}`
           : (data.note ?? ''),
@@ -82,26 +82,26 @@ export default function FaucetPage() {
       </div>
 
       <Card
-        title="Test USDC Faucet"
-        hint="Public — anyone can mint mock USDC to any address. Mint authority signs server-side."
+        title="Test PUSD Faucet"
+        hint="Public — anyone can mint mock PUSD to any address. Mint authority signs server-side."
       >
         <div className="col" style={{ gap: 8, marginBottom: 14 }}>
           <div className="row between">
             <span className="muted mono" style={{ fontSize: 11 }}>
               mint
             </span>
-            <AddressBadge address={MOCK_USDC_MINT} />
+            <AddressBadge address={MOCK_PUSD_MINT} />
           </div>
           <div className="row between">
             <span className="muted mono" style={{ fontSize: 11 }}>
               mint authority
             </span>
-            <AddressBadge address={MOCK_USDC_AUTHORITY} />
+            <AddressBadge address={MOCK_PUSD_AUTHORITY} />
           </div>
         </div>
 
         <p style={{ fontSize: 12, color: 'var(--ink-2)', margin: 0, marginBottom: 12 }}>
-          Mint <strong>10,000</strong> test USDC to any address. Leave blank to
+          Mint <strong>10,000</strong> test PUSD to any address. Leave blank to
           mint to your connected wallet. Creates the associated token account
           if it doesn&apos;t already exist.
         </p>
@@ -120,7 +120,7 @@ export default function FaucetPage() {
           disabled={pending || (!recipient && !wallet)}
           onClick={onMint}
         >
-          {pending ? 'Minting…' : 'Mint 10,000 USDC'}
+          {pending ? 'Minting…' : 'Mint 10,000 PUSD'}
         </button>
         {!recipient && !wallet && (
           <div className="muted mono" style={{ fontSize: 11, marginTop: 8 }}>
@@ -135,7 +135,7 @@ export default function FaucetPage() {
       >
         <p style={{ fontSize: 12, color: 'var(--ink-2)', margin: 0, marginBottom: 12 }}>
           The Solana faucet hands out devnet SOL to any wallet. Sentinel
-          doesn&apos;t mint SOL — only mock USDC for tests.
+          doesn&apos;t mint SOL — only mock PUSD for tests.
         </p>
         <a
           href="https://faucet.solana.com/"

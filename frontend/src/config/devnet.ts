@@ -14,7 +14,7 @@
  *                                ?cluster=devnet; localnet has no public
  *                                explorer so the link is suppressed.
  *
- * Everything else (program IDs, PDAs, mock USDC mint, mock-usdc-authority,
+ * Everything else (program IDs, PDAs, mock PUSD mint, mock-pusd-authority,
  * token program) is identical across clusters. Rotating any of those
  * values would require re-bootstrapping every deployment in lockstep, so
  * we keep them stable.
@@ -35,8 +35,20 @@ export const RPC_URL: string = rpcUrl;
 
 export const DEPLOYER = 'FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy' as Address;
 export const OWNER = DEPLOYER; // governance owner == deployer at init time
-export const MOCK_USDC_MINT = 'epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K' as Address;
-export const MOCK_USDC_AUTHORITY = 'CzJ5AL4APAggkgGDikJw2GNYScVTdevqbnzntMp7MfGn' as Address;
+
+// Mock PUSD mint for tests / devnet (Token-2022, 6 decimals). The keypair
+// at keys/mock-pusd.json mints to this address. Pubkeys match
+// keys/mock-pusd{,-authority}.pubkey on disk.
+export const MOCK_PUSD_MINT = 'F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE' as Address;
+export const MOCK_PUSD_AUTHORITY = '5JbXjGvf2UDtBqbAdQwXr8zDUToDjbnDgaXNFLY1wstD' as Address;
+
+/**
+ * Live Palm USD (PUSD) mainnet mint. Token-2022 with MetadataPointer +
+ * TokenMetadata extensions only (no transfer fee, no transfer hook,
+ * no freeze authority). 6 decimals. For surfpool fork tests / mainnet
+ * deployments — devnet does NOT use this mint (it uses MOCK_PUSD_MINT).
+ */
+export const PUSD_MAINNET_MINT = 'CZzgUBvxaMLwMhVSLgqJn3npmxoTo6nzMNQPAnwtHF3s' as Address;
 
 export const PROGRAMS = {
   governance: '6d6QXsZRQ1fXp8wEXFTm4uXAbLWarPKX6XJLcNUY8rcT' as Address,
@@ -59,7 +71,19 @@ export const PDAS = {
 } as const;
 
 export const SYSTEM_PROGRAM = '11111111111111111111111111111111' as Address;
+
+/**
+ * Classic SPL Token program. Used by the RVS vault share mint (we own it
+ * for share-accounting; no Token-2022 extensions provide value there).
+ */
 export const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address;
+
+/**
+ * Token-2022 program. The stable mint (PUSD on mainnet, mock-PUSD on
+ * devnet) is a Token-2022 mint, so every stable-side ATA derivation and
+ * transfer_checked CPI routes through this program.
+ */
+export const STABLE_TOKEN_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' as Address;
 
 // ─── Cluster-specific constants ───────────────────────────────────────────
 

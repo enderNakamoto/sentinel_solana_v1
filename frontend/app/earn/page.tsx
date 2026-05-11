@@ -20,8 +20,8 @@ import {
   type SnapshotRecord,
   type UserVaultPosition,
 } from '@/data';
-import { fmtUsdc, fmtUsdcLocal, toUsdcUnits } from '@/lib/usdc';
-import { userShareAta, userUsdcAta } from '@/lib/ata';
+import { fmtPusd, fmtPusdLocal, toPusdUnits } from '@/lib/pusd';
+import { userShareAta, userStableAta } from '@/lib/ata';
 import { useTxSuccess } from '@/lib/txEvents';
 import { useWalletSigner } from '@/lib/useWalletSigner';
 import {
@@ -38,7 +38,7 @@ import {
   getRequestWithdrawalInstructionAsync,
   type VaultState,
 } from '@/clients/vault/src/generated';
-import { MOCK_USDC_MINT, PDAS, TOKEN_PROGRAM, explorerLink } from '@/config/devnet';
+import { MOCK_PUSD_MINT, PDAS, STABLE_TOKEN_PROGRAM, TOKEN_PROGRAM, explorerLink } from '@/config/devnet';
 
 interface EarnState {
   vault: VaultState;
@@ -75,13 +75,13 @@ export default function EarnPage() {
         );
         let position: UserVaultPosition = {
           rvsBalance: 0n,
-          usdcBalance: 0n,
+          stableBalance: 0n,
           claimable: 0n,
           queued: [],
         };
         if (wallet) {
           const [usdcAta, shareAta] = await Promise.all([
-            userUsdcAta(wallet),
+            userStableAta(wallet),
             userShareAta(wallet),
           ]);
           position = await readUserVaultPosition(rpc, wallet, usdcAta, shareAta);
@@ -146,7 +146,7 @@ export default function EarnPage() {
               }}
             >
               <span className="muted" style={{ marginRight: 6 }}>WALLET</span>
-              {state ? `${fmtUsdcLocal(state.position.usdcBalance)} USDC` : '…'}
+              {state ? `${fmtPusdLocal(state.position.stableBalance)} PUSD` : '…'}
             </span>
           )}
           <button
@@ -242,10 +242,10 @@ function VaultMetricsCard({ state }: { state: EarnState | null }) {
           gap: 18,
         }}
       >
-        <Metric label="TVL" value={`${fmtUsdcLocal(tma)} USDC`} />
-        <Metric label="Locked" value={`${fmtUsdcLocal(locked)} USDC`} />
-        <Metric label="Free" value={`${fmtUsdcLocal(free)} USDC`} />
-        <Metric label="Share Price" value={`${fmtUsdc(sharePrice)} USDC`} />
+        <Metric label="TVL" value={`${fmtPusdLocal(tma)} PUSD`} />
+        <Metric label="Locked" value={`${fmtPusdLocal(locked)} PUSD`} />
+        <Metric label="Free" value={`${fmtPusdLocal(free)} PUSD`} />
+        <Metric label="Share Price" value={`${fmtPusd(sharePrice)} PUSD`} />
       </div>
 
       <div style={{ marginTop: 18 }}>
@@ -314,9 +314,9 @@ function DepositCard({ state, wallet, signer, send, onSuccess }: FormProps) {
   const [amount, setAmount] = useState('');
   const { vault, shareSupply, position } = state;
 
-  const usdcUnits = (() => {
+  const pusdUnits = (() => {
     try {
-      return amount ? toUsdcUnits(amount) : 0n;
+      return amount ? toPusdUnits(amount) : 0n;
     } catch {
       return 0n;
     }
@@ -325,14 +325,14 @@ function DepositCard({ state, wallet, signer, send, onSuccess }: FormProps) {
   const previewShares = previewSharesFromDeposit({
     tma: vault.totalManagedAssets,
     rvsSupply: shareSupply,
-    usdc: usdcUnits,
+    pusd: pusdUnits,
   });
 
-  const insufficient = wallet && usdcUnits > position.usdcBalance;
+  const insufficient = wallet && pusdUnits > position.stableBalance;
 
   const submit = async () => {
-    if (!wallet || !signer || usdcUnits <= 0n) return;
-    const usdcAta = await userUsdcAta(wallet);
+    if (!wallet || !signer || pusdUnits <= 0n) return;
+    const usdcAta = await userStableAta(wallet);
     const shareAta = await userShareAta(wallet);
     const createShareAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
       payer: signer,
@@ -341,13 +341,15 @@ function DepositCard({ state, wallet, signer, send, onSuccess }: FormProps) {
     });
     const depositIx = await getDepositInstructionAsync({
       vaultTokenAccount: vault.vaultTokenAccount,
-      depositorUsdcAccount: usdcAta,
+      depositorStableAccount: usdcAta,
       depositorShareAccount: shareAta,
+      stableMint: MOCK_PUSD_MINT,
       depositor: signer,
-      usdcAmount: usdcUnits,
+      stableTokenProgram: STABLE_TOKEN_PROGRAM,
+      stableAmount: pusdUnits,
     });
     const r = await send([createShareAtaIx, depositIx], {
-      successTitle: `Deposited ${amount} USDC · received ${fmtUsdc(previewShares)} RVS`,
+      successTitle: `Deposited ${amount} PUSD · received ${fmtPusd(previewShares)} RVS`,
     });
     if (r.ok) {
       setAmount('');
@@ -357,10 +359,10 @@ function DepositCard({ state, wallet, signer, send, onSuccess }: FormProps) {
 
   return (
     <Card title="Deposit" hint="Mint RVS shares against the vault.">
-      <KvRow k="your USDC" v={`${fmtUsdcLocal(position.usdcBalance)} USDC`} />
+      <KvRow k="your PUSD" v={`${fmtPusdLocal(position.stableBalance)} PUSD`} />
       <div className="col" style={{ gap: 6, marginTop: 14 }}>
         <span className="muted mono" style={{ fontSize: 10, letterSpacing: '.1em' }}>
-          AMOUNT (USDC)
+          AMOUNT (PUSD)
         </span>
         <input
           className="input"
@@ -386,8 +388,8 @@ function DepositCard({ state, wallet, signer, send, onSuccess }: FormProps) {
             type="button"
             className="btn ghost"
             style={{ fontSize: 10, padding: '4px 10px' }}
-            onClick={() => setAmount(fmtUsdc(position.usdcBalance))}
-            disabled={!signer || position.usdcBalance === 0n}
+            onClick={() => setAmount(fmtPusd(position.stableBalance))}
+            disabled={!signer || position.stableBalance === 0n}
           >
             MAX
           </button>
@@ -395,7 +397,7 @@ function DepositCard({ state, wallet, signer, send, onSuccess }: FormProps) {
       </div>
 
       <div className="col" style={{ gap: 6, marginTop: 12 }}>
-        <KvRow k="you'll receive" v={`${fmtUsdc(previewShares)} RVS`} />
+        <KvRow k="you'll receive" v={`${fmtPusd(previewShares)} RVS`} />
       </div>
 
       {insufficient && (
@@ -403,7 +405,7 @@ function DepositCard({ state, wallet, signer, send, onSuccess }: FormProps) {
           className="muted mono"
           style={{ fontSize: 11, marginTop: 8, color: 'var(--red)' }}
         >
-          Insufficient USDC balance. Mint test USDC at /faucet.
+          Insufficient PUSD balance. Mint test PUSD at /faucet.
         </div>
       )}
 
@@ -412,9 +414,9 @@ function DepositCard({ state, wallet, signer, send, onSuccess }: FormProps) {
         className="btn primary"
         style={{ width: '100%', marginTop: 14 }}
         onClick={submit}
-        disabled={!signer || usdcUnits <= 0n || !!insufficient}
+        disabled={!signer || pusdUnits <= 0n || !!insufficient}
       >
-        Deposit {amount || '0'} USDC
+        Deposit {amount || '0'} PUSD
       </button>
     </Card>
   );
@@ -429,7 +431,7 @@ function RedeemCard({ state, wallet, signer, send, onSuccess }: FormProps) {
 
   const sharesUnits = (() => {
     try {
-      return shareAmt ? toUsdcUnits(shareAmt) : 0n;
+      return shareAmt ? toPusdUnits(shareAmt) : 0n;
     } catch {
       return 0n;
     }
@@ -447,22 +449,25 @@ function RedeemCard({ state, wallet, signer, send, onSuccess }: FormProps) {
 
   const doRedeem = async () => {
     if (!wallet || !signer || sharesUnits <= 0n) return;
-    const usdcAta = await userUsdcAta(wallet);
+    const usdcAta = await userStableAta(wallet);
     const shareAta = await userShareAta(wallet);
     const createUsdcAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
       payer: signer,
       owner: wallet,
-      mint: MOCK_USDC_MINT,
+      mint: MOCK_PUSD_MINT,
+      tokenProgram: STABLE_TOKEN_PROGRAM,
     });
     const redeemIx = await getRedeemInstructionAsync({
       vaultTokenAccount: vault.vaultTokenAccount,
       redeemerShareAccount: shareAta,
-      redeemerUsdcAccount: usdcAta,
+      redeemerStableAccount: usdcAta,
+      stableMint: MOCK_PUSD_MINT,
       redeemer: signer,
+      stableTokenProgram: STABLE_TOKEN_PROGRAM,
       shares: sharesUnits,
     });
     const r = await send([createUsdcAtaIx, redeemIx], {
-      successTitle: `Redeemed ${shareAmt} RVS · received ${fmtUsdc(previewUsdc)} USDC`,
+      successTitle: `Redeemed ${shareAmt} RVS · received ${fmtPusd(previewUsdc)} PUSD`,
     });
     if (r.ok) {
       setShareAmt('');
@@ -488,9 +493,9 @@ function RedeemCard({ state, wallet, signer, send, onSuccess }: FormProps) {
   };
 
   return (
-    <Card title="Redeem / Withdraw" hint="Burn RVS for USDC. Queue if free capital is short.">
-      <KvRow k="your RVS" v={`${fmtUsdc(position.rvsBalance)} RVS`} />
-      <KvRow k="vault free" v={`${fmtUsdcLocal(free)} USDC`} />
+    <Card title="Redeem / Withdraw" hint="Burn RVS for PUSD. Queue if free capital is short.">
+      <KvRow k="your RVS" v={`${fmtPusd(position.rvsBalance)} RVS`} />
+      <KvRow k="vault free" v={`${fmtPusdLocal(free)} PUSD`} />
 
       <div className="col" style={{ gap: 6, marginTop: 14 }}>
         <span className="muted mono" style={{ fontSize: 10, letterSpacing: '.1em' }}>
@@ -508,7 +513,7 @@ function RedeemCard({ state, wallet, signer, send, onSuccess }: FormProps) {
             type="button"
             className="btn ghost"
             style={{ fontSize: 10, padding: '4px 10px' }}
-            onClick={() => setShareAmt(fmtUsdc(position.rvsBalance))}
+            onClick={() => setShareAmt(fmtPusd(position.rvsBalance))}
             disabled={!signer || position.rvsBalance === 0n}
           >
             MAX
@@ -517,7 +522,7 @@ function RedeemCard({ state, wallet, signer, send, onSuccess }: FormProps) {
       </div>
 
       <div className="col" style={{ gap: 6, marginTop: 12 }}>
-        <KvRow k="you'll receive" v={`${fmtUsdc(previewUsdc)} USDC`} />
+        <KvRow k="you'll receive" v={`${fmtPusd(previewUsdc)} PUSD`} />
       </div>
 
       {exceedsBalance && (
@@ -584,7 +589,7 @@ function QueueCard({ state, wallet, signer, send, onSuccess }: FormProps) {
             <tr style={{ color: 'var(--ink-3)', fontFamily: 'var(--mono)', fontSize: 10 }}>
               <th align="left" style={cellStyle}>POS</th>
               <th align="right" style={cellStyle}>SHARES</th>
-              <th align="right" style={cellStyle}>PENDING USDC</th>
+              <th align="right" style={cellStyle}>PENDING PUSD</th>
               <th align="right" style={cellStyle}>QUEUED</th>
               <th align="right" style={cellStyle}></th>
             </tr>
@@ -596,10 +601,10 @@ function QueueCard({ state, wallet, signer, send, onSuccess }: FormProps) {
                   <span className="num">#{index + 1}</span>
                 </td>
                 <td align="right" style={cellStyle}>
-                  <span className="num">{fmtUsdc(request.shares)}</span>
+                  <span className="num">{fmtPusd(request.shares)}</span>
                 </td>
                 <td align="right" style={cellStyle}>
-                  <span className="num">{fmtUsdc(request.pendingAssets)}</span>
+                  <span className="num">{fmtPusd(request.pendingAssets)}</span>
                 </td>
                 <td align="right" style={cellStyle}>
                   <span className="muted mono" style={{ fontSize: 10 }}>
@@ -646,20 +651,23 @@ function ClaimableCard({ state, wallet, signer, send, onSuccess }: FormProps) {
 
   const submit = async () => {
     if (!signer || !wallet) return;
-    const usdcAta = await userUsdcAta(wallet);
+    const usdcAta = await userStableAta(wallet);
     const createUsdcAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
       payer: signer,
       owner: wallet,
-      mint: MOCK_USDC_MINT,
+      mint: MOCK_PUSD_MINT,
+      tokenProgram: STABLE_TOKEN_PROGRAM,
     });
     const ix = await getCollectInstructionAsync({
       vaultTokenAccount: state.vault.vaultTokenAccount,
       owner: wallet,
-      collectorUsdcAccount: usdcAta,
+      collectorStableAccount: usdcAta,
+      stableMint: MOCK_PUSD_MINT,
       collector: signer,
+      stableTokenProgram: STABLE_TOKEN_PROGRAM,
     });
     const r = await send([createUsdcAtaIx, ix], {
-      successTitle: `Collected ${fmtUsdc(claimable)} USDC`,
+      successTitle: `Collected ${fmtPusd(claimable)} PUSD`,
     });
     if (r.ok) onSuccess();
   };
@@ -667,14 +675,14 @@ function ClaimableCard({ state, wallet, signer, send, onSuccess }: FormProps) {
   return (
     <Card
       title="Claimable Balance"
-      hint="USDC made claimable when settlements drained your queued requests."
+      hint="PUSD made claimable when settlements drained your queued requests."
     >
       <div className="row between">
         <span className="muted mono" style={{ fontSize: 11 }}>
           claimable
         </span>
         <span className="num" style={{ fontSize: 16 }}>
-          {fmtUsdc(claimable)} USDC
+          {fmtPusd(claimable)} PUSD
         </span>
       </div>
       <button
@@ -684,7 +692,7 @@ function ClaimableCard({ state, wallet, signer, send, onSuccess }: FormProps) {
         onClick={submit}
         disabled={!signer || claimable === 0n}
       >
-        {claimable === 0n ? 'Nothing to collect' : `Collect ${fmtUsdc(claimable)} USDC`}
+        {claimable === 0n ? 'Nothing to collect' : `Collect ${fmtPusd(claimable)} PUSD`}
       </button>
     </Card>
   );

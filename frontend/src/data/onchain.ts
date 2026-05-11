@@ -218,7 +218,7 @@ export interface UserQueuedRequest {
 
 export interface UserVaultPosition {
   rvsBalance: bigint;
-  usdcBalance: bigint;
+  stableBalance: bigint;
   claimable: bigint;
   queued: UserQueuedRequest[];
 }
@@ -231,11 +231,11 @@ export interface UserVaultPosition {
 export async function readUserVaultPosition(
   rpc: Rpc,
   wallet: Address,
-  userUsdcAta: Address,
+  userStableAta: Address,
   userShareAta: Address,
 ): Promise<UserVaultPosition> {
   const [usdcBal, rvsBal, claimable, queue] = await Promise.all([
-    safeTokenAmount(rpc, userUsdcAta),
+    safeTokenAmount(rpc, userStableAta),
     safeTokenAmount(rpc, userShareAta),
     readClaimableBalance(rpc, wallet),
     readWithdrawalQueue(rpc),
@@ -244,7 +244,7 @@ export async function readUserVaultPosition(
   queue.data.requests.forEach((r, i) => {
     if (r.owner === wallet) queued.push({ index: i, request: r });
   });
-  return { rvsBalance: rvsBal, usdcBalance: usdcBal, claimable, queued };
+  return { rvsBalance: rvsBal, stableBalance: usdcBal, claimable, queued };
 }
 
 async function safeTokenAmount(rpc: Rpc, ata: Address): Promise<bigint> {

@@ -34,12 +34,13 @@ import {
 import {
   advanceClock,
   bootstrapFlightPool,
-  createMockUsdcMint,
+  createMockPusdMint,
   getAtaAddress,
   getTokenAccountAmount,
   makeClient,
-  mintMockUsdcTo,
+  mintMockPusdTo,
   setTokenAccount,
+  TOKEN_2022_PROGRAM_ID_KIT,
   type FlightPoolBootstrap,
 } from './setup.ts';
 
@@ -82,7 +83,7 @@ const DELAY_HOURS = 2;
 
 async function freshFixture(): Promise<Fixture> {
   const client = await makeClient();
-  createMockUsdcMint(client);
+  createMockPusdMint(client);
   const pool = await bootstrapFlightPool(client);
   return { client, pool };
 }
@@ -137,14 +138,16 @@ async function addBuyerOf(
   initialUsdc: bigint = PREMIUM,
 ): Promise<{ traveler: KeyPairSigner; usdcAta: Address; buyerRecordPda: Address; poolPda: Address }> {
   const traveler = await fundedSigner(f.client);
-  const { ata: usdcAta } = mintMockUsdcTo(f.client, traveler.address, initialUsdc);
+  const { ata: usdcAta } = mintMockPusdTo(f.client, traveler.address, initialUsdc);
   const [poolPda] = await findPoolPda({ flightId: FLIGHT.flightId, date: FLIGHT.date });
 
   await f.client.sendTransaction([
     await getAddBuyerInstructionAsync({
       config: f.pool.configPda,
       pool: poolPda,
-      buyerUsdcAccount: usdcAta,
+      buyerStableAccount: usdcAta,
+        stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
       poolTreasury: f.pool.treasuryAta,
       buyer: traveler,
       controller,
@@ -166,7 +169,7 @@ describe('Phase 3 — flight_pool: initialize', () => {
 
     expect(config.owner).toBe(client.payer.address);
     expect(config.controller).toBe('11111111111111111111111111111111');
-    expect(config.usdcMint).toBe(pool.usdcMint);
+    expect(config.stableMint).toBe(pool.stableMint);
     expect(config.poolTreasury).toBe(pool.treasuryAta);
     expect(config.recoveredBalance).toBe(0n);
     expect(config.isControllerSet).toBe(false);
@@ -302,13 +305,15 @@ describe('Phase 3 — flight_pool: add_buyer', () => {
   it('4.6 creates BuyerRecord, increments buyer_count, transfers premium', async () => {
     const poolPda = await registerDefault(f, controller);
     const traveler = await fundedSigner(f.client);
-    const { ata: usdcAta } = mintMockUsdcTo(f.client, traveler.address, PREMIUM);
+    const { ata: usdcAta } = mintMockPusdTo(f.client, traveler.address, PREMIUM);
 
     await f.client.sendTransaction([
       await getAddBuyerInstructionAsync({
         config: f.pool.configPda,
         pool: poolPda,
-        buyerUsdcAccount: usdcAta,
+        buyerStableAccount: usdcAta,
+        stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         poolTreasury: f.pool.treasuryAta,
         buyer: traveler,
         controller,
@@ -341,7 +346,9 @@ describe('Phase 3 — flight_pool: add_buyer', () => {
         await getAddBuyerInstructionAsync({
           config: f.pool.configPda,
           pool: poolPda,
-          buyerUsdcAccount: usdcAta,
+          buyerStableAccount: usdcAta,
+        stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           poolTreasury: f.pool.treasuryAta,
           buyer: traveler,
           controller,
@@ -356,12 +363,14 @@ describe('Phase 3 — flight_pool: add_buyer', () => {
     await registerDefault(f, controller);
 
     // Settle the pool first → status = SettledOnTime.
-    const { ata: recipientAta } = mintMockUsdcTo(f.client, (await fundedSigner(f.client)).address, 0n);
+    const { ata: recipientAta } = mintMockPusdTo(f.client, (await fundedSigner(f.client)).address, 0n);
     await f.client.sendTransaction([
       await getSettleOnTimeInstructionAsync({
         config: f.pool.configPda,
         poolTreasury: f.pool.treasuryAta,
         recipient: recipientAta,
+        stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         controller,
         flightId: FLIGHT.flightId,
         date: FLIGHT.date,
@@ -370,7 +379,7 @@ describe('Phase 3 — flight_pool: add_buyer', () => {
 
     // Now add_buyer → reverts.
     const traveler = await fundedSigner(f.client);
-    const { ata: usdcAta } = mintMockUsdcTo(f.client, traveler.address, PREMIUM);
+    const { ata: usdcAta } = mintMockPusdTo(f.client, traveler.address, PREMIUM);
     const [poolPda] = await findPoolPda({ flightId: FLIGHT.flightId, date: FLIGHT.date });
 
     await expect(
@@ -378,7 +387,9 @@ describe('Phase 3 — flight_pool: add_buyer', () => {
         await getAddBuyerInstructionAsync({
           config: f.pool.configPda,
           pool: poolPda,
-          buyerUsdcAccount: usdcAta,
+          buyerStableAccount: usdcAta,
+        stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           poolTreasury: f.pool.treasuryAta,
           buyer: traveler,
           controller,
@@ -404,13 +415,15 @@ describe('Phase 3 — flight_pool: settle_*', () => {
     // Treasury now holds 2 * PREMIUM. After settle_on_time, recipient
     // gets 2 * PREMIUM and treasury balance returns to 0.
     const recipient = await fundedSigner(f.client);
-    const { ata: recipientAta } = mintMockUsdcTo(f.client, recipient.address, 0n);
+    const { ata: recipientAta } = mintMockPusdTo(f.client, recipient.address, 0n);
 
     await f.client.sendTransaction([
       await getSettleOnTimeInstructionAsync({
         config: f.pool.configPda,
         poolTreasury: f.pool.treasuryAta,
         recipient: recipientAta,
+        stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         controller,
         flightId: FLIGHT.flightId,
         date: FLIGHT.date,
@@ -469,12 +482,14 @@ describe('Phase 3 — flight_pool: settle_*', () => {
     await registerDefault(f, controller);
     await addBuyerOf(f, controller);
     // First settle → SettledOnTime.
-    const { ata: recipientAta } = mintMockUsdcTo(f.client, (await fundedSigner(f.client)).address, 0n);
+    const { ata: recipientAta } = mintMockPusdTo(f.client, (await fundedSigner(f.client)).address, 0n);
     await f.client.sendTransaction([
       await getSettleOnTimeInstructionAsync({
         config: f.pool.configPda,
         poolTreasury: f.pool.treasuryAta,
         recipient: recipientAta,
+        stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         controller,
         flightId: FLIGHT.flightId,
         date: FLIGHT.date,
@@ -518,8 +533,9 @@ describe('Phase 3 — flight_pool: claim', () => {
     // Top up the treasury with the payoff amount (the vault would do this
     // via send_payout in Phase 5; we just preload via setTokenAccount).
     setTokenAccount(f.client, {
-      mint: f.pool.usdcMint,
+      mint: f.pool.stableMint,
       owner: f.pool.treasuryAuthorityPda,
+      tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
       amount: PREMIUM + PAYOFF, // existing premium plus the payoff topup
     });
 
@@ -548,8 +564,9 @@ describe('Phase 3 — flight_pool: claim', () => {
         pool: poolPda,
         buyer: traveler.address,
         poolTreasury: f.pool.treasuryAta,
-        travelerUsdcAccount: usdcAta,
-        usdcMint: f.pool.usdcMint,
+        travelerStableAccount: usdcAta,
+        stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         traveler,
         flightId: FLIGHT.flightId,
         date: FLIGHT.date,
@@ -577,8 +594,9 @@ describe('Phase 3 — flight_pool: claim', () => {
           pool: poolPda,
           buyer: traveler.address,
           poolTreasury: f.pool.treasuryAta,
-          travelerUsdcAccount: usdcAta,
-          usdcMint: f.pool.usdcMint,
+          travelerStableAccount: usdcAta,
+          stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           traveler,
           flightId: FLIGHT.flightId,
           date: FLIGHT.date,
@@ -592,8 +610,9 @@ describe('Phase 3 — flight_pool: claim', () => {
             pool: poolPda,
             buyer: traveler.address,
             poolTreasury: f.pool.treasuryAta,
-            travelerUsdcAccount: usdcAta,
-            usdcMint: f.pool.usdcMint,
+            travelerStableAccount: usdcAta,
+            stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
             traveler,
             flightId: FLIGHT.flightId,
             date: FLIGHT.date,
@@ -615,8 +634,9 @@ describe('Phase 3 — flight_pool: claim', () => {
             pool: poolPda,
             buyer: traveler.address,
             poolTreasury: f.pool.treasuryAta,
-            travelerUsdcAccount: usdcAta,
-            usdcMint: f.pool.usdcMint,
+            travelerStableAccount: usdcAta,
+            stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
             traveler,
             flightId: FLIGHT.flightId,
             date: FLIGHT.date,
@@ -636,8 +656,9 @@ describe('Phase 3 — flight_pool: claim', () => {
             pool: poolPda,
             buyer: traveler.address,
             poolTreasury: f.pool.treasuryAta,
-            travelerUsdcAccount: usdcAta,
-            usdcMint: f.pool.usdcMint,
+            travelerStableAccount: usdcAta,
+            stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
             traveler,
             flightId: FLIGHT.flightId,
             date: FLIGHT.date,
@@ -650,7 +671,7 @@ describe('Phase 3 — flight_pool: claim', () => {
     {
       const { f, traveler, usdcAta, poolPda } = await settledDelayedFixture();
       const stranger = await fundedSigner(f.client);
-      const { ata: strangerAta } = mintMockUsdcTo(f.client, stranger.address, 0n);
+      const { ata: strangerAta } = mintMockPusdTo(f.client, stranger.address, 0n);
       const _ = traveler; // unused — buyerRecord PDA is keyed by `stranger` here, doesn't exist
       const _2 = usdcAta;
       await expect(
@@ -660,8 +681,9 @@ describe('Phase 3 — flight_pool: claim', () => {
             pool: poolPda,
             buyer: stranger.address,
             poolTreasury: f.pool.treasuryAta,
-            travelerUsdcAccount: strangerAta,
-            usdcMint: f.pool.usdcMint,
+            travelerStableAccount: strangerAta,
+            stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
             traveler: stranger,
             flightId: FLIGHT.flightId,
             date: FLIGHT.date,
@@ -784,20 +806,22 @@ describe('Phase 3 — flight_pool: withdraw_recovered', () => {
     // to recovered_balance. Premium (PREMIUM) is in treasury from add_buyer;
     // top up the treasury for the payoff coverage.
     setTokenAccount(f.client, {
-      mint: f.pool.usdcMint,
+      mint: f.pool.stableMint,
       owner: f.pool.treasuryAuthorityPda,
+      tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
       amount: PAYOFF, // top up so withdraw can pull
     });
-    const ownerUsdcAta = getAtaAddress(f.pool.usdcMint, f.client.payer.address);
-    mintMockUsdcTo(f.client, f.client.payer.address, 0n); // ensure ATA exists
+    const ownerUsdcAta = getAtaAddress(f.pool.stableMint, f.client.payer.address, TOKEN_2022_PROGRAM_ID_KIT);
+    mintMockPusdTo(f.client, f.client.payer.address, 0n); // ensure ATA exists
 
     // Withdraw half.
     await f.client.sendTransaction([
       await getWithdrawRecoveredInstructionAsync({
         config: f.pool.configPda,
         poolTreasury: f.pool.treasuryAta,
-        ownerUsdcAccount: ownerUsdcAta,
-        usdcMint: f.pool.usdcMint,
+        ownerStableAccount: ownerUsdcAta,
+        stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         owner: f.client.payer,
         amount: PAYOFF / 2n,
       }),
@@ -812,8 +836,9 @@ describe('Phase 3 — flight_pool: withdraw_recovered', () => {
         await getWithdrawRecoveredInstructionAsync({
           config: f.pool.configPda,
           poolTreasury: f.pool.treasuryAta,
-          ownerUsdcAccount: ownerUsdcAta,
-          usdcMint: f.pool.usdcMint,
+          ownerStableAccount: ownerUsdcAta,
+          stableMint: f.pool.stableMint,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           owner: f.client.payer,
           amount: PAYOFF, // exceeds remaining recovered_balance
         }),

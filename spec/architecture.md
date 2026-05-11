@@ -76,14 +76,38 @@ via a one-time `set_authorized_consumer` wiring step.
 
 ## Token Setup
 
-**USDC:** Standard SPL Token (Token Program, not Token-2022). On devnet/localnet, a mock USDC
-mint is deployed with 6 decimals to match production USDC. On mainnet, the real USDC mint
-address (`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`) is configured.
+**Stable side — Palm USD (PUSD), Token-2022.** As of Phase 24, the unit of account is **Palm
+USD (PUSD)** on the **Token-2022** program (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`).
+Mainnet mint: `CZzgUBvxaMLwMhVSLgqJn3npmxoTo6nzMNQPAnwtHF3s` (MetadataPointer + TokenMetadata
+extensions only — no transfer fee, no transfer hook, no permanent delegate, no freeze). On
+devnet / Surfpool / LiteSVM the protocol uses a **mock PUSD** mirror at
+`F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE` — same Token-2022 program, base mint layout
+only, no extensions. All five programs handle the stable mint through Anchor's
+`token_interface` module (`Interface<TokenInterface>` + `InterfaceAccount<Mint>` /
+`InterfaceAccount<TokenAccount>`) and call `transfer_checked` for SPL transfers so the same
+binary works against classic SPL or Token-2022 mints.
 
-**Vault shares (RVS):** A new SPL Token mint created by `vault_program` during initialization.
-The vault PDA is the mint authority. Shares are minted on deposit and burned on redemption.
+**Vault shares (RVS) — classic SPL Token.** A new SPL Token mint (`TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+created by `vault_program` during initialization at the PDA `[b"share_mint_v2"]`. The vault
+state PDA (`[b"vault_state_v2"]`) is the mint authority. Shares are minted on deposit and
+burned on redemption. Share-side transfers use the concrete `Program<Token>` (not the
+interface) and standard `token::transfer` / `mint_to` / `burn`.
 
-All token amounts are `u64` with 6 decimal places (1 USDC = 1,000,000 units).
+**Why two token programs.** The stable side needs Token-2022 to interoperate with PUSD's
+real mainnet mint. The share side stays on classic SPL because (a) RVS is a Sentinel-native
+mint with no metadata or extension requirements, and (b) keeping it on classic SPL avoids
+forcing the vault PDA to act as a Token-2022 authority across the protocol's most
+performance-sensitive path (deposit / redeem / mint / burn). Anchor account constraints
+must pass `associated_token::token_program = token_program` explicitly when an ATA is
+derived against Token-2022 — otherwise Anchor defaults to classic SPL and the constraint
+fails at runtime.
+
+**Pre-Phase-24 baseline.** Before Phase 24 the protocol used a classic-SPL mock USDC mint
+(`epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K`). That mint still exists on devnet but is
+no longer referenced by the deployed binaries; rollback to it requires reverting to
+the `pre-pusd-migration` git tag — see `pre_pusd_migration.md` at the repo root.
+
+All token amounts are `u64` with 6 decimal places (1 PUSD = 1,000,000 units).
 
 ---
 

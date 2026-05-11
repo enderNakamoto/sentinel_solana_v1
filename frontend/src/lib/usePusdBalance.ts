@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useWalletSession } from '@solana/react-hooks';
 import type { Address } from '@solana/kit';
 import { useRpc } from '@/lib/rpc';
-import { userUsdcAta } from '@/lib/ata';
+import { userStableAta } from '@/lib/ata';
 import { useTxSuccess } from '@/lib/txEvents';
 
 export interface UsdcBalanceState {
@@ -13,7 +13,7 @@ export interface UsdcBalanceState {
   refresh: () => void;
 }
 
-export function useUsdcBalance(): UsdcBalanceState {
+export function usePusdBalance(): UsdcBalanceState {
   const session = useWalletSession();
   const wallet = session?.account.address as Address | undefined;
   const rpc = useRpc();
@@ -30,7 +30,7 @@ export function useUsdcBalance(): UsdcBalanceState {
     setLoading(true);
     (async () => {
       try {
-        const ata = await userUsdcAta(wallet);
+        const ata = await userStableAta(wallet);
         const r = await rpc.getTokenAccountBalance(ata).send();
         if (!cancelled) setBalance(BigInt(r.value.amount));
       } catch {

@@ -18,13 +18,13 @@ export const FUN_COPY = {
   buy: {
     eyebrow: 'Bind a coverage scroll',
     title: 'Wager on the winds.',
-    cta: (premium: string) => `Stamp the scroll · ${premium} USDC`,
+    cta: (premium: string) => `Stamp the scroll · ${premium} PUSD`,
     settlement: 'Auto · upon landing',
   },
   earn: {
     eyebrow: 'Underwriter chest',
     title: 'Underwrite the skies.',
-    primaryCta: (amount: string) => `Add ${amount} USDC to the chest`,
+    primaryCta: (amount: string) => `Add ${amount} PUSD to the chest`,
   },
   portfolio: {
     eyebrow: 'Adventurer log',
@@ -47,13 +47,13 @@ export const SERIOUS_COPY = {
   buy: {
     eyebrow: 'Buy coverage',
     title: 'Cover a flight.',
-    cta: (premium: string) => `Pay ${premium} USDC · Cover this flight`,
+    cta: (premium: string) => `Pay ${premium} PUSD · Cover this flight`,
     settlement: 'Auto · on landing',
   },
   earn: {
     eyebrow: 'Earn',
     title: 'Underwrite delays. Earn premiums.',
-    primaryCta: (amount: string) => `Deposit ${amount} USDC`,
+    primaryCta: (amount: string) => `Deposit ${amount} PUSD`,
   },
   portfolio: {
     eyebrow: 'Portfolio',

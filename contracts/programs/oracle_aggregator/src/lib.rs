@@ -279,7 +279,7 @@ pub struct Initialize<'info> {
         init,
         payer = owner,
         space = 8 + OracleConfig::INIT_SPACE,
-        seeds = [b"oracle_config"],
+        seeds = [b"oracle_config_v2"],
         bump,
     )]
     pub config: Account<'info, OracleConfig>,
@@ -296,7 +296,7 @@ pub struct Initialize<'info> {
 pub struct SetAuthorizedOracle<'info> {
     #[account(
         mut,
-        seeds = [b"oracle_config"],
+        seeds = [b"oracle_config_v2"],
         bump = config.bump,
         has_one = owner @ OracleError::UnauthorizedOwner,
     )]
@@ -308,7 +308,7 @@ pub struct SetAuthorizedOracle<'info> {
 pub struct SetAuthorizedConsumer<'info> {
     #[account(
         mut,
-        seeds = [b"oracle_config"],
+        seeds = [b"oracle_config_v2"],
         bump = config.bump,
         has_one = owner @ OracleError::UnauthorizedOwner,
     )]
@@ -322,7 +322,7 @@ pub struct SetAuthorizedConsumer<'info> {
 #[instruction(flight_id: String, date: u64)]
 pub struct InitFlightData<'info> {
     #[account(
-        seeds = [b"oracle_config"],
+        seeds = [b"oracle_config_v2"],
         bump = config.bump,
         has_one = authorized_consumer @ OracleError::UnauthorizedConsumer,
     )]
@@ -371,7 +371,7 @@ pub struct InitFlightData<'info> {
 #[instruction(flight_id: String, date: u64)]
 pub struct SetFlightStatus<'info> {
     #[account(
-        seeds = [b"oracle_config"],
+        seeds = [b"oracle_config_v2"],
         bump = config.bump,
     )]
     pub config: Account<'info, OracleConfig>,

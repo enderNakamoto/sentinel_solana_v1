@@ -6,36 +6,36 @@
  * and to keep rounding direction aligned with vault solvency.
  *
  * Deposits round shares DOWN (vault keeps a fraction).
- * Redemptions round shares DOWN — the user gets a fraction less USDC.
+ * Redemptions round shares DOWN — the user gets a fraction less PUSD.
  */
 
 export const VIRTUAL_OFFSET = 1000n;
 
 export interface VaultMathInput {
-  /** Total managed assets in USDC base units (6 decimals). */
+  /** Total managed assets in PUSD base units (6 decimals). */
   tma: bigint;
   /** RVS share-mint supply in share base units (6 decimals). */
   rvsSupply: bigint;
 }
 
 /**
- * Preview how many RVS shares a deposit of `usdc` USDC base units would mint.
- * Matches vault.deposit's `shares = floor(usdc * (S + 1000) / (T + 1000))`.
+ * Preview how many RVS shares a deposit of `pusd` PUSD base units would mint.
+ * Matches vault.deposit's `shares = floor(pusd * (S + 1000) / (T + 1000))`.
  */
 export function previewSharesFromDeposit({
   tma,
   rvsSupply,
-  usdc,
-}: VaultMathInput & { usdc: bigint }): bigint {
-  if (usdc <= 0n) return 0n;
-  const num = usdc * (rvsSupply + VIRTUAL_OFFSET);
+  pusd,
+}: VaultMathInput & { pusd: bigint }): bigint {
+  if (pusd <= 0n) return 0n;
+  const num = pusd * (rvsSupply + VIRTUAL_OFFSET);
   const den = tma + VIRTUAL_OFFSET;
   return num / den;
 }
 
 /**
- * Preview how much USDC a redemption of `shares` RVS would return.
- * Matches vault.redeem's `usdc = floor(shares * (T + 1000) / (S + 1000))`.
+ * Preview how much PUSD a redemption of `shares` RVS would return.
+ * Matches vault.redeem's `pusd = floor(shares * (T + 1000) / (S + 1000))`.
  */
 export function previewUsdcFromRedeem({
   tma,
@@ -49,7 +49,7 @@ export function previewUsdcFromRedeem({
 }
 
 /**
- * Current share price in USDC base units, scaled by 1e6 to retain precision.
+ * Current share price in PUSD base units, scaled by 1e6 to retain precision.
  * Matches the `SnapshotRecord.sharePrice` storage convention.
  *
  * Returns 1.000000 (= 1_000_000n) when the vault is empty.

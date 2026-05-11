@@ -176,8 +176,8 @@ async function buildSettleBatchIxs(
 ): Promise<Instruction[]> {
   const dep = solana.deployment;
   const snapshotRecord = deriveSnapshotRecordPda(dep.programs.vault, day);
-  const vaultTokenAccount = deriveAta(dep.usdcMint, dep.pdas.vaultState);
-  const poolTreasury = deriveAta(dep.usdcMint, dep.pdas.poolTreasuryAuthority);
+  const vaultTokenAccount = deriveAta(dep.stableMint, dep.pdas.vaultState);
+  const poolTreasury = deriveAta(dep.stableMint, dep.pdas.poolTreasuryAuthority);
 
   const baseIx = await getExecuteSettlementsInstructionAsync({
     controllerConfig: kitAddress(dep.pdas.controllerConfig),
@@ -194,8 +194,9 @@ async function buildSettleBatchIxs(
     snapshotRecord,
     poolTreasury,
     treasuryAuthority: kitAddress(dep.pdas.poolTreasuryAuthority),
+    stableMint: kitAddress(dep.stableMint),
     keeper: solana.signer,
-    tokenProgram: TOKEN_PROGRAM_ADDRESS_KIT,
+    stableTokenProgram: kitAddress('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'),
     day,
     nFlights: batch.length,
   });

@@ -12,10 +12,10 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { useRpc } from '@/lib/rpc';
 import { useSendTx } from '@/lib/sendTx';
 import { useToast } from '@/components/Toast';
-import { fmtUsdc, fmtUsdcLocal } from '@/lib/usdc';
+import { fmtPusd, fmtPusdLocal } from '@/lib/pusd';
 import { freeCapital } from '@/lib/vault-math';
 import { setComputeUnitLimitIx } from '@/lib/compute-budget';
-import { userUsdcAta } from '@/lib/ata';
+import { userStableAta } from '@/lib/ata';
 import { useTxSuccess } from '@/lib/txEvents';
 import { useWalletSigner } from '@/lib/useWalletSigner';
 import {
@@ -32,7 +32,7 @@ import { RiskBar } from '@/components/RiskBar';
 import { getBuyInsuranceInstructionAsync } from '@/clients/controller/src/generated';
 import { findRoutePda } from '@/clients/governance/src/generated';
 import { findBuyerRecordPda } from '@/clients/flight_pool/src/generated';
-import { MOCK_USDC_MINT, PDAS, PROGRAMS, TOKEN_PROGRAM } from '@/config/devnet';
+import { MOCK_PUSD_MINT, PDAS, PROGRAMS, STABLE_TOKEN_PROGRAM, TOKEN_PROGRAM } from '@/config/devnet';
 
 interface BuyState {
   routes: RouteRow[];
@@ -164,7 +164,7 @@ export default function BuyPage() {
       flightPool,
       [poolTreasuryAta],
     ] = await Promise.all([
-      userUsdcAta(wallet),
+      userStableAta(wallet),
       findRoutePda({
         flightId: selected.seeds.flightId,
         origin: selected.seeds.origin,
@@ -174,8 +174,8 @@ export default function BuyPage() {
       findFlightPoolAddress(selected.seeds.flightId, dateAsUnix),
       findAssociatedTokenPda({
         owner: PDAS.poolTreasuryAuthority,
-        mint: MOCK_USDC_MINT,
-        tokenProgram: TOKEN_PROGRAM,
+        mint: MOCK_PUSD_MINT,
+        tokenProgram: STABLE_TOKEN_PROGRAM,
       }),
     ]);
     const [buyerRecord] = await findBuyerRecordPda({ pool: flightPool, buyer: wallet });
@@ -183,7 +183,8 @@ export default function BuyPage() {
     const createAtaIx = await getCreateAssociatedTokenIdempotentInstructionAsync({
       payer: signer,
       owner: wallet,
-      mint: MOCK_USDC_MINT,
+      mint: MOCK_PUSD_MINT,
+      tokenProgram: STABLE_TOKEN_PROGRAM,
     });
     const buyIx = await getBuyInsuranceInstructionAsync({
       governanceProgram: PROGRAMS.governance,
@@ -196,11 +197,13 @@ export default function BuyPage() {
       flightPoolConfig: PDAS.flightPoolConfig,
       flightPool,
       buyerRecord,
-      buyerUsdcAccount: buyerAta,
+      buyerStableAccount: buyerAta,
       poolTreasury: poolTreasuryAta,
+      stableMint: MOCK_PUSD_MINT,
       vaultProgram: PROGRAMS.vault,
       vaultState: PDAS.vaultState,
       traveler: signer,
+      stableTokenProgram: STABLE_TOKEN_PROGRAM,
       flightId: selected.seeds.flightId,
       origin: selected.seeds.origin,
       destination: selected.seeds.destination,
@@ -293,8 +296,8 @@ export default function BuyPage() {
             ) : (
               <>
                 <div className="col" style={{ gap: 8 }}>
-                  <KvRow k="premium" v={`${fmtUsdc(resolvedTerms.premium)} USDC`} />
-                  <KvRow k="payoff" v={`${fmtUsdc(resolvedTerms.payoff)} USDC`} />
+                  <KvRow k="premium" v={`${fmtPusd(resolvedTerms.premium)} PUSD`} />
+                  <KvRow k="payoff" v={`${fmtPusd(resolvedTerms.payoff)} PUSD`} />
                   <KvRow k="delay threshold" v={`>${resolvedTerms.delayHours}h`} />
                 </div>
                 <div className="col" style={{ gap: 6, marginTop: 14 }}>
@@ -318,8 +321,8 @@ export default function BuyPage() {
                     borderTop: '1px solid var(--line)',
                   }}
                 >
-                  <KvRow k="vault free" v={`${fmtUsdcLocal(state.vault.free)} USDC`} />
-                  <KvRow k="vault locked" v={`${fmtUsdcLocal(state.vault.locked)} USDC`} />
+                  <KvRow k="vault free" v={`${fmtPusdLocal(state.vault.free)} PUSD`} />
+                  <KvRow k="vault locked" v={`${fmtPusdLocal(state.vault.locked)} PUSD`} />
                 </div>
 
                 {!resolvedTerms.approved && (
@@ -335,7 +338,7 @@ export default function BuyPage() {
                     className="muted mono"
                     style={{ fontSize: 11, marginTop: 8, color: 'var(--amber)' }}
                   >
-                    Vault is over-utilized — free capital ({fmtUsdcLocal(state.vault.free)} USDC)
+                    Vault is over-utilized — free capital ({fmtPusdLocal(state.vault.free)} PUSD)
                     is below the payoff. Underwriters need to deposit on /earn first.
                   </div>
                 )}
@@ -352,7 +355,7 @@ export default function BuyPage() {
                     dateAsUnix === 0n
                   }
                 >
-                  Cover {selected.seeds.flightId} · {fmtUsdc(resolvedTerms.premium)} USDC
+                  Cover {selected.seeds.flightId} · {fmtPusd(resolvedTerms.premium)} PUSD
                 </button>
                 <div
                   className="mono-tiny"
@@ -539,11 +542,11 @@ function RoutesTable({
                       {meta ? <RiskBar risk={meta.risk} /> : <span className="muted mono">—</span>}
                     </td>
                     <td align="right" style={tableCell}>
-                      <span className="num">{fmtUsdc(premiumUnits)}</span>
+                      <span className="num">{fmtPusd(premiumUnits)}</span>
                     </td>
                     <td align="right" style={tableCell}>
                       <span className="num" style={{ color: 'var(--cyan)' }}>
-                        {fmtUsdc(payoffUnits)}
+                        {fmtPusd(payoffUnits)}
                       </span>
                     </td>
                   </tr>

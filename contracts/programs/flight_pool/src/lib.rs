@@ -1,7 +1,7 @@
 //! Sentinel — flight_pool program.
 //!
 //! Per-flight pool registry, shared pool treasury, buyer records, claim/sweep
-//! paths, and recovery accounting. All in-flight USDC sits in a single
+//! paths, and recovery accounting. All in-flight PUSD sits in a single
 //! program-owned token account (the pool treasury). Per-flight money state
 //! lives in `FlightPool` PDA fields — there are no per-flight token accounts.
 //!
@@ -18,7 +18,9 @@
 
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token_interface::{
+    self, Mint, TokenAccount, TokenInterface, TransferChecked,
+};
 
 declare_id!("GW1yq7rswXBect6yR1RWtU7Q7AmY5wWMnq58a1JGcwVq");
 
@@ -33,17 +35,17 @@ pub mod flight_pool {
 
     // ─── Initialization ─────────────────────────────────────────────
 
-    pub fn initialize(ctx: Context<Initialize>, usdc_mint: Pubkey) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>, stable_mint: Pubkey) -> Result<()> {
         require_keys_eq!(
-            ctx.accounts.usdc_mint.key(),
-            usdc_mint,
-            FlightPoolError::UsdcMintMismatch
+            ctx.accounts.stable_mint.key(),
+            stable_mint,
+            FlightPoolError::StableMintMismatch
         );
 
         let config = &mut ctx.accounts.config;
         config.owner = ctx.accounts.owner.key();
         config.controller = Pubkey::default();
-        config.usdc_mint = usdc_mint;
+        config.stable_mint = stable_mint;
         config.pool_treasury = ctx.accounts.pool_treasury.key();
         config.recovered_balance = 0;
         config.is_controller_set = false;
@@ -105,19 +107,27 @@ pub mod flight_pool {
         buyer_record.claimed = false;
         buyer_record.bump = ctx.bumps.buyer_record;
 
-        // Transfer the premium from the buyer's USDC ATA into the shared
-        // pool treasury. Signed by the buyer (they're a `Signer` here);
-        // in Phase 5 the controller's CPI passes the buyer's signature
-        // through transitively (architecture §Buying Insurance).
+        // Transfer the premium from the buyer's stable-coin ATA into the
+        // shared pool treasury. Signed by the buyer (they're a `Signer`
+        // here); in Phase 5 the controller's CPI passes the buyer's
+        // signature through transitively (architecture §Buying Insurance).
+        // `transfer_checked` is mandatory for Token-2022 — it carries the
+        // mint + decimals so any extension (transfer fee, transfer hook)
+        // can hook in. PUSD ships only with MetadataPointer + TokenMetadata
+        // so the call is effectively a plain transfer, but the shape stays
+        // future-proof for any 6-decimal stable.
         let premium = ctx.accounts.pool.premium;
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.buyer_usdc_account.to_account_info(),
+        let decimals = ctx.accounts.stable_mint.decimals;
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.buyer_stable_account.to_account_info(),
+            mint: ctx.accounts.stable_mint.to_account_info(),
             to: ctx.accounts.pool_treasury.to_account_info(),
             authority: ctx.accounts.buyer.to_account_info(),
         };
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts),
             premium,
+            decimals,
         )?;
 
         let pool = &mut ctx.accounts.pool;
@@ -151,19 +161,22 @@ pub mod flight_pool {
 
         if amount > 0 {
             let bump = ctx.accounts.config.treasury_authority_bump;
-            let signer_seeds: &[&[&[u8]]] = &[&[b"pool_treasury", &[bump]]];
-            let cpi_accounts = Transfer {
+            let signer_seeds: &[&[&[u8]]] = &[&[b"pool_treasury_v2", &[bump]]];
+            let decimals = ctx.accounts.stable_mint.decimals;
+            let cpi_accounts = TransferChecked {
                 from: ctx.accounts.pool_treasury.to_account_info(),
+                mint: ctx.accounts.stable_mint.to_account_info(),
                 to: ctx.accounts.recipient.to_account_info(),
                 authority: ctx.accounts.treasury_authority.to_account_info(),
             };
-            token::transfer(
+            token_interface::transfer_checked(
                 CpiContext::new_with_signer(
                     ctx.accounts.token_program.key(),
                     cpi_accounts,
                     signer_seeds,
                 ),
                 amount,
+                decimals,
             )?;
         }
 
@@ -243,19 +256,22 @@ pub mod flight_pool {
             .ok_or(FlightPoolError::Overflow)?;
 
         let bump = ctx.accounts.config.treasury_authority_bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[b"pool_treasury", &[bump]]];
-        let cpi_accounts = Transfer {
+        let signer_seeds: &[&[&[u8]]] = &[&[b"pool_treasury_v2", &[bump]]];
+        let decimals = ctx.accounts.stable_mint.decimals;
+        let cpi_accounts = TransferChecked {
             from: ctx.accounts.pool_treasury.to_account_info(),
-            to: ctx.accounts.traveler_usdc_account.to_account_info(),
+            mint: ctx.accounts.stable_mint.to_account_info(),
+            to: ctx.accounts.traveler_stable_account.to_account_info(),
             authority: ctx.accounts.treasury_authority.to_account_info(),
         };
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.key(),
                 cpi_accounts,
                 signer_seeds,
             ),
             payoff,
+            decimals,
         )?;
 
         Ok(())
@@ -309,19 +325,22 @@ pub mod flight_pool {
         );
 
         let bump = ctx.accounts.config.treasury_authority_bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[b"pool_treasury", &[bump]]];
-        let cpi_accounts = Transfer {
+        let signer_seeds: &[&[&[u8]]] = &[&[b"pool_treasury_v2", &[bump]]];
+        let decimals = ctx.accounts.stable_mint.decimals;
+        let cpi_accounts = TransferChecked {
             from: ctx.accounts.pool_treasury.to_account_info(),
-            to: ctx.accounts.owner_usdc_account.to_account_info(),
+            mint: ctx.accounts.stable_mint.to_account_info(),
+            to: ctx.accounts.owner_stable_account.to_account_info(),
             authority: ctx.accounts.treasury_authority.to_account_info(),
         };
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.key(),
                 cpi_accounts,
                 signer_seeds,
             ),
             amount,
+            decimals,
         )?;
 
         let config = &mut ctx.accounts.config;
@@ -351,25 +370,25 @@ fn validate_flight_id(flight_id: &str) -> Result<()> {
 // ─── Accounts: initialize ──────────────────────────────────────────────────
 
 #[derive(Accounts)]
-#[instruction(usdc_mint: Pubkey)]
+#[instruction(stable_mint: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
         payer = owner,
         space = 8 + FlightPoolConfig::INIT_SPACE,
-        seeds = [b"flight_pool_config"],
+        seeds = [b"flight_pool_config_v2"],
         bump,
     )]
     pub config: Account<'info, FlightPoolConfig>,
 
-    /// CHECK: validated against the `usdc_mint` arg via `require_keys_eq!`.
-    pub usdc_mint: Account<'info, Mint>,
+    /// CHECK: validated against the `stable_mint` arg via `require_keys_eq!`.
+    pub stable_mint: InterfaceAccount<'info, Mint>,
 
-    /// PDA whose seeds (`[b"pool_treasury"]`) authorise treasury outflows.
+    /// PDA whose seeds (`[b"pool_treasury_v2"]`) authorise treasury outflows.
     /// Not a stored Anchor account — just a signer-seed source.
     /// CHECK: derived via seeds + bump constraint.
     #[account(
-        seeds = [b"pool_treasury"],
+        seeds = [b"pool_treasury_v2"],
         bump,
     )]
     pub treasury_authority: UncheckedAccount<'info>,
@@ -377,15 +396,16 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = owner,
-        associated_token::mint = usdc_mint,
+        associated_token::mint = stable_mint,
         associated_token::authority = treasury_authority,
+        associated_token::token_program = token_program,
     )]
-    pub pool_treasury: Account<'info, TokenAccount>,
+    pub pool_treasury: InterfaceAccount<'info, TokenAccount>,
 
     #[account(mut)]
     pub owner: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
@@ -397,7 +417,7 @@ pub struct Initialize<'info> {
 pub struct SetController<'info> {
     #[account(
         mut,
-        seeds = [b"flight_pool_config"],
+        seeds = [b"flight_pool_config_v2"],
         bump = config.bump,
         has_one = owner @ FlightPoolError::Unauthorized,
     )]
@@ -411,7 +431,7 @@ pub struct SetController<'info> {
 #[instruction(flight_id: String, date: u64)]
 pub struct RegisterPool<'info> {
     #[account(
-        seeds = [b"flight_pool_config"],
+        seeds = [b"flight_pool_config_v2"],
         bump = config.bump,
         has_one = controller @ FlightPoolError::Unauthorized,
     )]
@@ -448,7 +468,7 @@ pub struct RegisterPool<'info> {
 #[instruction(flight_id: String, date: u64)]
 pub struct AddBuyer<'info> {
     #[account(
-        seeds = [b"flight_pool_config"],
+        seeds = [b"flight_pool_config_v2"],
         bump = config.bump,
         has_one = controller @ FlightPoolError::Unauthorized,
         has_one = pool_treasury @ FlightPoolError::TreasuryMismatch,
@@ -473,25 +493,33 @@ pub struct AddBuyer<'info> {
     )]
     pub buyer_record: Account<'info, BuyerRecord>,
 
-    /// Buyer's USDC ATA. Validated to match the configured mint and to
-    /// be owned by the buyer signer (pre-emptive auth, beyond Anchor's
+    /// Buyer's stable-coin ATA. Validated to match the configured mint and
+    /// to be owned by the buyer signer (pre-emptive auth, beyond Anchor's
     /// transfer authority check).
     #[account(
         mut,
-        constraint = buyer_usdc_account.mint == config.usdc_mint @ FlightPoolError::UsdcMintMismatch,
-        constraint = buyer_usdc_account.owner == buyer.key() @ FlightPoolError::Unauthorized,
+        constraint = buyer_stable_account.mint == config.stable_mint @ FlightPoolError::StableMintMismatch,
+        constraint = buyer_stable_account.owner == buyer.key() @ FlightPoolError::Unauthorized,
     )]
-    pub buyer_usdc_account: Account<'info, TokenAccount>,
+    pub buyer_stable_account: InterfaceAccount<'info, TokenAccount>,
 
     #[account(mut)]
-    pub pool_treasury: Account<'info, TokenAccount>,
+    pub pool_treasury: InterfaceAccount<'info, TokenAccount>,
+
+    /// Stable mint (PUSD / mock-PUSD). Required as a `TransferChecked`
+    /// account so the token program can verify mint + decimals on every
+    /// transfer (Token-2022 deprecates plain `Transfer`).
+    #[account(
+        constraint = stable_mint.key() == config.stable_mint @ FlightPoolError::StableMintMismatch,
+    )]
+    pub stable_mint: InterfaceAccount<'info, Mint>,
 
     #[account(mut)]
     pub buyer: Signer<'info>,
 
     pub controller: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
@@ -501,7 +529,7 @@ pub struct AddBuyer<'info> {
 #[instruction(flight_id: String, date: u64)]
 pub struct SettleOnTime<'info> {
     #[account(
-        seeds = [b"flight_pool_config"],
+        seeds = [b"flight_pool_config_v2"],
         bump = config.bump,
         has_one = controller @ FlightPoolError::Unauthorized,
         has_one = pool_treasury @ FlightPoolError::TreasuryMismatch,
@@ -516,11 +544,11 @@ pub struct SettleOnTime<'info> {
     pub pool: Account<'info, FlightPool>,
 
     #[account(mut)]
-    pub pool_treasury: Account<'info, TokenAccount>,
+    pub pool_treasury: InterfaceAccount<'info, TokenAccount>,
 
-    /// CHECK: derived via `seeds = [b"pool_treasury"]` constraint.
+    /// CHECK: derived via `seeds = [b"pool_treasury_v2"]` constraint.
     #[account(
-        seeds = [b"pool_treasury"],
+        seeds = [b"pool_treasury_v2"],
         bump = config.treasury_authority_bump,
     )]
     pub treasury_authority: UncheckedAccount<'info>,
@@ -529,13 +557,20 @@ pub struct SettleOnTime<'info> {
     /// constrain the mint to prevent accidental wrong-mint transfers.
     #[account(
         mut,
-        constraint = recipient.mint == config.usdc_mint @ FlightPoolError::UsdcMintMismatch,
+        constraint = recipient.mint == config.stable_mint @ FlightPoolError::StableMintMismatch,
     )]
-    pub recipient: Account<'info, TokenAccount>,
+    pub recipient: InterfaceAccount<'info, TokenAccount>,
+
+    /// Stable mint (PUSD / mock-PUSD). Required as a `TransferChecked`
+    /// account so the token program can verify mint + decimals.
+    #[account(
+        constraint = stable_mint.key() == config.stable_mint @ FlightPoolError::StableMintMismatch,
+    )]
+    pub stable_mint: InterfaceAccount<'info, Mint>,
 
     pub controller: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 // ─── Accounts: settle_delayed / settle_cancelled (status-only) ─────────────
@@ -544,7 +579,7 @@ pub struct SettleOnTime<'info> {
 #[instruction(flight_id: String, date: u64)]
 pub struct SettleStatusOnly<'info> {
     #[account(
-        seeds = [b"flight_pool_config"],
+        seeds = [b"flight_pool_config_v2"],
         bump = config.bump,
         has_one = controller @ FlightPoolError::Unauthorized,
     )]
@@ -566,7 +601,7 @@ pub struct SettleStatusOnly<'info> {
 #[instruction(flight_id: String, date: u64)]
 pub struct Claim<'info> {
     #[account(
-        seeds = [b"flight_pool_config"],
+        seeds = [b"flight_pool_config_v2"],
         bump = config.bump,
         has_one = pool_treasury @ FlightPoolError::TreasuryMismatch,
     )]
@@ -591,27 +626,30 @@ pub struct Claim<'info> {
     pub buyer: UncheckedAccount<'info>,
 
     #[account(mut)]
-    pub pool_treasury: Account<'info, TokenAccount>,
+    pub pool_treasury: InterfaceAccount<'info, TokenAccount>,
 
-    /// CHECK: derived via `seeds = [b"pool_treasury"]` constraint.
+    /// CHECK: derived via `seeds = [b"pool_treasury_v2"]` constraint.
     #[account(
-        seeds = [b"pool_treasury"],
+        seeds = [b"pool_treasury_v2"],
         bump = config.treasury_authority_bump,
     )]
     pub treasury_authority: UncheckedAccount<'info>,
 
-    /// Strict `ATA(traveler, usdc_mint)` (D8).
+    /// Strict `ATA(traveler, stable_mint)` (D8). `associated_token::
+    /// token_program` is explicit so the ATA derivation routes through
+    /// Token-2022 (matches how the client-side packed the ATA).
     #[account(
         mut,
-        associated_token::mint = usdc_mint,
+        associated_token::mint = stable_mint,
         associated_token::authority = traveler,
+        associated_token::token_program = token_program,
     )]
-    pub traveler_usdc_account: Account<'info, TokenAccount>,
+    pub traveler_stable_account: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
-        constraint = usdc_mint.key() == config.usdc_mint @ FlightPoolError::UsdcMintMismatch,
+        constraint = stable_mint.key() == config.stable_mint @ FlightPoolError::StableMintMismatch,
     )]
-    pub usdc_mint: Account<'info, Mint>,
+    pub stable_mint: InterfaceAccount<'info, Mint>,
 
     #[account(
         mut,
@@ -619,7 +657,7 @@ pub struct Claim<'info> {
     )]
     pub traveler: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 // ─── Accounts: sweep_expired (anyone-callable) ─────────────────────────────
@@ -629,7 +667,7 @@ pub struct Claim<'info> {
 pub struct SweepExpired<'info> {
     #[account(
         mut,
-        seeds = [b"flight_pool_config"],
+        seeds = [b"flight_pool_config_v2"],
         bump = config.bump,
     )]
     pub config: Account<'info, FlightPoolConfig>,
@@ -652,7 +690,7 @@ pub struct SweepExpired<'info> {
 pub struct WithdrawRecovered<'info> {
     #[account(
         mut,
-        seeds = [b"flight_pool_config"],
+        seeds = [b"flight_pool_config_v2"],
         bump = config.bump,
         has_one = owner @ FlightPoolError::Unauthorized,
         has_one = pool_treasury @ FlightPoolError::TreasuryMismatch,
@@ -660,32 +698,35 @@ pub struct WithdrawRecovered<'info> {
     pub config: Account<'info, FlightPoolConfig>,
 
     #[account(mut)]
-    pub pool_treasury: Account<'info, TokenAccount>,
+    pub pool_treasury: InterfaceAccount<'info, TokenAccount>,
 
-    /// CHECK: derived via `seeds = [b"pool_treasury"]` constraint.
+    /// CHECK: derived via `seeds = [b"pool_treasury_v2"]` constraint.
     #[account(
-        seeds = [b"pool_treasury"],
+        seeds = [b"pool_treasury_v2"],
         bump = config.treasury_authority_bump,
     )]
     pub treasury_authority: UncheckedAccount<'info>,
 
-    /// Strict `ATA(owner, usdc_mint)` (D10).
+    /// Strict `ATA(owner, stable_mint)` (D10). `associated_token::
+    /// token_program` is explicit so the ATA derivation routes through
+    /// Token-2022.
     #[account(
         mut,
-        associated_token::mint = usdc_mint,
+        associated_token::mint = stable_mint,
         associated_token::authority = owner,
+        associated_token::token_program = token_program,
     )]
-    pub owner_usdc_account: Account<'info, TokenAccount>,
+    pub owner_stable_account: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
-        constraint = usdc_mint.key() == config.usdc_mint @ FlightPoolError::UsdcMintMismatch,
+        constraint = stable_mint.key() == config.stable_mint @ FlightPoolError::StableMintMismatch,
     )]
-    pub usdc_mint: Account<'info, Mint>,
+    pub stable_mint: InterfaceAccount<'info, Mint>,
 
     #[account(mut)]
     pub owner: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 // ─── Account data ──────────────────────────────────────────────────────────
@@ -695,7 +736,7 @@ pub struct WithdrawRecovered<'info> {
 pub struct FlightPoolConfig {
     pub owner: Pubkey,
     pub controller: Pubkey,
-    pub usdc_mint: Pubkey,
+    pub stable_mint: Pubkey,
     pub pool_treasury: Pubkey,
     pub recovered_balance: u64,
     pub is_controller_set: bool,
@@ -767,8 +808,8 @@ pub enum FlightPoolError {
     NotPolicyHolder,
     #[msg("`amount > recovered_balance`.")]
     InsufficientRecovered,
-    #[msg("Token account mint does not match the configured USDC mint.")]
-    UsdcMintMismatch,
+    #[msg("Token account mint does not match the configured stable mint.")]
+    StableMintMismatch,
     #[msg("pool_treasury argument does not match the configured treasury.")]
     TreasuryMismatch,
     #[msg("Operation amount must be > 0.")]

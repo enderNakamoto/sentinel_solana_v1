@@ -138,7 +138,7 @@ export interface DeploymentArtifact {
   owner: string;
   authorities: { oracle: string; keeper: string };
   keypairPaths: { oracle: string | null; keeper: string | null };
-  usdcMint: string;
+  stableMint: string;
   programs: {
     governance: string;
     vault: string;

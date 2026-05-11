@@ -7,10 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:cache": "synpress --phantom tests/wallet-setup",
-    "clean": "rm -rf .next out node_modules src/idl src/clients .cache-synpress test-results playwright-report"
+    "clean": "rm -rf .next out node_modules src/idl src/clients"
   },
   "dependencies": {
     "@solana-program/system": "^0.12.0",
@@ -27,8 +24,6 @@
     "recharts": "^3.8.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
-    "@synthetixio/synpress": "^4.1.2",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

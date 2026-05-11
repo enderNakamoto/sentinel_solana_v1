@@ -44,12 +44,13 @@ import {
   getAtaAddress,
   getTokenAccountAmount,
   makeClient,
-  mintMockUsdcTo,
+  mintMockPusdTo,
   setComputeUnitLimitIx,
   setTokenAccount,
   simulateClassifier,
   simulateOracle,
   simulateSettler,
+  TOKEN_2022_PROGRAM_ID_KIT,
   TOKEN_PROGRAM_ADDRESS_KIT,
   VAULT_PROGRAM_ADDRESS,
   whitelistRoute,
@@ -174,7 +175,7 @@ async function buildBuyInsurance(
     pool: flightPoolPda,
     buyer: traveler.address,
   });
-  const buyerUsdcAta = getAtaAddress(ctrl.usdcMint, traveler.address);
+  const buyerUsdcAta = getAtaAddress(ctrl.stableMint, traveler.address, TOKEN_2022_PROGRAM_ID_KIT);
 
   return getBuyInsuranceInstructionAsync({
     governanceProgram: GOVERNANCE_PROGRAM_ADDRESS,
@@ -187,11 +188,13 @@ async function buildBuyInsurance(
     flightPoolConfig: ctrl.flightPool.configPda,
     flightPool: flightPoolPda,
     buyerRecord: buyerRecordPda,
-    buyerUsdcAccount: buyerUsdcAta,
+    buyerStableAccount: buyerUsdcAta,
     poolTreasury: ctrl.flightPool.treasuryAta,
+    stableMint: ctrl.stableMint,
     vaultProgram: VAULT_PROGRAM_ADDRESS,
     vaultState: ctrl.vault.vaultStatePda,
     traveler,
+    stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
     flightId: flight.flightId,
     origin: flight.origin,
     destination: flight.destination,
@@ -237,9 +240,9 @@ describe('Phase 6 — Full protocol lifecycle', () => {
     const t1 = await fundedSigner(client);
     const t2 = await fundedSigner(client);
     const t3 = await fundedSigner(client);
-    mintMockUsdcTo(client, t1.address, PREMIUM);
-    mintMockUsdcTo(client, t2.address, PREMIUM);
-    mintMockUsdcTo(client, t3.address, PREMIUM);
+    mintMockPusdTo(client, t1.address, PREMIUM);
+    mintMockPusdTo(client, t2.address, PREMIUM);
+    mintMockPusdTo(client, t3.address, PREMIUM);
 
     await buyInsurance(client, ctrl, FLIGHTS.onTime, t1, FUTURE_DATE);
     await buyInsurance(client, ctrl, FLIGHTS.delayed, t2, FUTURE_DATE);
@@ -473,7 +476,7 @@ describe('Phase 6 — Full protocol lifecycle', () => {
     // vault.send_payout topped it up; traveler 2 has 0 USDC.
     const travelerUsdcBeforeClaim = getTokenAccountAmount(
       client,
-      getAtaAddress(ctrl.usdcMint, t2.address),
+      getAtaAddress(ctrl.stableMint, t2.address, TOKEN_2022_PROGRAM_ID_KIT),
     )!;
     expect(travelerUsdcBeforeClaim).toBe(0n);
 
@@ -482,14 +485,15 @@ describe('Phase 6 — Full protocol lifecycle', () => {
         pool: delayedPoolPda,
         buyer: t2.address,
         poolTreasury: ctrl.flightPool.treasuryAta,
-        usdcMint: ctrl.usdcMint,
+        stableMint: ctrl.stableMint,
         traveler: t2,
+        tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
         flightId: FLIGHTS.delayed.flightId,
         date: FUTURE_DATE,
       }),
     ]);
     expect(
-      getTokenAccountAmount(client, getAtaAddress(ctrl.usdcMint, t2.address)),
+      getTokenAccountAmount(client, getAtaAddress(ctrl.stableMint, t2.address, TOKEN_2022_PROGRAM_ID_KIT)),
     ).toBe(PAYOFF);
 
     // BuyerRecord.claimed = true.
@@ -503,7 +507,7 @@ describe('Phase 6 — Full protocol lifecycle', () => {
 
     // (m) Traveler 3 (cancelled) does NOT claim. Advance past expiry,
     // then anyone sweeps. Recovered balance increases.
-    const expirySec = ctrl.usdcMint
+    const expirySec = ctrl.stableMint
       ? BigInt(client.svm.getClock().unixTimestamp) + 5_184_001n
       : 0n;
     advanceClock(client.svm, 5_184_001n); // > claim_expiry_window (60d default)
@@ -552,7 +556,7 @@ describe('Phase 6 — Withdrawal queue under settlement', () => {
 
     // (b) Buy one policy → vault.locked_capital = 10 USDC; free = 1.
     const traveler = await fundedSigner(client);
-    mintMockUsdcTo(client, traveler.address, PREMIUM);
+    mintMockPusdTo(client, traveler.address, PREMIUM);
     await buyInsurance(client, ctrl, FLIGHTS.onTime, traveler, FUTURE_DATE);
 
     const vaultPostBuy = getVaultStateDecoder().decode(
@@ -639,13 +643,15 @@ describe('Phase 6 — Withdrawal queue under settlement', () => {
         vaultTokenAccount: ctrl.vault.vaultTokenAccount,
         claimable: ctrl.underwriterClaimablePda,
         owner: ctrl.underwriter.address,
-        collectorUsdcAccount: ctrl.underwriterUsdcAta,
+        collectorStableAccount: ctrl.underwriterStableAta,
+        stableMint: ctrl.stableMint,
         collector: ctrl.underwriter,
+        stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
       }),
     ]);
 
     // Underwriter's USDC balance went up by the claimable amount.
-    const underwriterUsdcAfter = getTokenAccountAmount(client, ctrl.underwriterUsdcAta)!;
+    const underwriterUsdcAfter = getTokenAccountAmount(client, ctrl.underwriterStableAta)!;
     // Initial 10000 USDC - 11 USDC deposited = ~9989 USDC remaining;
     // after collect: + claimableAmount. We just check the collect succeeded
     // (claimable went to 0).
@@ -680,7 +686,7 @@ describe('Phase 6 — Solvency edge', () => {
 
     // Don't deposit anything → vault free_capital = 0.
     const traveler = await fundedSigner(client);
-    mintMockUsdcTo(client, traveler.address, PREMIUM);
+    mintMockPusdTo(client, traveler.address, PREMIUM);
 
     await expect(
       client.sendTransaction([
@@ -727,7 +733,7 @@ describe('Phase 6 — Authorization isolation', () => {
 
     // Set up a recipient ATA.
     const { ata: recipientAta } = setTokenAccount(client, {
-      mint: ctrl.usdcMint,
+      mint: ctrl.stableMint,
       owner: stranger.address,
       amount: 0n,
     });
@@ -738,7 +744,9 @@ describe('Phase 6 — Authorization isolation', () => {
           vaultState: ctrl.vault.vaultStatePda,
           vaultTokenAccount: ctrl.vault.vaultTokenAccount,
           recipient: recipientAta,
+          stableMint: ctrl.stableMint,
           controller: stranger,
+          stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           amount: 1_000n,
         }),
       ]),
@@ -760,7 +768,7 @@ describe('Phase 6 — Authorization isolation', () => {
     });
     await depositToVault(client, ctrl, 1_000_000_000n);
     const traveler = await fundedSigner(client);
-    mintMockUsdcTo(client, traveler.address, PREMIUM);
+    mintMockPusdTo(client, traveler.address, PREMIUM);
     await buyInsurance(client, ctrl, FLIGHTS.onTime, traveler, FUTURE_DATE);
 
     // Stranger tries to call flight_pool.settle_on_time directly.
@@ -775,7 +783,9 @@ describe('Phase 6 — Authorization isolation', () => {
           pool: poolPda,
           poolTreasury: ctrl.flightPool.treasuryAta,
           recipient: ctrl.vault.vaultTokenAccount,
+          stableMint: ctrl.stableMint,
           controller: stranger,
+          tokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
           flightId: FLIGHTS.onTime.flightId,
           date: FUTURE_DATE,
         }),
@@ -804,7 +814,7 @@ describe('Phase 6 — Authorization isolation', () => {
     });
     await depositToVault(client, ctrl, 1_000_000_000n);
     const traveler = await fundedSigner(client);
-    mintMockUsdcTo(client, traveler.address, PREMIUM);
+    mintMockPusdTo(client, traveler.address, PREMIUM);
     await buyInsurance(client, ctrl, FLIGHTS.onTime, traveler, FUTURE_DATE);
     // Drive to Landed.
     await simulateOracle.setEstimatedArrival(
@@ -878,7 +888,7 @@ describe('Phase 6 — Authorization isolation', () => {
     });
     await depositToVault(client, ctrl, 1_000_000_000n);
     const traveler = await fundedSigner(client);
-    mintMockUsdcTo(client, traveler.address, PREMIUM);
+    mintMockPusdTo(client, traveler.address, PREMIUM);
     await buyInsurance(client, ctrl, FLIGHTS.onTime, traveler, FUTURE_DATE);
 
     const [flightDataPda] = await findFlightDataPda({
@@ -913,9 +923,9 @@ describe('Phase 6 — Multi-flight per tx', () => {
     const t1 = await fundedSigner(client);
     const t2 = await fundedSigner(client);
     const t3 = await fundedSigner(client);
-    mintMockUsdcTo(client, t1.address, PREMIUM);
-    mintMockUsdcTo(client, t2.address, PREMIUM);
-    mintMockUsdcTo(client, t3.address, PREMIUM);
+    mintMockPusdTo(client, t1.address, PREMIUM);
+    mintMockPusdTo(client, t2.address, PREMIUM);
+    mintMockPusdTo(client, t3.address, PREMIUM);
     await buyInsurance(client, ctrl, FLIGHTS.onTime, t1, FUTURE_DATE);
     await buyInsurance(client, ctrl, FLIGHTS.delayed, t2, FUTURE_DATE);
     await buyInsurance(client, ctrl, FLIGHTS.cancelled, t3, FUTURE_DATE);
@@ -982,8 +992,9 @@ describe('Phase 6 — Multi-flight per tx', () => {
       snapshotRecord: snapshotRecordPda,
       poolTreasury: ctrl.flightPool.treasuryAta,
       treasuryAuthority: ctrl.flightPool.treasuryAuthorityPda,
+      stableMint: ctrl.stableMint,
       keeper: ctrl.keeperSigner,
-      tokenProgram: TOKEN_PROGRAM_ADDRESS_KIT,
+      stableTokenProgram: TOKEN_2022_PROGRAM_ID_KIT,
       day: today,
       nFlights: 3,
     });

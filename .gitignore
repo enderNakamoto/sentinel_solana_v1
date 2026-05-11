@@ -35,13 +35,6 @@ executor/dist/
 # ─── Surfpool ─────────────────────────────────────────────────────
 .surfpool/
 
-# ─── Playwright + Synpress (Phase 16) ────────────────────────────
-frontend/test-results/
-frontend/playwright-report/
-frontend/.cache-synpress/
-frontend/blob-report/
-frontend/playwright/.cache/
-
 # ─── Cron control panel (Phase 17) ───────────────────────────────
 frontend/.cache-cron-runs.jsonl
 

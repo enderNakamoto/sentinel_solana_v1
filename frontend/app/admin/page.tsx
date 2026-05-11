@@ -21,7 +21,7 @@ import {
   type AdminRole,
   type RouteSeeds,
 } from '@/data';
-import { MOCK_USDC_MINT, OWNER, PDAS, TOKEN_PROGRAM } from '@/config/devnet';
+import { MOCK_PUSD_MINT, OWNER, PDAS, STABLE_TOKEN_PROGRAM, TOKEN_PROGRAM } from '@/config/devnet';
 import {
   getSetDefaultsInstructionAsync,
   getWhitelistRouteInstructionAsync,
@@ -36,7 +36,7 @@ import {
   type FlightPoolConfig,
 } from '@/clients/flight_pool/src/generated';
 
-import { fmtUsdc, toUsdcUnits } from '@/lib/usdc';
+import { fmtPusd, toPusdUnits } from '@/lib/pusd';
 
 export default function AdminPage() {
   const session = useWalletSession();
@@ -270,8 +270,8 @@ function DefaultsCard({ config, canWrite, signer, send, onSuccess }: DefaultsCar
 
   useEffect(() => {
     if (!config) return;
-    setPremium(fmtUsdc(config.defaultPremium));
-    setPayoff(fmtUsdc(config.defaultPayoff));
+    setPremium(fmtPusd(config.defaultPremium));
+    setPayoff(fmtPusd(config.defaultPayoff));
     setDelay(String(config.defaultDelayHours));
   }, [config]);
 
@@ -280,8 +280,8 @@ function DefaultsCard({ config, canWrite, signer, send, onSuccess }: DefaultsCar
     try {
       const ix = await getSetDefaultsInstructionAsync({
         owner: signer,
-        premium: toUsdcUnits(premium),
-        payoff: toUsdcUnits(payoff),
+        premium: toPusdUnits(premium),
+        payoff: toPusdUnits(payoff),
         delayHours: Number(delay),
       });
       const r = await send([ix], { successTitle: 'Defaults updated' });
@@ -300,8 +300,8 @@ function DefaultsCard({ config, canWrite, signer, send, onSuccess }: DefaultsCar
       ownerOnlyVisible={canWrite}
     >
       <div className="col" style={{ gap: 8 }}>
-        <KvRow k="default_premium" v={config ? `${fmtUsdc(config.defaultPremium)} USDC` : '—'} />
-        <KvRow k="default_payoff" v={config ? `${fmtUsdc(config.defaultPayoff)} USDC` : '—'} />
+        <KvRow k="default_premium" v={config ? `${fmtPusd(config.defaultPremium)} PUSD` : '—'} />
+        <KvRow k="default_payoff" v={config ? `${fmtPusd(config.defaultPayoff)} PUSD` : '—'} />
         <KvRow k="default_delay_hours" v={config ? String(config.defaultDelayHours) : '—'} />
         <KvRow k="route_count" v={config ? String(config.routeCount) : '—'} />
       </div>
@@ -315,7 +315,7 @@ function DefaultsCard({ config, canWrite, signer, send, onSuccess }: DefaultsCar
           className="col"
           style={{ gap: 8, marginTop: 18 }}
         >
-          <Field label="Premium (USDC)">
+          <Field label="Premium (PUSD)">
             <input
               className="input"
               type="text"
@@ -323,7 +323,7 @@ function DefaultsCard({ config, canWrite, signer, send, onSuccess }: DefaultsCar
               onChange={(e) => setPremium(e.target.value)}
             />
           </Field>
-          <Field label="Payoff (USDC)">
+          <Field label="Payoff (PUSD)">
             <input
               className="input"
               type="text"
@@ -399,8 +399,8 @@ function AddRouteForm({
         flightId: seeds.flightId,
         origin: seeds.origin,
         destination: seeds.destination,
-        premium: premium ? toUsdcUnits(premium) : null,
-        payoff: payoff ? toUsdcUnits(payoff) : null,
+        premium: premium ? toPusdUnits(premium) : null,
+        payoff: payoff ? toPusdUnits(payoff) : null,
         delayHours: delay ? Number(delay) : null,
       });
       const r = await send([ix], { successTitle: `Whitelisted ${seeds.flightId}` });
@@ -601,14 +601,14 @@ function FlightPoolTunablesCard({
   return (
     <Card
       title="Flight Pool Tunables"
-      hint="Owner-only. Withdraw recovered USDC (expired claims) from the pool treasury."
+      hint="Owner-only. Withdraw recovered PUSD (expired claims) from the pool treasury."
       ownerOnly
       ownerOnlyVisible={canWrite}
     >
       <div className="col" style={{ gap: 8 }}>
         <KvRow
           k="recovered_balance"
-          v={config ? `${fmtUsdc(config.recoveredBalance)} USDC` : '—'}
+          v={config ? `${fmtPusd(config.recoveredBalance)} PUSD` : '—'}
         />
         <KvRow k="pool_treasury" v={config?.poolTreasury ?? '—'} mono />
         <KvRow k="treasury_authority" v={PDAS.poolTreasuryAuthority} mono />
@@ -622,18 +622,19 @@ function FlightPoolTunablesCard({
             try {
               const [ownerAta] = await findAssociatedTokenPda({
                 owner: recipientAddr,
-                mint: MOCK_USDC_MINT,
-                tokenProgram: TOKEN_PROGRAM,
+                mint: MOCK_PUSD_MINT,
+                tokenProgram: STABLE_TOKEN_PROGRAM,
               });
               const ix = await getWithdrawRecoveredInstructionAsync({
                 owner: signer,
                 poolTreasury: config.poolTreasury,
-                ownerUsdcAccount: ownerAta,
-                usdcMint: MOCK_USDC_MINT,
-                amount: toUsdcUnits(amount),
+                ownerStableAccount: ownerAta,
+                stableMint: MOCK_PUSD_MINT,
+                tokenProgram: STABLE_TOKEN_PROGRAM,
+                amount: toPusdUnits(amount),
               });
               const r = await send([ix], {
-                successTitle: `Withdrew ${amount} USDC from recovery pool`,
+                successTitle: `Withdrew ${amount} PUSD from recovery pool`,
               });
               if (r.ok) {
                 setAmount('');
@@ -646,7 +647,7 @@ function FlightPoolTunablesCard({
           className="col"
           style={{ gap: 8, marginTop: 18 }}
         >
-          <Field label="Amount (USDC)">
+          <Field label="Amount (PUSD)">
             <input
               className="input"
               value={amount}

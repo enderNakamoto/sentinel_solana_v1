@@ -54,7 +54,7 @@ export function loadDeployment(repoRoot: string, cluster: string): DeploymentArt
   const raw = readFileSync(path, 'utf-8');
   const artifact = JSON.parse(raw) as DeploymentArtifact;
   // Light shape validation — catches stale artifacts from older script runs.
-  for (const key of ['cluster', 'rpcUrl', 'owner', 'usdcMint', 'programs', 'pdas'] as const) {
+  for (const key of ['cluster', 'rpcUrl', 'owner', 'stableMint', 'programs', 'pdas'] as const) {
     if (!(key in artifact)) {
       throw new Error(`Deployment artifact missing field "${key}": ${path}`);
     }
