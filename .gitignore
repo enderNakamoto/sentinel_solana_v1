@@ -69,8 +69,13 @@ keys/*.json
 keys/**/*.json
 
 # ─── Deployment artifacts (cluster + timestamped JSON) ────────────
+# Historical timestamped artifacts stay local-only. The `<cluster>-latest`
+# pointer is committed so the Render executor can load it at startup —
+# data is public (program + PDA addresses), already in README.
 deployments/*.json
 !deployments/.gitkeep
+!deployments/devnet-latest.json
+!deployments/surfpool-latest.json
 
 # ─── Editor / OS ──────────────────────────────────────────────────
 .DS_Store

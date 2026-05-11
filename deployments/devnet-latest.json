@@ -1,0 +1,35 @@
+{
+  "cluster": "devnet",
+  "rpcUrl": "https://api.devnet.solana.com",
+  "deployer": "FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy",
+  "owner": "FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy",
+  "authorities": {
+    "oracle": "3GjTYVmMyY3H2JomUL4e7YvVYALyskAjdWrmux7i3DNv",
+    "keeper": "EXZZGnbBZAM8DKimCbpeW9BvF4TxcKe8pCYm5KfWyEJu"
+  },
+  "keypairPaths": {
+    "oracle": "keys/devnet-oracle.json",
+    "keeper": "keys/devnet-keeper.json"
+  },
+  "stableMint": "F5KjXXvUB9UP24Kky5yUiDGdHdA11Fbp5YHUkV8DRFvE",
+  "programs": {
+    "governance": "6d6QXsZRQ1fXp8wEXFTm4uXAbLWarPKX6XJLcNUY8rcT",
+    "vault": "3yzuTtfGYUBsdhXf4QGeq9MUGj5RDNLj3hFPtsWGkj8p",
+    "oracle_aggregator": "EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6",
+    "flight_pool": "GW1yq7rswXBect6yR1RWtU7Q7AmY5wWMnq58a1JGcwVq",
+    "controller": "G4v4i3LoLX7v3cEb3cehNGWMHbvHArRyPSEiZmg5VSot"
+  },
+  "pdas": {
+    "governanceConfig": "AsVZzrc2ong7kU1bkfE4FM4q8mE5kVdRTa3pDW5yr74x",
+    "vaultState": "CZ7Cnntu7uSWmzKNudfd6v8UHJqjELiCJuBX1pn43ecc",
+    "shareMint": "68SbS4XW5ACfbWr6TBFxLK7rHc6P7uLkBRd26o4ZGQM",
+    "withdrawalQueue": "2iXD7wBgunLeVXaSDGSzHKC89ms8RKXpzSLoPJPLcvaT",
+    "oracleConfig": "7FimnDxjyVw2T4cGR2fTv3vG1t5zS8iVEHBxNmR4J8xt",
+    "flightPoolConfig": "G9RRspS8p9R1wvSVCJ8kgefKMJDjRTDQtfwbTHK2D7eV",
+    "poolTreasuryAuthority": "6VDsbh8nxpwj9tj8F27Ftfior3Wc8C5vDW9LKAr1KVR7",
+    "controllerConfig": "496TgyNMNYDoGgGmUEviJ2hvc9cvvf788sSn5WTsEKqw",
+    "activeFlightList": "6Jisfz6sgbMZiCN2iKhjrkdRRTBwRyYLB4Tb4gFyJxJs"
+  },
+  "deployedAt": "2026-05-11T08:40:11.143Z",
+  "deployedAtUnix": 1778488811
+}
