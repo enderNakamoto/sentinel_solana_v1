@@ -24,8 +24,19 @@
 
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token::{
-    self, Burn, Mint, MintTo, Token, TokenAccount, Transfer,
+// Classic SPL — for the vault's own RVS share mint (we own it, no Token-2022
+// extension benefit; D24-2). Burn/MintTo operate on shares only.
+use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount};
+// Token-interface — for the stable (PUSD / any 6-decimal SPL or Token-2022
+// mint). All stable-side transfers use `transfer_checked` to carry the mint
+// + decimals; this is mandatory for any Token-2022 mint and works equally
+// for classic SPL.
+use anchor_spl::token_interface::{
+    self,
+    Mint as Mint2022,
+    TokenAccount as TokenAccount2022,
+    TokenInterface,
+    TransferChecked,
 };
 
 declare_id!("3yzuTtfGYUBsdhXf4QGeq9MUGj5RDNLj3hFPtsWGkj8p");
@@ -54,17 +65,17 @@ pub mod vault {
     /// Owner-only. Creates `VaultState`, `WithdrawalQueue` (empty),
     /// `share_mint` PDA, and the vault USDC ATA. Mint authority + token
     /// account authority is the `vault_state` PDA itself.
-    pub fn initialize(ctx: Context<Initialize>, usdc_mint: Pubkey) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>, stable_mint: Pubkey) -> Result<()> {
         require_keys_eq!(
-            ctx.accounts.usdc_mint.key(),
-            usdc_mint,
-            VaultError::UsdcMintMismatch
+            ctx.accounts.stable_mint.key(),
+            stable_mint,
+            VaultError::StableMintMismatch
         );
 
         let state = &mut ctx.accounts.vault_state;
         state.owner = ctx.accounts.owner.key();
         state.controller = Pubkey::default();
-        state.usdc_mint = usdc_mint;
+        state.stable_mint = stable_mint;
         state.share_mint = ctx.accounts.share_mint.key();
         state.vault_token_account = ctx.accounts.vault_token_account.key();
         state.total_managed_assets = 0;
@@ -102,15 +113,20 @@ pub mod vault {
     pub fn deposit(ctx: Context<Deposit>, usdc_amount: u64) -> Result<()> {
         require!(usdc_amount > 0, VaultError::ZeroAmount);
 
-        // 1. Pull USDC from depositor's ATA into the vault token account.
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.depositor_usdc_account.to_account_info(),
+        // 1. Pull stable coin from depositor's ATA into the vault token
+        //    account via `transfer_checked` (Token-2022 compliant; works
+        //    identically against classic SPL).
+        let decimals = ctx.accounts.stable_mint.decimals;
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.depositor_stable_account.to_account_info(),
+            mint: ctx.accounts.stable_mint.to_account_info(),
             to: ctx.accounts.vault_token_account.to_account_info(),
             authority: ctx.accounts.depositor.to_account_info(),
         };
-        token::transfer(
-            CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts),
+        token_interface::transfer_checked(
+            CpiContext::new(ctx.accounts.stable_token_program.key(), cpi_accounts),
             usdc_amount,
+            decimals,
         )?;
 
         // 2. Compute shares using the virtual offset (rounds DOWN).
@@ -125,7 +141,7 @@ pub mod vault {
         // 3. Mint shares to the depositor's share ATA, signed by the
         //    `vault_state` PDA (the mint authority).
         let bump = ctx.accounts.vault_state.bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[b"vault_state", &[bump]]];
+        let signer_seeds: &[&[&[u8]]] = &[&[b"vault_state_v2", &[bump]]];
         let cpi_accounts = MintTo {
             mint: ctx.accounts.share_mint.to_account_info(),
             to: ctx.accounts.depositor_share_account.to_account_info(),
@@ -178,21 +194,24 @@ pub mod vault {
             shares,
         )?;
 
-        // 2. Transfer USDC out, signed by vault PDA.
+        // 2. Transfer stable out, signed by vault PDA.
         let bump = ctx.accounts.vault_state.bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[b"vault_state", &[bump]]];
-        let cpi_accounts = Transfer {
+        let signer_seeds: &[&[&[u8]]] = &[&[b"vault_state_v2", &[bump]]];
+        let decimals = ctx.accounts.stable_mint.decimals;
+        let cpi_accounts = TransferChecked {
             from: ctx.accounts.vault_token_account.to_account_info(),
-            to: ctx.accounts.redeemer_usdc_account.to_account_info(),
+            mint: ctx.accounts.stable_mint.to_account_info(),
+            to: ctx.accounts.redeemer_stable_account.to_account_info(),
             authority: ctx.accounts.vault_state.to_account_info(),
         };
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.key(),
+                ctx.accounts.stable_token_program.key(),
                 cpi_accounts,
                 signer_seeds,
             ),
             usdc_out,
+            decimals,
         )?;
 
         // 3. Decrement TMA.
@@ -306,7 +325,7 @@ pub mod vault {
 
         // Re-mint the user's shares — signed by the vault PDA (mint authority).
         let bump = ctx.accounts.vault_state.bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[b"vault_state", &[bump]]];
+        let signer_seeds: &[&[&[u8]]] = &[&[b"vault_state_v2", &[bump]]];
         let cpi_accounts = MintTo {
             mint: ctx.accounts.share_mint.to_account_info(),
             to: ctx.accounts.requester_share_account.to_account_info(),
@@ -341,19 +360,22 @@ pub mod vault {
         require!(amount > 0, VaultError::NothingToCollect);
 
         let bump = ctx.accounts.vault_state.bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[b"vault_state", &[bump]]];
-        let cpi_accounts = Transfer {
+        let signer_seeds: &[&[&[u8]]] = &[&[b"vault_state_v2", &[bump]]];
+        let decimals = ctx.accounts.stable_mint.decimals;
+        let cpi_accounts = TransferChecked {
             from: ctx.accounts.vault_token_account.to_account_info(),
-            to: ctx.accounts.collector_usdc_account.to_account_info(),
+            mint: ctx.accounts.stable_mint.to_account_info(),
+            to: ctx.accounts.collector_stable_account.to_account_info(),
             authority: ctx.accounts.vault_state.to_account_info(),
         };
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.key(),
+                ctx.accounts.stable_token_program.key(),
                 cpi_accounts,
                 signer_seeds,
             ),
             amount,
+            decimals,
         )?;
 
         let claimable = &mut ctx.accounts.claimable;
@@ -397,19 +419,22 @@ pub mod vault {
         require!(amount > 0, VaultError::ZeroAmount);
 
         let bump = ctx.accounts.vault_state.bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[b"vault_state", &[bump]]];
-        let cpi_accounts = Transfer {
+        let signer_seeds: &[&[&[u8]]] = &[&[b"vault_state_v2", &[bump]]];
+        let decimals = ctx.accounts.stable_mint.decimals;
+        let cpi_accounts = TransferChecked {
             from: ctx.accounts.vault_token_account.to_account_info(),
+            mint: ctx.accounts.stable_mint.to_account_info(),
             to: ctx.accounts.recipient.to_account_info(),
             authority: ctx.accounts.vault_state.to_account_info(),
         };
-        token::transfer(
+        token_interface::transfer_checked(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.key(),
+                ctx.accounts.stable_token_program.key(),
                 cpi_accounts,
                 signer_seeds,
             ),
             amount,
+            decimals,
         )?;
 
         let state = &mut ctx.accounts.vault_state;
@@ -607,13 +632,13 @@ fn compute_share_price_scaled(total_shares: u64, total_managed_assets: u64) -> R
 // ─── Accounts: initialize ──────────────────────────────────────────────────
 
 #[derive(Accounts)]
-#[instruction(usdc_mint: Pubkey)]
+#[instruction(stable_mint: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
         payer = owner,
         space = 8 + VaultState::INIT_SPACE,
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump,
     )]
     pub vault_state: Account<'info, VaultState>,
@@ -622,7 +647,7 @@ pub struct Initialize<'info> {
         init,
         payer = owner,
         space = 8 + WithdrawalQueue::INIT_SPACE,
-        seeds = [b"withdrawal_queue"],
+        seeds = [b"withdrawal_queue_v2"],
         bump,
     )]
     pub withdrawal_queue: Account<'info, WithdrawalQueue>,
@@ -630,30 +655,42 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = owner,
-        seeds = [b"share_mint"],
+        seeds = [b"share_mint_v2"],
         bump,
         mint::decimals = 6,
         mint::authority = vault_state,
     )]
     pub share_mint: Account<'info, Mint>,
 
-    /// CHECK: validated against the `usdc_mint` arg via `require_keys_eq!`.
-    /// The mint's decimals/authority are externally controlled; we only
-    /// need to know its address.
-    pub usdc_mint: Account<'info, Mint>,
+    /// Stable mint (PUSD on devnet/mainnet, mock-PUSD in tests). Accepted via
+    /// `InterfaceAccount` so it works equally with classic SPL Token and
+    /// Token-2022 mints — PUSD ships as Token-2022 with MetadataPointer +
+    /// TokenMetadata extensions only (no transfer fee, no transfer hook).
+    /// Validated against the `stable_mint` arg via `require_keys_eq!`.
+    pub stable_mint: InterfaceAccount<'info, Mint2022>,
 
     #[account(
         init,
         payer = owner,
-        associated_token::mint = usdc_mint,
+        associated_token::mint = stable_mint,
         associated_token::authority = vault_state,
+        associated_token::token_program = stable_token_program,
     )]
-    pub vault_token_account: Account<'info, TokenAccount>,
+    pub vault_token_account: InterfaceAccount<'info, TokenAccount2022>,
 
     #[account(mut)]
     pub owner: Signer<'info>,
 
+    /// Classic SPL Token program — required for the RVS share mint init
+    /// (`share_mint` above). RVS stays classic SPL by design (D24-2).
     pub token_program: Program<'info, Token>,
+
+    /// Stable token program — required for the vault's stable ATA init.
+    /// `Interface<TokenInterface>` accepts both classic SPL Token and
+    /// Token-2022 program IDs at runtime; in production this is the
+    /// Token-2022 program ID since PUSD is Token-2022.
+    pub stable_token_program: Interface<'info, TokenInterface>,
+
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
@@ -665,7 +702,7 @@ pub struct Initialize<'info> {
 pub struct SetController<'info> {
     #[account(
         mut,
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump = vault_state.bump,
         has_one = owner @ VaultError::Unauthorized,
     )]
@@ -679,7 +716,7 @@ pub struct SetController<'info> {
 pub struct Deposit<'info> {
     #[account(
         mut,
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump = vault_state.bump,
         has_one = share_mint @ VaultError::ShareMintMismatch,
         has_one = vault_token_account @ VaultError::VaultTokenAccountMismatch,
@@ -688,23 +725,23 @@ pub struct Deposit<'info> {
 
     #[account(
         mut,
-        seeds = [b"share_mint"],
+        seeds = [b"share_mint_v2"],
         bump,
     )]
     pub share_mint: Account<'info, Mint>,
 
     #[account(mut)]
-    pub vault_token_account: Account<'info, TokenAccount>,
+    pub vault_token_account: Box<InterfaceAccount<'info, TokenAccount2022>>,
 
-    /// Depositor's USDC ATA. We don't enforce ATA-ness at the Anchor layer
-    /// (lets tests use synthetic accounts seeded via setAccount); we only
-    /// require it's a valid TokenAccount of the configured USDC mint.
+    /// Depositor's stable-coin ATA. We don't enforce ATA-ness at the Anchor
+    /// layer (lets tests use synthetic accounts seeded via setAccount); we
+    /// only require it's a valid TokenAccount of the configured stable mint.
     #[account(
         mut,
-        constraint = depositor_usdc_account.mint == vault_state.usdc_mint @ VaultError::UsdcMintMismatch,
-        constraint = depositor_usdc_account.owner == depositor.key() @ VaultError::Unauthorized,
+        constraint = depositor_stable_account.mint == vault_state.stable_mint @ VaultError::StableMintMismatch,
+        constraint = depositor_stable_account.owner == depositor.key() @ VaultError::Unauthorized,
     )]
-    pub depositor_usdc_account: Account<'info, TokenAccount>,
+    pub depositor_stable_account: Box<InterfaceAccount<'info, TokenAccount2022>>,
 
     /// Depositor's share-mint ATA. Created by the test harness (or the
     /// frontend in production) ahead of time.
@@ -713,12 +750,24 @@ pub struct Deposit<'info> {
         constraint = depositor_share_account.mint == share_mint.key() @ VaultError::ShareMintMismatch,
         constraint = depositor_share_account.owner == depositor.key() @ VaultError::Unauthorized,
     )]
-    pub depositor_share_account: Account<'info, TokenAccount>,
+    pub depositor_share_account: Box<Account<'info, TokenAccount>>,
+
+    /// Stable mint (PUSD / mock-PUSD). Required as a `TransferChecked`
+    /// account so the token program can verify mint + decimals on every
+    /// stable transfer (Token-2022 deprecates plain `Transfer`).
+    #[account(
+        constraint = stable_mint.key() == vault_state.stable_mint @ VaultError::StableMintMismatch,
+    )]
+    pub stable_mint: Box<InterfaceAccount<'info, Mint2022>>,
 
     #[account(mut)]
     pub depositor: Signer<'info>,
 
+    /// Classic SPL Token program — for the RVS share-mint `MintTo` CPI.
     pub token_program: Program<'info, Token>,
+
+    /// Stable token program — for the stable-coin `TransferChecked` CPI.
+    pub stable_token_program: Interface<'info, TokenInterface>,
 }
 
 // ─── Accounts: redeem ──────────────────────────────────────────────────────
@@ -727,7 +776,7 @@ pub struct Deposit<'info> {
 pub struct Redeem<'info> {
     #[account(
         mut,
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump = vault_state.bump,
         has_one = share_mint @ VaultError::ShareMintMismatch,
         has_one = vault_token_account @ VaultError::VaultTokenAccountMismatch,
@@ -736,32 +785,42 @@ pub struct Redeem<'info> {
 
     #[account(
         mut,
-        seeds = [b"share_mint"],
+        seeds = [b"share_mint_v2"],
         bump,
     )]
     pub share_mint: Account<'info, Mint>,
 
     #[account(mut)]
-    pub vault_token_account: Account<'info, TokenAccount>,
+    pub vault_token_account: Box<InterfaceAccount<'info, TokenAccount2022>>,
 
     #[account(
         mut,
         constraint = redeemer_share_account.mint == share_mint.key() @ VaultError::ShareMintMismatch,
         constraint = redeemer_share_account.owner == redeemer.key() @ VaultError::Unauthorized,
     )]
-    pub redeemer_share_account: Account<'info, TokenAccount>,
+    pub redeemer_share_account: Box<Account<'info, TokenAccount>>,
 
     #[account(
         mut,
-        constraint = redeemer_usdc_account.mint == vault_state.usdc_mint @ VaultError::UsdcMintMismatch,
-        constraint = redeemer_usdc_account.owner == redeemer.key() @ VaultError::Unauthorized,
+        constraint = redeemer_stable_account.mint == vault_state.stable_mint @ VaultError::StableMintMismatch,
+        constraint = redeemer_stable_account.owner == redeemer.key() @ VaultError::Unauthorized,
     )]
-    pub redeemer_usdc_account: Account<'info, TokenAccount>,
+    pub redeemer_stable_account: Box<InterfaceAccount<'info, TokenAccount2022>>,
+
+    /// Stable mint — required as a `TransferChecked` account.
+    #[account(
+        constraint = stable_mint.key() == vault_state.stable_mint @ VaultError::StableMintMismatch,
+    )]
+    pub stable_mint: Box<InterfaceAccount<'info, Mint2022>>,
 
     #[account(mut)]
     pub redeemer: Signer<'info>,
 
+    /// Classic SPL Token program — for the RVS share-mint `Burn` CPI.
     pub token_program: Program<'info, Token>,
+
+    /// Stable token program — for the stable-coin `TransferChecked` CPI.
+    pub stable_token_program: Interface<'info, TokenInterface>,
 }
 
 // ─── Accounts: request_withdrawal ──────────────────────────────────────────
@@ -770,7 +829,7 @@ pub struct Redeem<'info> {
 pub struct RequestWithdrawal<'info> {
     #[account(
         mut,
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump = vault_state.bump,
         has_one = share_mint @ VaultError::ShareMintMismatch,
     )]
@@ -778,7 +837,7 @@ pub struct RequestWithdrawal<'info> {
 
     #[account(
         mut,
-        seeds = [b"withdrawal_queue"],
+        seeds = [b"withdrawal_queue_v2"],
         bump = withdrawal_queue.bump,
         realloc = 8 + WithdrawalQueue::space_for(withdrawal_queue.requests.len() + 1),
         realloc::payer = requester,
@@ -788,7 +847,7 @@ pub struct RequestWithdrawal<'info> {
 
     #[account(
         mut,
-        seeds = [b"share_mint"],
+        seeds = [b"share_mint_v2"],
         bump,
     )]
     pub share_mint: Account<'info, Mint>,
@@ -823,7 +882,7 @@ pub struct RequestWithdrawal<'info> {
 pub struct CancelWithdrawal<'info> {
     #[account(
         mut,
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump = vault_state.bump,
         has_one = share_mint @ VaultError::ShareMintMismatch,
     )]
@@ -831,7 +890,7 @@ pub struct CancelWithdrawal<'info> {
 
     #[account(
         mut,
-        seeds = [b"withdrawal_queue"],
+        seeds = [b"withdrawal_queue_v2"],
         bump = withdrawal_queue.bump,
         realloc = 8 + WithdrawalQueue::space_for(
             withdrawal_queue.requests.len().saturating_sub(1)
@@ -843,7 +902,7 @@ pub struct CancelWithdrawal<'info> {
 
     #[account(
         mut,
-        seeds = [b"share_mint"],
+        seeds = [b"share_mint_v2"],
         bump,
     )]
     pub share_mint: Account<'info, Mint>,
@@ -867,14 +926,14 @@ pub struct CancelWithdrawal<'info> {
 #[derive(Accounts)]
 pub struct Collect<'info> {
     #[account(
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump = vault_state.bump,
         has_one = vault_token_account @ VaultError::VaultTokenAccountMismatch,
     )]
     pub vault_state: Account<'info, VaultState>,
 
     #[account(mut)]
-    pub vault_token_account: Account<'info, TokenAccount>,
+    pub vault_token_account: InterfaceAccount<'info, TokenAccount2022>,
 
     #[account(
         mut,
@@ -890,10 +949,16 @@ pub struct Collect<'info> {
 
     #[account(
         mut,
-        constraint = collector_usdc_account.mint == vault_state.usdc_mint @ VaultError::UsdcMintMismatch,
-        constraint = collector_usdc_account.owner == collector.key() @ VaultError::Unauthorized,
+        constraint = collector_stable_account.mint == vault_state.stable_mint @ VaultError::StableMintMismatch,
+        constraint = collector_stable_account.owner == collector.key() @ VaultError::Unauthorized,
     )]
-    pub collector_usdc_account: Account<'info, TokenAccount>,
+    pub collector_stable_account: InterfaceAccount<'info, TokenAccount2022>,
+
+    /// Stable mint — required as a `TransferChecked` account.
+    #[account(
+        constraint = stable_mint.key() == vault_state.stable_mint @ VaultError::StableMintMismatch,
+    )]
+    pub stable_mint: InterfaceAccount<'info, Mint2022>,
 
     #[account(
         mut,
@@ -901,7 +966,10 @@ pub struct Collect<'info> {
     )]
     pub collector: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    /// Stable token program — for the stable-coin `TransferChecked` CPI.
+    /// No classic-SPL CPIs happen here (no share mint burn/mint), so the
+    /// classic `token_program` field is omitted entirely.
+    pub stable_token_program: Interface<'info, TokenInterface>,
 }
 
 // ─── Accounts: controller-only (simple) ───────────────────────────────────
@@ -910,7 +978,7 @@ pub struct Collect<'info> {
 pub struct ControllerOnly<'info> {
     #[account(
         mut,
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump = vault_state.bump,
         has_one = controller @ VaultError::Unauthorized,
     )]
@@ -922,7 +990,7 @@ pub struct ControllerOnly<'info> {
 pub struct SendPayout<'info> {
     #[account(
         mut,
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump = vault_state.bump,
         has_one = controller @ VaultError::Unauthorized,
         has_one = vault_token_account @ VaultError::VaultTokenAccountMismatch,
@@ -930,24 +998,31 @@ pub struct SendPayout<'info> {
     pub vault_state: Account<'info, VaultState>,
 
     #[account(mut)]
-    pub vault_token_account: Account<'info, TokenAccount>,
+    pub vault_token_account: InterfaceAccount<'info, TokenAccount2022>,
 
     #[account(
         mut,
-        constraint = recipient.mint == vault_state.usdc_mint @ VaultError::UsdcMintMismatch,
+        constraint = recipient.mint == vault_state.stable_mint @ VaultError::StableMintMismatch,
     )]
-    pub recipient: Account<'info, TokenAccount>,
+    pub recipient: InterfaceAccount<'info, TokenAccount2022>,
+
+    /// Stable mint — required as a `TransferChecked` account.
+    #[account(
+        constraint = stable_mint.key() == vault_state.stable_mint @ VaultError::StableMintMismatch,
+    )]
+    pub stable_mint: InterfaceAccount<'info, Mint2022>,
 
     pub controller: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    /// Stable token program — for the stable-coin `TransferChecked` CPI.
+    pub stable_token_program: Interface<'info, TokenInterface>,
 }
 
 #[derive(Accounts)]
 pub struct ProcessWithdrawalQueue<'info> {
     #[account(
         mut,
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump = vault_state.bump,
         has_one = controller @ VaultError::Unauthorized,
     )]
@@ -955,7 +1030,7 @@ pub struct ProcessWithdrawalQueue<'info> {
 
     #[account(
         mut,
-        seeds = [b"withdrawal_queue"],
+        seeds = [b"withdrawal_queue_v2"],
         bump = withdrawal_queue.bump,
     )]
     pub withdrawal_queue: Account<'info, WithdrawalQueue>,
@@ -971,7 +1046,7 @@ pub struct ProcessWithdrawalQueue<'info> {
 pub struct Snapshot<'info> {
     #[account(
         mut,
-        seeds = [b"vault_state"],
+        seeds = [b"vault_state_v2"],
         bump = vault_state.bump,
         has_one = controller @ VaultError::Unauthorized,
         has_one = share_mint @ VaultError::ShareMintMismatch,
@@ -1008,7 +1083,7 @@ pub struct Snapshot<'info> {
 pub struct VaultState {
     pub owner: Pubkey,
     pub controller: Pubkey,
-    pub usdc_mint: Pubkey,
+    pub stable_mint: Pubkey,
     pub share_mint: Pubkey,
     pub vault_token_account: Pubkey,
     pub total_managed_assets: u64,
@@ -1100,8 +1175,8 @@ pub enum VaultError {
     ShareMintMismatch,
     #[msg("Vault token account argument does not match the configured token account.")]
     VaultTokenAccountMismatch,
-    #[msg("Token mint does not match the configured USDC mint.")]
-    UsdcMintMismatch,
+    #[msg("Token mint does not match the configured stable mint.")]
+    StableMintMismatch,
     #[msg("Snapshot day argument does not match the current day.")]
     SnapshotDayMismatch,
     #[msg("Claimable account passed in remaining_accounts does not match queue request.")]

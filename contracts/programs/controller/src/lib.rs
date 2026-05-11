@@ -15,7 +15,7 @@
 //!   - `execute_settlements` (keeper): per-flight money movement +
 //!     end-of-batch `vault.process_withdrawal_queue` + `vault.snapshot`.
 //!
-//! All four sibling-program CPIs sign as the `[b"controller_config"]` PDA
+//! All four sibling-program CPIs sign as the `[b"controller_config_v2"]` PDA
 //! via `invoke_signed`. The bump is cached on `ControllerConfig` (D8).
 //!
 //! See `spec/architecture.md` §controller_program and
@@ -23,7 +23,17 @@
 //! D1–D18.
 
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount};
+// Classic SPL Token — only `Mint` is referenced (typed `share_mint` field
+// for the vault.snapshot CPI accounts struct). Controller does no direct
+// CPI into the classic Token program; all token CPIs flow through vault
+// or flight_pool via `transfer_checked`.
+use anchor_spl::token::Mint;
+// Token-interface — for stable-side accounts (pool_treasury, vault_token_account,
+// recipient buyer ATAs). Passes through to vault / flight_pool CPIs that now
+// use `transfer_checked`.
+use anchor_spl::token_interface::{
+    Mint as Mint2022, TokenAccount as TokenAccount2022, TokenInterface,
+};
 
 // Sibling-program CPI deps (Cargo.toml feature `cpi`).
 use flight_pool::{self, cpi as flight_pool_cpi, FlightPool};
@@ -56,7 +66,7 @@ pub mod controller {
         config.flight_pool_config = params.flight_pool_config;
         config.oracle_program = params.oracle_program;
         config.oracle_config = params.oracle_config;
-        config.usdc_mint = params.usdc_mint;
+        config.stable_mint = params.stable_mint;
         config.solvency_ratio = params.solvency_ratio;
         config.min_lead_time = params.min_lead_time;
         config.claim_expiry_window = params.claim_expiry_window;
@@ -177,7 +187,7 @@ pub mod controller {
         // (6) First-buy CPIs: oracle.init_flight_data + flight_pool.register_pool +
         //     push to ActiveFlightList. PDA-signed CPIs use cached bump (D8).
         let bump = ctx.accounts.controller_config.bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[b"controller_config", &[bump]]];
+        let signer_seeds: &[&[&[u8]]] = &[&[b"controller_config_v2", &[bump]]];
 
         if is_first_buy {
             // 6a. Realloc + push to ActiveFlightList. Caller is the traveler
@@ -228,17 +238,20 @@ pub mod controller {
         }
 
         // (7) CPI flight_pool.add_buyer — premium transfer happens inside
-        //     (traveler signs transitively, controller PDA signs).
+        //     (traveler signs transitively, controller PDA signs). Now
+        //     forwards the new `stable_mint` field that flight_pool's
+        //     `transfer_checked` CPI requires.
         {
             let cpi_accounts = flight_pool_cpi::accounts::AddBuyer {
                 config: ctx.accounts.flight_pool_config.to_account_info(),
                 pool: ctx.accounts.flight_pool.to_account_info(),
                 buyer_record: ctx.accounts.buyer_record.to_account_info(),
-                buyer_usdc_account: ctx.accounts.buyer_usdc_account.to_account_info(),
+                buyer_stable_account: ctx.accounts.buyer_stable_account.to_account_info(),
                 pool_treasury: ctx.accounts.pool_treasury.to_account_info(),
+                stable_mint: ctx.accounts.stable_mint.to_account_info(),
                 buyer: ctx.accounts.traveler.to_account_info(),
                 controller: ctx.accounts.controller_config.to_account_info(),
-                token_program: ctx.accounts.token_program.to_account_info(),
+                token_program: ctx.accounts.stable_token_program.to_account_info(),
                 system_program: ctx.accounts.system_program.to_account_info(),
             };
             let cpi_ctx = CpiContext::new_with_signer(
@@ -307,7 +320,7 @@ pub mod controller {
         );
 
         let bump = ctx.accounts.controller_config.bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[b"controller_config", &[bump]]];
+        let signer_seeds: &[&[&[u8]]] = &[&[b"controller_config_v2", &[bump]]];
 
         for i in 0..n_pairs {
             let fd_info = &ctx.remaining_accounts[i * 2];
@@ -436,7 +449,7 @@ pub mod controller {
         );
 
         let bump = ctx.accounts.controller_config.bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[b"controller_config", &[bump]]];
+        let signer_seeds: &[&[&[u8]]] = &[&[b"controller_config_v2", &[bump]]];
         let now = Clock::get()?.unix_timestamp;
         let claim_expiry_window = ctx.accounts.controller_config.claim_expiry_window;
 
@@ -495,15 +508,17 @@ pub mod controller {
             match fd_status {
                 FlightStatus::ToBeSettledOnTime => {
                     // CPI flight_pool.settle_on_time — moves premium*N from
-                    // pool_treasury → vault_token_account.
+                    // pool_treasury → vault_token_account. Now passes
+                    // `stable_mint` for `transfer_checked`.
                     let cpi_accounts = flight_pool_cpi::accounts::SettleOnTime {
                         config: ctx.accounts.flight_pool_config.to_account_info(),
                         pool: pool_info.clone(),
                         pool_treasury: ctx.accounts.pool_treasury.to_account_info(),
                         treasury_authority: ctx.accounts.treasury_authority.to_account_info(),
                         recipient: ctx.accounts.vault_token_account.to_account_info(),
+                        stable_mint: ctx.accounts.stable_mint.to_account_info(),
                         controller: ctx.accounts.controller_config.to_account_info(),
-                        token_program: ctx.accounts.token_program.to_account_info(),
+                        token_program: ctx.accounts.stable_token_program.to_account_info(),
                     };
                     let cpi_ctx = CpiContext::new_with_signer(
                         flight_pool::ID,
@@ -689,8 +704,9 @@ fn settle_payout_branch<'info>(
             vault_state: ctx.accounts.vault_state.to_account_info(),
             vault_token_account: ctx.accounts.vault_token_account.to_account_info(),
             recipient: ctx.accounts.pool_treasury.to_account_info(),
+            stable_mint: ctx.accounts.stable_mint.to_account_info(),
             controller: ctx.accounts.controller_config.to_account_info(),
-            token_program: ctx.accounts.token_program.to_account_info(),
+            stable_token_program: ctx.accounts.stable_token_program.to_account_info(),
         };
         let cpi_ctx =
             CpiContext::new_with_signer(vault::ID, cpi_accounts, signer_seeds);
@@ -752,7 +768,7 @@ pub struct Initialize<'info> {
         init,
         payer = owner,
         space = 8 + ControllerConfig::INIT_SPACE,
-        seeds = [b"controller_config"],
+        seeds = [b"controller_config_v2"],
         bump,
     )]
     pub controller_config: Account<'info, ControllerConfig>,
@@ -761,7 +777,7 @@ pub struct Initialize<'info> {
         init,
         payer = owner,
         space = 8 + ActiveFlightList::INIT_SPACE,
-        seeds = [b"active_flights"],
+        seeds = [b"active_flights_v2"],
         bump,
     )]
     pub active_flight_list: Account<'info, ActiveFlightList>,
@@ -778,7 +794,7 @@ pub struct Initialize<'info> {
 pub struct SetAuthorizedKeeper<'info> {
     #[account(
         mut,
-        seeds = [b"controller_config"],
+        seeds = [b"controller_config_v2"],
         bump = controller_config.bump,
         has_one = owner @ ControllerError::Unauthorized,
     )]
@@ -794,7 +810,7 @@ pub struct BuyInsurance<'info> {
     // Controller state — `controller_config` is also the CPI signer (PDA).
     #[account(
         mut,
-        seeds = [b"controller_config"],
+        seeds = [b"controller_config_v2"],
         bump = controller_config.bump,
         has_one = governance_program @ ControllerError::ConfigMismatch,
         has_one = vault_program @ ControllerError::ConfigMismatch,
@@ -808,7 +824,7 @@ pub struct BuyInsurance<'info> {
 
     #[account(
         mut,
-        seeds = [b"active_flights"],
+        seeds = [b"active_flights_v2"],
         bump = active_flight_list.bump,
         realloc = 8 + ActiveFlightList::space_for(active_flight_list.flights.len() + 1),
         realloc::payer = traveler,
@@ -849,9 +865,13 @@ pub struct BuyInsurance<'info> {
     #[account(mut)]
     pub buyer_record: UncheckedAccount<'info>,
     #[account(mut)]
-    pub buyer_usdc_account: Box<Account<'info, TokenAccount>>,
+    pub buyer_stable_account: Box<InterfaceAccount<'info, TokenAccount2022>>,
     #[account(mut)]
-    pub pool_treasury: Box<Account<'info, TokenAccount>>,
+    pub pool_treasury: Box<InterfaceAccount<'info, TokenAccount2022>>,
+
+    /// Stable mint (PUSD / mock-PUSD). Forwarded to flight_pool.add_buyer's
+    /// `transfer_checked` CPI.
+    pub stable_mint: Box<InterfaceAccount<'info, Mint2022>>,
 
     // Vault accounts.
     /// CHECK: validated against `controller_config.vault_program`.
@@ -863,7 +883,9 @@ pub struct BuyInsurance<'info> {
     #[account(mut)]
     pub traveler: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    /// Stable token program — Token-2022 in production (since PUSD is
+    /// Token-2022); the same field accepts classic SPL for parity.
+    pub stable_token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
@@ -872,7 +894,7 @@ pub struct BuyInsurance<'info> {
 #[derive(Accounts)]
 pub struct ClassifyFlights<'info> {
     #[account(
-        seeds = [b"controller_config"],
+        seeds = [b"controller_config_v2"],
         bump = controller_config.bump,
         has_one = oracle_program @ ControllerError::ConfigMismatch,
         has_one = oracle_config @ ControllerError::ConfigMismatch,
@@ -897,7 +919,7 @@ pub struct ExecuteSettlements<'info> {
     // `Box<>` per Phase 5 D19 (this struct has 8 typed Account fields).
     #[account(
         mut,
-        seeds = [b"controller_config"],
+        seeds = [b"controller_config_v2"],
         bump = controller_config.bump,
         has_one = vault_program @ ControllerError::ConfigMismatch,
         has_one = vault_state @ ControllerError::ConfigMismatch,
@@ -910,7 +932,7 @@ pub struct ExecuteSettlements<'info> {
 
     #[account(
         mut,
-        seeds = [b"active_flights"],
+        seeds = [b"active_flights_v2"],
         bump = active_flight_list.bump,
     )]
     pub active_flight_list: Box<Account<'info, ActiveFlightList>>,
@@ -935,7 +957,7 @@ pub struct ExecuteSettlements<'info> {
     #[account(mut)]
     pub vault_state: Box<Account<'info, VaultState>>,
     #[account(mut)]
-    pub vault_token_account: Box<Account<'info, TokenAccount>>,
+    pub vault_token_account: Box<InterfaceAccount<'info, TokenAccount2022>>,
     #[account(mut)]
     pub withdrawal_queue: Box<Account<'info, WithdrawalQueue>>,
     pub share_mint: Box<Account<'info, Mint>>,
@@ -944,20 +966,25 @@ pub struct ExecuteSettlements<'info> {
     pub snapshot_record: UncheckedAccount<'info>,
 
     // Flight pool treasury accounts. The pool treasury is a single shared
-    // SPL Token account whose authority is the `[b"pool_treasury"]` PDA on
+    // token account whose authority is the `[b"pool_treasury_v2"]` PDA on
     // flight_pool_program. Its address is stored on flight_pool's config
     // (validated when the CPI runs).
     #[account(mut)]
-    pub pool_treasury: Box<Account<'info, TokenAccount>>,
-    /// CHECK: derived via `[b"pool_treasury"]` on flight_pool_program — the
+    pub pool_treasury: Box<InterfaceAccount<'info, TokenAccount2022>>,
+    /// CHECK: derived via `[b"pool_treasury_v2"]` on flight_pool_program — the
     /// signer-seed source for treasury outflows. Validated by flight_pool's
     /// `SettleOnTime` constraints when the CPI runs.
     pub treasury_authority: UncheckedAccount<'info>,
 
+    /// Stable mint (PUSD / mock-PUSD). Forwarded to vault.send_payout and
+    /// flight_pool.settle_on_time CPIs which now use `transfer_checked`.
+    pub stable_mint: Box<InterfaceAccount<'info, Mint2022>>,
+
     #[account(mut)]
     pub keeper: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    /// Stable token program (Token-2022 in production).
+    pub stable_token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
     // remaining_accounts SCHEMA:
     //   [0..n_flights*2]: per-flight pairs (FlightData mut, FlightPool mut)
@@ -978,7 +1005,7 @@ pub struct ControllerConfig {
     pub flight_pool_config: Pubkey,
     pub oracle_program: Pubkey,
     pub oracle_config: Pubkey,
-    pub usdc_mint: Pubkey,
+    pub stable_mint: Pubkey,
     pub solvency_ratio: u32,
     pub min_lead_time: i64,
     pub claim_expiry_window: i64,
@@ -1025,7 +1052,7 @@ pub struct InitializeParams {
     pub flight_pool_config: Pubkey,
     pub oracle_program: Pubkey,
     pub oracle_config: Pubkey,
-    pub usdc_mint: Pubkey,
+    pub stable_mint: Pubkey,
     pub solvency_ratio: u32,
     pub min_lead_time: i64,
     pub claim_expiry_window: i64,

@@ -34,11 +34,13 @@ Status values: `not generated` → `planned` → `in_progress` → `paused` → 
 | 21 | Walletless + Sponsored Gas            | deferred      | — (scope locked: Privy embedded wallet + relay + D18 rent_payer schema; depends on Phase 20) |
 | 22 | Premium Pricing Agent (FastAPI + XGBoost) | complete    | `spec/phases/phase-22-premium-pricing-agent.md` (completed 2026-05-10) |
 | 23 | Route Repricer Cron (TS + Grok)       | in_progress   | `spec/phases/phase-23-route-repricer-cron.md` (started 2026-05-10) |
+| 24 | Token-2022 Migration & PUSD Integration | in_progress | `spec/phases/phase-24-token2022-pusd.md` (started 2026-05-10) |
 
 ## Current Pointer
 
 Active phase: **Phase 23 — Route Repricer Cron (TS + Grok)** (in_progress, started 2026-05-10)
 Other in_progress: Phase 16 (E2E Test), Phase 17 (Cron Control Panel), Phase 18 (Fetcher Oracle Centralized) — all started 2026-05-08
+Phase 24 — Token-2022 Migration & PUSD Integration (in_progress, started 2026-05-10)
 
 Last updated: 2026-05-10
 Last completed: Phase 22 — Premium Pricing Agent (FastAPI + XGBoost) (2026-05-10)
