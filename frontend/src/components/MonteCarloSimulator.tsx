@@ -205,19 +205,82 @@ export default function MonteCarloSimulator({
             Quantitative Analysis
           </p>
           <h1
-            className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4"
+            className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight mb-3"
             style={{ color: 'var(--ink)' }}
           >
-            Monte Carlo Simulation
+            A poor man&apos;s{' '}
+            <span style={{ color: 'var(--cyan)' }}>Monte Carlo.</span>
           </h1>
           <p
-            className="text-base md:text-lg leading-relaxed max-w-2xl"
+            className="text-base md:text-lg leading-relaxed max-w-3xl mb-6"
             style={{ color: 'var(--ink-2)' }}
           >
-            Modeling underwriter yield and protocol earnings for parametric flight
-            delay insurance. Adjust the parameters below to explore how premiums,
-            payouts, policy volume, and delay probabilities affect returns.
+            For every set of parameters below &mdash; premium, payout, policy volume,
+            vault capital &mdash; we draw{' '}
+            <strong style={{ color: 'var(--ink)' }}>10,000 random delay rates</strong>{' '}
+            and compute the underwriter&apos;s yield each time. The histogram is the
+            distribution of outcomes; the four cards above are its summary stats.
           </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl">
+            <div
+              className="rounded-xl p-5 border"
+              style={{
+                background: 'rgba(94,224,210,0.06)',
+                borderColor: 'rgba(94,224,210,0.3)',
+              }}
+            >
+              <p
+                className="text-[11px] uppercase mb-2"
+                style={{ letterSpacing: '0.15em', color: 'var(--cyan)' }}
+              >
+                What this does
+              </p>
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: 'var(--ink-2)' }}
+              >
+                Each trial picks a delay probability{' '}
+                <code style={{ color: 'var(--ink)', fontFamily: 'var(--mono)' }}>p</code>{' '}
+                uniformly between the min/max sliders, then applies the parametric
+                formula{' '}
+                <code style={{ color: 'var(--ink)', fontFamily: 'var(--mono)' }}>
+                  yield = M&middot;(&pi; &minus; &lambda;&middot;p) / C
+                </code>
+                . 10,000 trials give us a mean, a 5th/95th percentile, and a profit
+                probability for the vault.
+              </p>
+            </div>
+
+            <div
+              className="rounded-xl p-5 border"
+              style={{
+                background: 'rgba(255,181,71,0.06)',
+                borderColor: 'rgba(255,181,71,0.3)',
+              }}
+            >
+              <p
+                className="text-[11px] uppercase mb-2"
+                style={{ letterSpacing: '0.15em', color: 'var(--amber)' }}
+              >
+                Why &ldquo;poor man&apos;s&rdquo;
+              </p>
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: 'var(--ink-2)' }}
+              >
+                A real Monte Carlo would calibrate{' '}
+                <code style={{ color: 'var(--ink)', fontFamily: 'var(--mono)' }}>p</code>{' '}
+                to historical BTS data per route, draw individual flight outcomes
+                (Bernoulli, not an average), and model correlated outages when storms
+                hit a hub. Ours uses a flat uniform distribution &mdash; good enough
+                to sanity-check that the economics work, not good enough to set
+                premiums. That&apos;s why on-chain pricing comes from the{' '}
+                <strong style={{ color: 'var(--ink)' }}>XGBoost + Grok agent</strong>,
+                not from this page.
+              </p>
+            </div>
+          </div>
         </section>
       )}
 
