@@ -6,7 +6,7 @@ import { Card } from '@/components/admin/Card';
 import { CLUSTER, DEPLOYER, explorerLink } from '@/config/devnet';
 import { emitTxSuccessBurst, useTxSuccess } from '@/lib/txEvents';
 
-// ─── Types (mirror frontend/src/lib/cron-runs.ts) ────────────────────────
+// ─── Types (mirror executor/src/core/types.ts → RunLogEntry) ────────────
 
 type CronId = 'classifier' | 'settler' | 'fetcher' | 'repricer';
 

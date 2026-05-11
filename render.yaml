@@ -1,0 +1,99 @@
+# Render Blueprint — sentinel-executor
+#
+# Single Web Service running all four cron jobs in one Node process:
+#   - Express HTTP surface (/api/health, /api/logs, /api/trigger, /api/config)
+#   - node-cron scheduler firing fetcher (2h), classifier (1h),
+#     settler (5min), repricer (daily 00:00 UTC)
+#
+# The Vercel-hosted frontend proxies through this service. Both manual
+# triggers and scheduled ticks land in the same in-memory ring-buffer
+# log (executor/src/core/run_log.ts) and render in the /crons UI.
+#
+# Deploy:
+#   1. Connect this repo to Render, point at render.yaml
+#   2. Set the `sync: false` secrets in the Render dashboard
+#   3. After first deploy, set Vercel's EXECUTOR_BASE_URL to the
+#      Render service URL (e.g. https://sentinel-executor.onrender.com)
+#      and redeploy the frontend
+#
+# Per D-Phase25-2: do NOT bump numInstances above 1. Multiple replicas
+# would double-submit every cron tick.
+
+services:
+  - type: web
+    name: sentinel-executor
+    runtime: node
+    plan: starter # free tier sleeps after 15min idle — starter stays warm
+    rootDir: .
+    # esbuild bundles the daemon (Codama-generated clients use bare
+    # directory imports — `tsx` / native `--experimental-strip-types`
+    # can't resolve them at runtime; bundling sidesteps the issue).
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: bash scripts/run.sh run-cron
+    healthCheckPath: /api/health
+    numInstances: 1
+    envVars:
+      # ─── Required ─────────────────────────────────────────────────
+      - key: CLUSTER
+        value: devnet
+      - key: SOLANA_RPC_URL
+        sync: false
+      - key: CRON_KEEPER_BASE58
+        sync: false
+
+      # ─── Fetcher (FlightAware) ───────────────────────────────────
+      - key: AEROAPI_KEY
+        sync: false
+      - key: AEROAPI_MOCK_SCENARIO
+        value: on_time
+
+      # ─── Repricer (xAI Grok + Phase 22 agent) ────────────────────
+      - key: XAI_API_KEY
+        sync: false
+      # After first deploy, fill this in from the Render dashboard with
+      # the public URL of sentinel-agent (e.g.
+      # `https://sentinel-agent-<hash>.onrender.com`). Render's
+      # `fromService` binding doesn't construct the full https:// URL,
+      # so we set it manually once and forget.
+      - key: AGENT_BASE_URL
+        sync: false
+      - key: AGENT_MOCK_PREMIUM_USDC
+        value: "2.5"
+      - key: GROK_MOCK_VERDICT
+        value: ok
+
+      # ─── Trigger auth (optional but recommended) ─────────────────
+      - key: EXECUTOR_TRIGGER_SECRET
+        sync: false
+
+      # ─── HTTP server ─────────────────────────────────────────────
+      - key: HEALTH_PORT
+        value: "8080"
+
+      # ─── Schedule overrides (optional — leave defaults) ─────────
+      # - key: FETCHER_CRON
+      #   value: 0 */2 * * *
+      # - key: CLASSIFIER_CRON
+      #   value: 0 * * * *
+      # - key: SETTLER_CRON
+      #   value: */5 * * * *
+      # - key: REPRICER_CRON
+      #   value: 0 0 * * *
+
+  # ─── Phase 22 — XGBoost premium-pricing agent ───────────────────────
+  # FastAPI service the repricer cron POSTs to for baseline premiums.
+  # Trained model + encoder ship in the repo (agent/artifacts/*.joblib)
+  # so the build is just `pip install` — no `make train` at deploy time.
+  - type: web
+    name: sentinel-agent
+    runtime: python
+    plan: starter # free tier sleeps after 15min idle; on Starter the
+                  # daily repricer tick always finds the agent warm
+    rootDir: agent
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    numInstances: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"

@@ -43,7 +43,14 @@ frontend/.cache-cron-runs.jsonl
 
 # ─── Premium pricing agent (Phase 22) ────────────────────────────
 agent/data/
-agent/artifacts/
+# Trained model ships with the repo so the Render `sentinel-agent`
+# service can boot without a build-time `make train` step. Regenerate
+# locally with `make train` and re-commit when the model changes.
+agent/artifacts/*
+!agent/artifacts/model.joblib
+!agent/artifacts/encoder.joblib
+!agent/artifacts/feature_names.json
+!agent/artifacts/model_version.txt
 agent/__pycache__/
 agent/**/__pycache__/
 agent/.venv/

@@ -508,15 +508,16 @@ Mainnet has no mock-PUSD mint authority — fund recipients via DEX or transfer.
 | Surfpool integration test skipped with warning | Surfpool not running, or no deployment artifact | `pnpm dev:surfpool` in another terminal, then `pnpm run deploy --cluster surfpool --owner <pk>`. |
 | `Cannot find package '@solana/program-client-core'` | Codama runtime dep missing | `pnpm install` (root package.json includes it). |
 
-## Running the crons (Phase 8–10)
+## Running the crons (Phase 8–10, daemon revamped in Phase 25)
 
-Three off-chain crons keep the protocol ticking. Each can be invoked as a one-shot via `pnpm` or run together as a `node-cron` daemon.
+Four off-chain crons keep the protocol ticking. Each can be invoked as a one-shot via `pnpm`, OR run together as a single Node process exposing an Express HTTP surface (`/api/health`, `/api/logs`, `/api/trigger/:job`, `/api/config/:job`). Production deploys the daemon to a Render Web Service — see [Render deploy (Phase 25)](#render-deploy-phase-25) below.
 
 | Cron | Frequency | Signing key | One-shot |
 |---|---|---|---|
 | **FlightDataFetcher** (Phase 8) | every 2h | `authorized_oracle` | `pnpm run-fetcher` |
 | **FlightClassifier** (Phase 9) | every 1h | `authorized_keeper` | `pnpm run-classifier` |
 | **SettlementExecutor** (Phase 10) | every 5min | `authorized_keeper` | `pnpm run-settler` |
+| **RouteRepricer** (Phase 23) | daily 00:00 UTC | deployer (governance owner) | `pnpm run-repricer` |
 
 ### One-shot invocation
 
@@ -565,8 +566,101 @@ Useful for testing/staging:
 | `FETCHER_CRON` | `0 */2 * * *` | Fetcher cron expression |
 | `CLASSIFIER_CRON` | `0 * * * *` | Classifier cron expression |
 | `SETTLER_CRON` | `*/5 * * * *` | Settler cron expression |
-| `RUN_AT_BOOT` | `0` | Set `1` to fire all 3 schedules once on startup |
-| `HEALTH_PORT` | `8080` | /health server port |
+| `REPRICER_CRON` | `0 0 * * *` | Repricer cron expression (daily 00:00 UTC) |
+| `RUN_AT_BOOT` | `0` | Set `1` to fire all 4 schedules once on startup |
+| `HEALTH_PORT` | `8080` | Express server port (`/api/*`) |
+
+## Render deploy (Phase 25)
+
+The cron daemon is built to run as a **single Render Web Service** with all four crons in one Node process. Both scheduled ticks and manual UI-triggered ticks land in the same in-memory ring-buffer log; the Vercel frontend proxies through to render that log in the `/crons` activity feed.
+
+### Localhost validation (recommended before Render)
+
+The full local pipeline needs three processes — the Phase 22 pricing agent on `:8000`, the cron daemon on `:8080`, the Next.js frontend on `:3000`. You can skip the agent and run the repricer in mock mode by setting `AGENT_MOCK=1` instead of `AGENT_BASE_URL`.
+
+```bash
+# Terminal 1 — Phase 22 agent (Python, see "Premium pricing agent" section)
+make serve
+# → http://localhost:8000
+
+# Terminal 2 — cron daemon (Node)
+cp executor/.env.example executor/.env       # if you haven't already
+pnpm cron-daemon
+# → http://localhost:8080
+# (esbuild bundles run-cron.ts → run-cron.mjs then `node` runs it. tsx
+#  directly can't resolve the Codama clients' bare directory imports —
+#  see scripts/run.sh.)
+
+# Terminal 3 — sanity-check the HTTP surface
+curl http://localhost:8080/api/health
+curl http://localhost:8080/api/config/repricer
+curl -X POST 'http://localhost:8080/api/trigger/repricer'
+curl 'http://localhost:8080/api/logs?cron=repricer&limit=5'
+
+# Terminal 4 — frontend pointed at the local executor
+echo 'EXECUTOR_BASE_URL=http://localhost:8080' >> frontend/.env.local
+pnpm dev:frontend
+# → http://localhost:3000/crons
+#   Click "Trigger now" on each cron card; activity feed populates within
+#   one 10s poll (entries live in the executor's in-memory buffer).
+```
+
+If the executor isn't reachable from the frontend, every `/api/cron/*` proxy route returns `502 executor unreachable at <url>`. If the agent isn't reachable from the executor, repricer triggers return `503 agent unreachable` (live mode only; mock mode bypasses the check).
+
+### Render setup
+
+The `render.yaml` defines **two** Web Services that get provisioned together:
+
+| Service | Runtime | Purpose |
+|---|---|---|
+| `sentinel-executor` | Node | The cron daemon + Express surface (`/api/health`, `/api/logs`, `/api/trigger/:job`, `/api/active-flights`). |
+| `sentinel-agent` | Python | The Phase 22 XGBoost FastAPI service the repricer cron POSTs to for baseline premiums. Trained model ships with the repo at `agent/artifacts/*.joblib` so the build is `pip install` only — no `make train` at deploy time. |
+
+The executor reaches the agent via its public Render URL (`AGENT_BASE_URL=https://sentinel-agent-<hash>.onrender.com`). Render Web Services on Starter+ plans stay warm so the daily repricer tick always finds the agent ready.
+
+1. **Connect the repo to Render.** Render auto-detects `render.yaml` at the repo root and provisions both services.
+
+2. **Set the `sync: false` env vars** on `sentinel-executor` in the Render dashboard before the first deploy:
+
+   | Var | What |
+   |---|---|
+   | `SOLANA_RPC_URL` | `https://api.devnet.solana.com` (or your devnet RPC provider) |
+   | `CRON_KEEPER_BASE58` | base58 of `keys/devnet-deployer.json` (see [keypair → base58](#deriving-base58-from-a-keypair-json) below) |
+   | `AEROAPI_KEY` | FlightAware key — enables fetcher live mode |
+   | `XAI_API_KEY` | xAI Grok key — enables repricer live mode |
+   | `AGENT_BASE_URL` | the **public URL of `sentinel-agent`** (visible in the Render dashboard once that service finishes its first deploy; format `https://sentinel-agent-<hash>.onrender.com`) |
+   | `EXECUTOR_TRIGGER_SECRET` | any random string — gates `POST /api/trigger/*` |
+
+   `sentinel-agent` doesn't need any custom env vars; its trained model ships with the repo.
+
+3. **Deploy.** Render builds the executor with `pnpm install --frozen-lockfile` + `scripts/run.sh run-cron` (esbuild bundle), and the agent with `pip install -r requirements.txt` + `uvicorn`. Health-checks every 30s on `/api/health` (executor) and `/healthz` (agent).
+
+4. **Point Vercel at the Render service.** Set these on the Vercel project:
+   ```
+   EXECUTOR_BASE_URL=https://sentinel-executor.onrender.com
+   EXECUTOR_TRIGGER_SECRET=<same value as on Render>
+   ```
+   Then redeploy the frontend. The `/crons` page now mirrors whichever ticks Render fires (scheduled + UI-triggered).
+
+5. **Remove obsolete env vars from Vercel.** The following moved to Render and should be deleted from the Vercel project:
+   `AEROAPI_KEY`, `AEROAPI_MOCK`, `AEROAPI_MOCK_SCENARIO`, `XAI_API_KEY`, `GROK_MOCK`, `GROK_MOCK_VERDICT`, `AGENT_BASE_URL`, `AGENT_MOCK`, `AGENT_MOCK_PREMIUM_USDC`, `REPRICER_DRY_RUN`, `CRON_KEEPER_BASE58`, `CRON_KEEPER_PATH`. Keep `FAUCET_FEE_PAYER_BASE58` + `FAUCET_MINT_AUTHORITY_BASE58` (the `/api/faucet/mint` route still lives on Vercel).
+
+### Deriving base58 from a keypair JSON
+
+Render takes the signer as a base58 string. Convert any `keys/*.json` locally:
+
+```bash
+node -e "import('bs58').then(m => process.stdout.write(m.default.encode(new Uint8Array(JSON.parse(require('fs').readFileSync(process.argv[1],'utf-8'))))))" keys/devnet-deployer.json | pbcopy
+```
+
+That puts the base58 secret on your clipboard. Paste it into the `CRON_KEEPER_BASE58` field on Render. **Devnet keys only** — never reuse a key that's touched mainnet on a third-party dashboard.
+
+### Caveats
+
+- **Single point of failure.** node-cron is in-process, so if the Render container crashes or redeploys, all four jobs miss their tick. Missed ticks don't replay — the next scheduled tick runs normally.
+- **Restart wipes logs.** The ring buffer is module-scope state in the running Node process. Every redeploy resets the dashboard history. Audit/forensic history lives on chain via `getSignaturesForAddress`.
+- **Free tier sleep.** Render free-tier Web Services spin down after 15min idle; only paid plans (Starter+) stay warm. `render.yaml` defaults to `plan: starter` for this reason.
+- **No horizontal scaling.** Don't bump `numInstances` above 1 — two replicas would double-submit every cron tick.
 
 ## Running the e2e cron suite (Phase 11)
 

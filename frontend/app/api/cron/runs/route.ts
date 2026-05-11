@@ -1,50 +1,25 @@
 /**
- * GET /api/cron/runs
+ * GET /api/cron/runs — proxy to executor's /api/logs.
  *
- * Returns recent cron-run records for the /crons page activity feeds.
- * Query params:
- *   - cron: 'classifier' | 'settler' | 'fetcher' (optional — omit for all)
- *   - limit: integer 1..100 (default 20)
+ * Phase 25. Forwards `?cron=&limit=` query params verbatim. The
+ * executor's in-memory ring buffer is the single source of truth for
+ * cron-run history; Vercel no longer persists anything.
  */
 
-import { NextResponse } from 'next/server';
-import { readRecentRuns, type CronId } from '@/lib/cron-runs';
+import { executorBaseUrl, proxyJson } from '@/lib/executor-proxy';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const cronParam = url.searchParams.get('cron');
-  const limitParam = url.searchParams.get('limit');
-
-  let cron: CronId | undefined;
-  if (cronParam) {
-    if (
-      cronParam !== 'classifier' &&
-      cronParam !== 'settler' &&
-      cronParam !== 'fetcher' &&
-      cronParam !== 'repricer'
-    ) {
-      return NextResponse.json(
-        { ok: false, error: `Unknown cron id: ${cronParam}` },
-        { status: 400 },
-      );
-    }
-    cron = cronParam;
+  const target = new URL(`${executorBaseUrl()}/api/logs`);
+  // Forward whitelisted params verbatim — keeps the executor's input
+  // validation as the single gate.
+  for (const k of ['cron', 'limit']) {
+    const v = url.searchParams.get(k);
+    if (v) target.searchParams.set(k, v);
   }
-
-  let limit = 20;
-  if (limitParam) {
-    const n = Number(limitParam);
-    if (!Number.isFinite(n) || n < 1 || n > 100) {
-      return NextResponse.json(
-        { ok: false, error: 'limit must be 1..100' },
-        { status: 400 },
-      );
-    }
-    limit = Math.floor(n);
-  }
-
-  const runs = readRecentRuns(cron, limit);
-  return NextResponse.json({ ok: true, runs });
+  // The executor returns `{ ok, runs }` — we forward verbatim. Clients
+  // that consumed the old `/api/cron/runs` already handled that shape.
+  return proxyJson(target.toString());
 }

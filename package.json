@@ -31,6 +31,7 @@
     "run-fetcher": "bash scripts/run.sh run-fetcher",
     "run-classifier": "bash scripts/run.sh run-classifier",
     "run-settler": "bash scripts/run.sh run-settler",
+    "run-repricer": "bash scripts/run.sh run-repricer",
     "cron-daemon": "bash scripts/run.sh run-cron",
     "build:all": "pnpm sync-idl && pnpm gen-clients && pnpm -r build",
     "typecheck": "pnpm -r typecheck",

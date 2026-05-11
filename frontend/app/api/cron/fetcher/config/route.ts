@@ -1,35 +1,15 @@
 /**
- * GET /api/cron/fetcher/config
+ * GET /api/cron/fetcher/config — proxy to executor.
  *
- * Reports the fetcher's effective server-side configuration so the
- * /crons UI can render the live/mock toggle correctly. Server-only —
- * AEROAPI_KEY is never returned, only the boolean "is set".
+ * Phase 25 (D-Phase25-6): single source of truth for "is live mode
+ * available" lives on the executor (where AEROAPI_KEY is set). Vercel
+ * doesn't need the AeroAPI key anymore.
  */
 
-import { NextResponse } from 'next/server';
+import { executorBaseUrl, proxyJson } from '@/lib/executor-proxy';
 
 export const runtime = 'nodejs';
 
-const SCENARIOS = ['on_time', 'delayed', 'cancelled', 'scheduled', 'not_found'] as const;
-
-export function GET() {
-  const liveAvailable = Boolean(process.env.AEROAPI_KEY);
-  const envMockOn = process.env.AEROAPI_MOCK === '1';
-  // Default mode: explicit env mock-flag wins over a present key.
-  const defaultMode: 'mock' | 'live' = envMockOn
-    ? 'mock'
-    : liveAvailable
-      ? 'live'
-      : 'mock';
-  const defaultScenario =
-    (process.env.AEROAPI_MOCK_SCENARIO ?? 'on_time').toLowerCase();
-  return NextResponse.json({
-    ok: true,
-    liveAvailable,
-    defaultMode,
-    defaultScenario: SCENARIOS.includes(defaultScenario as never)
-      ? defaultScenario
-      : 'on_time',
-    scenarios: SCENARIOS,
-  });
+export async function GET() {
+  return proxyJson(`${executorBaseUrl()}/api/config/fetcher`);
 }

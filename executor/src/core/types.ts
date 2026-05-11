@@ -171,3 +171,101 @@ export function isoToUnixSec(iso: string | null | undefined): number | null {
   if (Number.isNaN(ms)) return null;
   return Math.floor(ms / 1000);
 }
+
+// ─── Phase 25 — In-memory ring-buffer log types ──────────────────────────
+//
+// The executor holds the last MAX_ENTRIES runs per job in module-scope
+// state (see `core/run_log.ts`). Frontend reads this via the Express
+// surface and renders the existing `/crons` activity feed unchanged —
+// so the entry shape mirrors frontend's `CronRunRecord` field-for-field.
+// Restart wipes history (D-Phase25-3); audit lives on chain.
+
+/** The four crons that run inside the Render Web Service. */
+export type JobName = 'fetcher' | 'classifier' | 'settler' | 'repricer';
+
+/**
+ * Per-route decision detail recorded by the repricer cron. Mirrors
+ * frontend `RepricerDecision` shape so JSON moves through the proxy
+ * verbatim. The `action` field is the SerializedRouteAction from
+ * route_repricer.ts (bigints stringified).
+ */
+export interface RepricerDecisionRecord {
+  routePda: string;
+  flightId: string;
+  origin: string;
+  destination: string;
+  carrier: string;
+  baselinePremiumBaseUnits: string;
+  baselinePremiumUsdc: number;
+  grokAction: string;
+  grokMultiplier: number;
+  grokReason: string;
+  action: unknown;
+  txSignature?: string;
+  error?: string;
+}
+
+/**
+ * One entry per cron tick. Matches frontend's `CronRunRecord` 1:1 so the
+ * `/crons` UI renders both manual triggers and scheduled ticks from the
+ * same shape — the proxy is a pure pass-through.
+ */
+export interface RunLogEntry {
+  /** Random per-record id for stable UI keys. */
+  id: string;
+  /** Which cron produced this record. */
+  cron: JobName;
+  /** ISO timestamp at tick start. */
+  ts: string;
+  /** Wall-clock duration in milliseconds. */
+  durationMs: number;
+  /** True if every batch landed; false on any failure or pre-flight error. */
+  ok: boolean;
+  /**
+   * Single concise human-readable line. The activity feed renders this
+   * by default:
+   *   - OK:       "3 acted, 5 skipped · 1.2s"
+   *   - repricer: "5 noop · 2 update · 1 disable · 0 reenable · 0.8s"
+   *   - FAILED:   "tx failed: insufficient funds for rent"
+   */
+  summary: string;
+  /** Tx signatures that landed during this tick. */
+  signatures: string[];
+  /** Captured stdout, newline-joined. Used by the "View log" details. */
+  logs: string;
+  /** Concise error message when ok=false. */
+  error?: string;
+
+  // ─── Repricer-specific fields (optional on every record) ─────────
+  decisions?: RepricerDecisionRecord[];
+  histogram?: { noop: number; update: number; disable: number; reenable: number };
+  newlyDisabledPdas?: string[];
+  dryRun?: boolean;
+}
+
+/** Returned by `GET /api/health`. */
+export interface HealthStatus {
+  uptime_seconds: number;
+  started_at: string;
+  last_run: Record<JobName, RunLogEntry | null>;
+}
+
+/** Returned by `GET /api/config/:job`. Shape mirrors the previous frontend config endpoints. */
+export interface JobConfigStatus {
+  ok: true;
+  job: JobName;
+  /** True when this cron has the env vars to run in live mode. */
+  liveAvailable: boolean;
+  /** Default mode the executor would pick if no `?mode=` is passed. */
+  defaultMode: 'mock' | 'live';
+  /** Fetcher only: default mock scenario. */
+  defaultScenario?: string;
+  /** Fetcher only: enumerated scenarios. */
+  scenarios?: readonly string[];
+  /** Repricer only: agent reachability + base URL. */
+  agentReachable?: boolean;
+  agentBaseUrl?: string | null;
+  /** Repricer only: default grok mock verdict. */
+  defaultGrokVerdict?: string;
+  grokMockVerdicts?: readonly string[];
+}
