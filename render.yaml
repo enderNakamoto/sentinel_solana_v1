@@ -87,7 +87,7 @@ services:
   # Trained model + encoder ship in the repo (agent/artifacts/*.joblib)
   # so the build is just `pip install` — no `make train` at deploy time.
   - type: web
-    name: sentinel-agent
+    name: sentinel-agent-solana
     runtime: python
     plan: starter # free tier sleeps after 15min idle; on Starter the
                   # daily repricer tick always finds the agent warm
