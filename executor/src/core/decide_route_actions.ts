@@ -19,9 +19,9 @@
 
 import type { GrokVerdict } from './grok_client.ts';
 
-export const USDC_BASE_UNITS_PER_USDC = 1_000_000n;
-export const MIN_PREMIUM_BASE_UNITS = 1n * USDC_BASE_UNITS_PER_USDC; // $1
-export const MAX_PREMIUM_BASE_UNITS = 5n * USDC_BASE_UNITS_PER_USDC; // $5
+export const PUSD_BASE_UNITS_PER_PUSD = 1_000_000n;
+export const MIN_PREMIUM_BASE_UNITS = 1n * PUSD_BASE_UNITS_PER_PUSD; // $1
+export const MAX_PREMIUM_BASE_UNITS = 5n * PUSD_BASE_UNITS_PER_PUSD; // $5
 export const DRIFT_THRESHOLD_BASE_UNITS = 100_000n; // 10¢
 
 export interface RouteState {
@@ -67,7 +67,7 @@ export type RouteAction =
 
 /**
  * Apply Grok's multiplier to the agent's baseline and clamp to the
- * locked $1–$5 range. All math in USDC base units (6 decimals).
+ * locked $1–$5 range. All math in PUSD base units (6 decimals).
  */
 export function clampPremiumBaseUnits(
   baselineBaseUnits: bigint,

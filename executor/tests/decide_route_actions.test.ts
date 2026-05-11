@@ -11,7 +11,7 @@ import {
   DRIFT_THRESHOLD_BASE_UNITS,
   MAX_PREMIUM_BASE_UNITS,
   MIN_PREMIUM_BASE_UNITS,
-  USDC_BASE_UNITS_PER_USDC,
+  PUSD_BASE_UNITS_PER_PUSD,
   clampPremiumBaseUnits,
   decideRouteAction,
   type RouteState,
@@ -158,8 +158,8 @@ describe('clampPremiumBaseUnits', () => {
 });
 
 describe('clampPremiumBaseUnits — invariants for documentation', () => {
-  it('USDC_BASE_UNITS_PER_USDC == 1_000_000', () => {
-    expect(USDC_BASE_UNITS_PER_USDC).toBe(1_000_000n);
+  it('PUSD_BASE_UNITS_PER_PUSD == 1_000_000', () => {
+    expect(PUSD_BASE_UNITS_PER_PUSD).toBe(1_000_000n);
   });
   it('DRIFT_THRESHOLD_BASE_UNITS == 100_000 (10 cents)', () => {
     expect(DRIFT_THRESHOLD_BASE_UNITS).toBe(100_000n);

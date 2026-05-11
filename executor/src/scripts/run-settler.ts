@@ -23,7 +23,10 @@ import {
   type Address,
   type Instruction,
 } from '@solana/kit';
-import { getAssociatedTokenAddressSync } from '@solana/spl-token';
+import {
+  getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
+} from '@solana/spl-token';
 import { PublicKey as Web3Pubkey } from '@solana/web3.js';
 
 import { runSettlerOnce } from '../core/settlement_executor.ts';
@@ -110,15 +113,13 @@ function deriveAtaSync(mint: string, owner: string): Address {
     new Web3Pubkey(mint),
     new Web3Pubkey(owner),
     true, // allowOwnerOffCurve — vault PDA + treasury PDA are off-curve
+    TOKEN_2022_PROGRAM_ID, // stable-side ATAs live under Token-2022 (PUSD)
   );
   return kitAddress(ata.toBase58());
 }
 
 // ─── Batch → ix translation ──────────────────────────────────────────────
 
-const TOKEN_PROGRAM_ADDRESS_KIT: Address = kitAddress(
-  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-);
 const TOKEN_2022_PROGRAM_ID_KIT: Address = kitAddress(
   'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
 );
