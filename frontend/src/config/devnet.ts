@@ -60,14 +60,14 @@ export const PROGRAMS = {
 
 export const PDAS = {
   governanceConfig: 'AsVZzrc2ong7kU1bkfE4FM4q8mE5kVdRTa3pDW5yr74x' as Address,
-  vaultState: 'FpUBQSCehFHhSLjLhspNwFeknqTKeLG8FhjZqunaEkxw' as Address,
-  shareMint: 'JS95NxFcdefTANTiLNL8mjmAHrirR8qQJJGUpYkvZPr' as Address,
-  withdrawalQueue: 'AdrAPEPqELwJUAcqmZkx2tigBkEKdSXdZwTRRFSaKVER' as Address,
-  oracleConfig: 'jkTcNGgvbPVXRsUF6QSdk28jN7g9f7AYhYUP7DniBPg' as Address,
-  flightPoolConfig: '89YRV2EdUtCi321YgLfuMCzzHWKJyEtoNo3c8gLsvXkq' as Address,
-  poolTreasuryAuthority: '491ShdDXTEGFpYhzhLmdAPyEMXSuQms2iygBqepuRZxa' as Address,
-  controllerConfig: 'mCKrLhjbapVxbD4AGK99jPg1s3neXfpezQLMZFfNPTR' as Address,
-  activeFlightList: '8c64now3ENjNohx7NNyoJbtd2p6T1w1qaUner6boh6X1' as Address,
+  vaultState: 'CZ7Cnntu7uSWmzKNudfd6v8UHJqjELiCJuBX1pn43ecc' as Address,
+  shareMint: '68SbS4XW5ACfbWr6TBFxLK7rHc6P7uLkBRd26o4ZGQM' as Address,
+  withdrawalQueue: '2iXD7wBgunLeVXaSDGSzHKC89ms8RKXpzSLoPJPLcvaT' as Address,
+  oracleConfig: '7FimnDxjyVw2T4cGR2fTv3vG1t5zS8iVEHBxNmR4J8xt' as Address,
+  flightPoolConfig: 'G9RRspS8p9R1wvSVCJ8kgefKMJDjRTDQtfwbTHK2D7eV' as Address,
+  poolTreasuryAuthority: '6VDsbh8nxpwj9tj8F27Ftfior3Wc8C5vDW9LKAr1KVR7' as Address,
+  controllerConfig: '496TgyNMNYDoGgGmUEviJ2hvc9cvvf788sSn5WTsEKqw' as Address,
+  activeFlightList: '6Jisfz6sgbMZiCN2iKhjrkdRRTBwRyYLB4Tb4gFyJxJs' as Address,
 } as const;
 
 export const SYSTEM_PROGRAM = '11111111111111111111111111111111' as Address;
