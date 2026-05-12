@@ -69,6 +69,7 @@ sentinel_solana/
 │   └── tests/                 # LiteSVM unit + Surfpool integration
 ├── frontend/              # Next.js 15 dApp (App Router + framework-kit)
 ├── executor/              # Off-chain cron daemon (Express + node-cron, 4 jobs)
+├── acurast/               # TEE-attested keepers proof — 4 crons as Acurast jobs
 ├── agent/                 # Premium pricing FastAPI service (Python, NOT in pnpm)
 ├── scripts/               # sync-idl, gen-clients, dev-surfpool, keys-bootstrap, deploy
 ├── keys/                  # Public keypairs (*.pubkey committed; *.json gitignored)
