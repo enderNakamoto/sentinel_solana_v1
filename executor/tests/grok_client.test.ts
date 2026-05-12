@@ -123,20 +123,34 @@ describe('createGrokClient (live mode, with fetch stub)', () => {
       });
   }
 
-  it('parses a well-formed Grok response', async () => {
-    const fetchImpl = stubResponse({
-      choices: [
+  function responseBody(verdict: unknown) {
+    // Mirrors xAI's /v1/responses shape: output is a list that can
+    // contain tool-call items followed by an assistant message whose
+    // content[] holds the schema-conformant JSON as output_text.
+    return {
+      output: [
         {
-          message: {
-            content: JSON.stringify({
-              action: 'raise',
-              multiplier: 1.8,
-              reason: 'severe weather forecast',
-            }),
-          },
+          type: 'message',
+          role: 'assistant',
+          content: [
+            {
+              type: 'output_text',
+              text: typeof verdict === 'string' ? verdict : JSON.stringify(verdict),
+            },
+          ],
         },
       ],
-    });
+    };
+  }
+
+  it('parses a well-formed Grok response', async () => {
+    const fetchImpl = stubResponse(
+      responseBody({
+        action: 'raise',
+        multiplier: 1.8,
+        reason: 'severe weather forecast',
+      }),
+    );
     const client = createGrokClient({ apiKey: 'k', fetchImpl });
     const v = await client.assess(ROUTE);
     expect(v.action).toBe('raise');
@@ -154,12 +168,45 @@ describe('createGrokClient (live mode, with fetch stub)', () => {
   });
 
   it('returns safe default when content is non-JSON', async () => {
-    const fetchImpl = stubResponse({
-      choices: [{ message: { content: 'not json at all' } }],
-    });
+    const fetchImpl = stubResponse(responseBody('not json at all'));
     const client = createGrokClient({ apiKey: 'k', fetchImpl });
     const v = await client.assess(ROUTE);
     expect(v).toEqual(GROK_SAFE_DEFAULT);
+  });
+
+  it('returns safe default when output[] is missing', async () => {
+    const fetchImpl = stubResponse({ id: 'x', status: 'completed' });
+    const client = createGrokClient({ apiKey: 'k', fetchImpl });
+    const v = await client.assess(ROUTE);
+    expect(v).toEqual(GROK_SAFE_DEFAULT);
+  });
+
+  it('walks past tool-call items to find the message output_text', async () => {
+    const fetchImpl = stubResponse({
+      output: [
+        // Tool-call items that the agent emitted before the final message.
+        { type: 'web_search_call', id: 't1' },
+        { type: 'web_search_call', id: 't2' },
+        {
+          type: 'message',
+          role: 'assistant',
+          content: [
+            {
+              type: 'output_text',
+              text: JSON.stringify({
+                action: 'disable',
+                multiplier: 1.0,
+                reason: 'airspace closure',
+              }),
+            },
+          ],
+        },
+      ],
+    });
+    const client = createGrokClient({ apiKey: 'k', fetchImpl });
+    const v = await client.assess(ROUTE);
+    expect(v.action).toBe('disable');
+    expect(v.reason).toBe('airspace closure');
   });
 
   it('returns safe default when fetch throws (network error / abort)', async () => {
