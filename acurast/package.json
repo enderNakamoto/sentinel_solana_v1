@@ -1,0 +1,35 @@
+{
+  "name": "sentinel-acurast",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Sentinel cron jobs ported to Acurast Cloud — proof-of-concept TEE-attested keepers. Not wired into the pnpm workspace.",
+  "main": "dist/fetcher.bundle.js",
+  "scripts": {
+    "build": "webpack",
+    "bundle": "npm run build",
+    "deploy:fetcher": "npm run build && acurast deploy fetcher",
+    "deploy:classifier": "npm run build && acurast deploy classifier",
+    "deploy:settler": "npm run build && acurast deploy settler",
+    "deploy:repricer": "npm run build && acurast deploy repricer",
+    "deploy:all": "npm run build && acurast deploy",
+    "start:fetcher": "npm run build && node ./dist/fetcher.bundle.js",
+    "start:classifier": "npm run build && node ./dist/classifier.bundle.js",
+    "start:settler": "npm run build && node ./dist/settler.bundle.js",
+    "start:repricer": "npm run build && node ./dist/repricer.bundle.js"
+  },
+  "author": "Sentinel",
+  "license": "MIT",
+  "dependencies": {
+    "@noble/hashes": "^1.4.0",
+    "@solana/web3.js": "^1.95.0",
+    "bs58": "^6.0.0"
+  },
+  "devDependencies": {
+    "@acurast/cli": "^0.0.4",
+    "@types/node": "^20.14.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.4.5",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.4"
+  }
+}

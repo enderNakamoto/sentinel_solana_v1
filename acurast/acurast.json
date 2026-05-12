@@ -1,0 +1,135 @@
+{
+  "$schema": "https://docs.acurast.com/schemas/acurast.json",
+  "projects": {
+    "fetcher": {
+      "projectName": "sentinel-fetcher",
+      "fileUrl": "dist/fetcher.bundle.js",
+      "network": "canary",
+      "onlyAttestedDevices": true,
+      "assignmentStrategy": { "type": "Single" },
+      "execution": {
+        "type": "interval",
+        "intervalInMs": 7200000,
+        "numberOfExecutions": 360,
+        "maxExecutionTimeInMs": 60000
+      },
+      "maxAllowedStartDelayInMs": 60000,
+      "usageLimit": {
+        "maxMemory": 0,
+        "maxNetworkRequests": 0,
+        "maxStorage": 0
+      },
+      "numberOfReplicas": 1,
+      "requiredModules": [],
+      "minProcessorReputation": 0,
+      "maxCostPerExecution": 1000000000,
+      "includeEnvironmentVariables": [
+        "SOLANA_RPC_URL",
+        "AEROAPI_KEY",
+        "ORACLE_CONFIG_PDA",
+        "ACTIVE_FLIGHTS_PDA",
+        "ORACLE_PROGRAM_ID"
+      ],
+      "processorWhitelist": []
+    },
+
+    "classifier": {
+      "projectName": "sentinel-classifier",
+      "fileUrl": "dist/classifier.bundle.js",
+      "network": "canary",
+      "onlyAttestedDevices": true,
+      "assignmentStrategy": { "type": "Single" },
+      "execution": {
+        "type": "interval",
+        "intervalInMs": 3600000,
+        "numberOfExecutions": 720,
+        "maxExecutionTimeInMs": 60000
+      },
+      "maxAllowedStartDelayInMs": 60000,
+      "usageLimit": {
+        "maxMemory": 0,
+        "maxNetworkRequests": 0,
+        "maxStorage": 0
+      },
+      "numberOfReplicas": 1,
+      "requiredModules": [],
+      "minProcessorReputation": 0,
+      "maxCostPerExecution": 1000000000,
+      "includeEnvironmentVariables": [
+        "SOLANA_RPC_URL",
+        "CONTROLLER_CONFIG_PDA",
+        "ACTIVE_FLIGHTS_PDA",
+        "CONTROLLER_PROGRAM_ID",
+        "ORACLE_PROGRAM_ID"
+      ],
+      "processorWhitelist": []
+    },
+
+    "settler": {
+      "projectName": "sentinel-settler",
+      "fileUrl": "dist/settler.bundle.js",
+      "network": "canary",
+      "onlyAttestedDevices": true,
+      "assignmentStrategy": { "type": "Single" },
+      "execution": {
+        "type": "interval",
+        "intervalInMs": 300000,
+        "numberOfExecutions": 8640,
+        "maxExecutionTimeInMs": 120000
+      },
+      "maxAllowedStartDelayInMs": 30000,
+      "usageLimit": {
+        "maxMemory": 0,
+        "maxNetworkRequests": 0,
+        "maxStorage": 0
+      },
+      "numberOfReplicas": 1,
+      "requiredModules": [],
+      "minProcessorReputation": 0,
+      "maxCostPerExecution": 1000000000,
+      "includeEnvironmentVariables": [
+        "SOLANA_RPC_URL",
+        "CONTROLLER_CONFIG_PDA",
+        "ACTIVE_FLIGHTS_PDA",
+        "CONTROLLER_PROGRAM_ID",
+        "VAULT_PROGRAM_ID",
+        "FLIGHT_POOL_PROGRAM_ID",
+        "ORACLE_PROGRAM_ID"
+      ],
+      "processorWhitelist": []
+    },
+
+    "repricer": {
+      "projectName": "sentinel-repricer",
+      "fileUrl": "dist/repricer.bundle.js",
+      "network": "canary",
+      "onlyAttestedDevices": true,
+      "assignmentStrategy": { "type": "Single" },
+      "execution": {
+        "type": "interval",
+        "intervalInMs": 86400000,
+        "numberOfExecutions": 30,
+        "maxExecutionTimeInMs": 300000
+      },
+      "maxAllowedStartDelayInMs": 600000,
+      "usageLimit": {
+        "maxMemory": 0,
+        "maxNetworkRequests": 0,
+        "maxStorage": 0
+      },
+      "numberOfReplicas": 1,
+      "requiredModules": [],
+      "minProcessorReputation": 0,
+      "maxCostPerExecution": 1000000000,
+      "includeEnvironmentVariables": [
+        "SOLANA_RPC_URL",
+        "AGENT_BASE_URL",
+        "XAI_API_KEY",
+        "GOVERNANCE_CONFIG_PDA",
+        "GOVERNANCE_PROGRAM_ID",
+        "REPRICER_DRY_RUN"
+      ],
+      "processorWhitelist": []
+    }
+  }
+}
