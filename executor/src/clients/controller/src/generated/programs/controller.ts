@@ -45,11 +45,13 @@ import {
   getClassifyFlightsInstructionAsync,
   getExecuteSettlementsInstructionAsync,
   getInitializeInstructionAsync,
+  getRepairOracleConfigPointerInstructionAsync,
   getSetAuthorizedKeeperInstructionAsync,
   parseBuyInsuranceInstruction,
   parseClassifyFlightsInstruction,
   parseExecuteSettlementsInstruction,
   parseInitializeInstruction,
+  parseRepairOracleConfigPointerInstruction,
   parseSetAuthorizedKeeperInstruction,
   type BuyInsuranceAsyncInput,
   type ClassifyFlightsAsyncInput,
@@ -59,7 +61,9 @@ import {
   type ParsedClassifyFlightsInstruction,
   type ParsedExecuteSettlementsInstruction,
   type ParsedInitializeInstruction,
+  type ParsedRepairOracleConfigPointerInstruction,
   type ParsedSetAuthorizedKeeperInstruction,
+  type RepairOracleConfigPointerAsyncInput,
   type SetAuthorizedKeeperAsyncInput,
 } from "../instructions";
 import { findActiveFlightListPda, findControllerConfigPda } from "../pdas";
@@ -109,6 +113,7 @@ export enum ControllerInstruction {
   ClassifyFlights,
   ExecuteSettlements,
   Initialize,
+  RepairOracleConfigPointer,
   SetAuthorizedKeeper,
 }
 
@@ -164,6 +169,17 @@ export function identifyControllerInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([7, 154, 89, 174, 154, 253, 13, 34]),
+      ),
+      0,
+    )
+  ) {
+    return ControllerInstruction.RepairOracleConfigPointer;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([148, 91, 53, 179, 19, 2, 98, 42]),
       ),
       0,
@@ -192,6 +208,9 @@ export type ParsedControllerInstruction<
   | ({
       instructionType: ControllerInstruction.Initialize;
     } & ParsedInitializeInstruction<TProgram>)
+  | ({
+      instructionType: ControllerInstruction.RepairOracleConfigPointer;
+    } & ParsedRepairOracleConfigPointerInstruction<TProgram>)
   | ({
       instructionType: ControllerInstruction.SetAuthorizedKeeper;
     } & ParsedSetAuthorizedKeeperInstruction<TProgram>);
@@ -227,6 +246,13 @@ export function parseControllerInstruction<TProgram extends string>(
       return {
         instructionType: ControllerInstruction.Initialize,
         ...parseInitializeInstruction(instruction),
+      };
+    }
+    case ControllerInstruction.RepairOracleConfigPointer: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: ControllerInstruction.RepairOracleConfigPointer,
+        ...parseRepairOracleConfigPointerInstruction(instruction),
       };
     }
     case ControllerInstruction.SetAuthorizedKeeper: {
@@ -276,6 +302,10 @@ export type ControllerPluginInstructions = {
   initialize: (
     input: InitializeAsyncInput,
   ) => ReturnType<typeof getInitializeInstructionAsync> &
+    SelfPlanAndSendFunctions;
+  repairOracleConfigPointer: (
+    input: RepairOracleConfigPointerAsyncInput,
+  ) => ReturnType<typeof getRepairOracleConfigPointerInstructionAsync> &
     SelfPlanAndSendFunctions;
   setAuthorizedKeeper: (
     input: SetAuthorizedKeeperAsyncInput,
@@ -330,6 +360,11 @@ export function controllerProgram() {
             addSelfPlanAndSendFunctions(
               client,
               getInitializeInstructionAsync(input),
+            ),
+          repairOracleConfigPointer: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getRepairOracleConfigPointerInstructionAsync(input),
             ),
           setAuthorizedKeeper: (input) =>
             addSelfPlanAndSendFunctions(

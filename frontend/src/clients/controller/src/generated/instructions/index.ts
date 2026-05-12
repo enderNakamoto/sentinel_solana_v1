@@ -10,4 +10,5 @@ export * from "./buyInsurance";
 export * from "./classifyFlights";
 export * from "./executeSettlements";
 export * from "./initialize";
+export * from "./repairOracleConfigPointer";
 export * from "./setAuthorizedKeeper";

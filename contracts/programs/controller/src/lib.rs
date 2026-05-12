@@ -89,6 +89,19 @@ pub mod controller {
         Ok(())
     }
 
+    /// One-shot owner-only repair for v2 ControllerConfig.oracle_config — a
+    /// stale v1 oracle_config PDA was baked in at init time (Codama clients
+    /// hadn't been regenerated for the oracle_aggregator program when
+    /// scripts/deploy.ts ran). Without this ix the field is immutable and
+    /// every buy_insurance / classify / settle reverts with ConfigMismatch.
+    pub fn repair_oracle_config_pointer(
+        ctx: Context<RepairOracleConfigPointer>,
+        new_oracle_config: Pubkey,
+    ) -> Result<()> {
+        ctx.accounts.controller_config.oracle_config = new_oracle_config;
+        Ok(())
+    }
+
     // ─── buy_insurance ──────────────────────────────────────────────
 
     pub fn buy_insurance(
@@ -792,6 +805,20 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 pub struct SetAuthorizedKeeper<'info> {
+    #[account(
+        mut,
+        seeds = [b"controller_config_v2"],
+        bump = controller_config.bump,
+        has_one = owner @ ControllerError::Unauthorized,
+    )]
+    pub controller_config: Account<'info, ControllerConfig>,
+    pub owner: Signer<'info>,
+}
+
+// ─── Accounts: repair_oracle_config_pointer ───────────────────────────────
+
+#[derive(Accounts)]
+pub struct RepairOracleConfigPointer<'info> {
     #[account(
         mut,
         seeds = [b"controller_config_v2"],
