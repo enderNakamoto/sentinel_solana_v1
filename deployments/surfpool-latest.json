@@ -1,0 +1,35 @@
+{
+  "cluster": "surfpool",
+  "rpcUrl": "http://127.0.0.1:8899",
+  "deployer": "FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy",
+  "owner": "FA6BiUu3AwKsMziXvKdFpJd9v9Zb623AhLj9gzeNbywy",
+  "authorities": {
+    "oracle": "HqE3w6HzeGfegHkiCQGEv5ivWpyXFKkGCrqcr96HULaq",
+    "keeper": "89iazjLWxwSpArhK6MbbBTS3BY8UFF9zygqarp4U3QA6"
+  },
+  "keypairPaths": {
+    "oracle": "keys/surfpool-oracle.json",
+    "keeper": "keys/surfpool-keeper.json"
+  },
+  "usdcMint": "epYcquLhSzRpNZCYrdhv81J4mHAXHEChxnejTmMp91K",
+  "programs": {
+    "governance": "6d6QXsZRQ1fXp8wEXFTm4uXAbLWarPKX6XJLcNUY8rcT",
+    "vault": "3yzuTtfGYUBsdhXf4QGeq9MUGj5RDNLj3hFPtsWGkj8p",
+    "oracle_aggregator": "EmTfS5EjPRABDuDrM5AW5TWi73eCCJnejpLAcwaxMCr6",
+    "flight_pool": "GW1yq7rswXBect6yR1RWtU7Q7AmY5wWMnq58a1JGcwVq",
+    "controller": "G4v4i3LoLX7v3cEb3cehNGWMHbvHArRyPSEiZmg5VSot"
+  },
+  "pdas": {
+    "governanceConfig": "AsVZzrc2ong7kU1bkfE4FM4q8mE5kVdRTa3pDW5yr74x",
+    "vaultState": "FpUBQSCehFHhSLjLhspNwFeknqTKeLG8FhjZqunaEkxw",
+    "shareMint": "JS95NxFcdefTANTiLNL8mjmAHrirR8qQJJGUpYkvZPr",
+    "withdrawalQueue": "AdrAPEPqELwJUAcqmZkx2tigBkEKdSXdZwTRRFSaKVER",
+    "oracleConfig": "jkTcNGgvbPVXRsUF6QSdk28jN7g9f7AYhYUP7DniBPg",
+    "flightPoolConfig": "89YRV2EdUtCi321YgLfuMCzzHWKJyEtoNo3c8gLsvXkq",
+    "poolTreasuryAuthority": "491ShdDXTEGFpYhzhLmdAPyEMXSuQms2iygBqepuRZxa",
+    "controllerConfig": "mCKrLhjbapVxbD4AGK99jPg1s3neXfpezQLMZFfNPTR",
+    "activeFlightList": "8c64now3ENjNohx7NNyoJbtd2p6T1w1qaUner6boh6X1"
+  },
+  "deployedAt": "2026-05-08T23:57:31.886Z",
+  "deployedAtUnix": 1778284651
+}

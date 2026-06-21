@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinel Protocol — Pitch</title>
+<!-- Match the dapp's font stack. The frontend loads these via next/font;
+     the deck is a static asset so we pull them from Google Fonts directly. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link
+  href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700;800&display=swap"
+  rel="stylesheet">
+<style>
+  :root {
+    /* Sentinel design system — mirrors frontend/src/theme/serious/tokens.css.
+       Kept verbatim so the slide deck renders identically inside or
+       outside the Next.js iframe wrapper. */
+    --bg:        #07090e;
+    --surface:   #0b0f17;
+    --border:    #1e2533;
+    --blue:      #5ee0d2; /* mapped to frontend --cyan */
+    --blue-dim:  #134d47;
+    --red:       #ff5d6c; /* frontend --red */
+    --red-dim:   #5c1a22;
+    --green:     #7ee787; /* frontend --green */
+    --green-dim: #0d3d27;
+    --yellow:    #ffb547; /* frontend --amber */
+    --white:     #eef1f7; /* frontend --ink */
+    --muted:     #6b7385; /* frontend --ink-3 */
+    --stellar:   #a98bff; /* frontend --violet (renamed for stellar→solana) */
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--white);
+    /* Match the frontend's font stack (Geist sans, JetBrains Mono).
+       next/font isn't available here since the deck is a static asset;
+       fall back to system fonts that match the visual weight closely. */
+    font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    user-select: none;
+  }
+
+  .deck { width: 100vw; height: 100vh; position: relative; }
+
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0; transform: translateX(60px);
+    transition: opacity 0.5s cubic-bezier(.4,0,.2,1), transform 0.5s cubic-bezier(.4,0,.2,1);
+    pointer-events: none; padding: 48px 56px;
+  }
+  .slide.active { opacity: 1; transform: translateX(0); pointer-events: all; }
+  .slide.exit  { opacity: 0; transform: translateX(-60px); }
+
+  .logo {
+    position: fixed; top: 20px; left: 28px; z-index: 100;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px; font-weight: 800; letter-spacing: 0.15em; color: #2a3040;
+  }
+  .logo span { color: var(--stellar); }
+
+  /* Slide titles — match the landing hero's `h1.display` typography:
+     Geist sans 400 + Instrument Serif italic in amber for <em> accents. */
+  h1 {
+    font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 52px; font-weight: 400; line-height: 1.0; letter-spacing: -0.035em;
+    color: var(--white);
+  }
+  h2 {
+    font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 42px; font-weight: 400; line-height: 1.05; letter-spacing: -0.03em;
+    color: var(--white);
+  }
+  h1 em, h2 em {
+    font-family: 'Instrument Serif', 'Times New Roman', serif;
+    font-style: italic; font-weight: 400; color: var(--yellow);
+  }
+  .lead { font-size: 17px; color: #b6becd; line-height: 1.6; max-width: 520px; }
+
+  .tag {
+    display: inline-block; padding: 5px 14px; border-radius: 6px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    background: rgba(94,224,210,0.1); color: var(--blue); margin-bottom: 12px;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  }
+  .tag.green { background: rgba(126,231,135,0.1); color: var(--green); }
+  .tag.red   { background: rgba(255,93,108,0.1); color: var(--red); }
+  .tag.stellar { background: rgba(169,139,255,0.1); color: var(--stellar); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+  }
+
+  .nav {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 16px; z-index: 100;
+  }
+  .nav-btn {
+    width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--white); font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .nav-btn:hover { background: #1a1f28; }
+  .nav-dots { display: flex; gap: 8px; }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #1e2533; cursor: pointer; transition: background 0.3s, transform 0.3s;
+  }
+  .dot.active { background: var(--stellar); transform: scale(1.3); }
+  .slide-counter {
+    font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    min-width: 48px; text-align: center;
+  }
+
+  /* ── SLIDE 1 — PROBLEM ── */
+  #s1 .layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 64px;
+    max-width: 1100px; width: 100%; align-items: start;
+  }
+  .stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 28px;
+  }
+  .stat-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+    animation: fade-in-up 0.5s both;
+  }
+  .stat-box:nth-child(1) { animation-delay: 0.1s; }
+  .stat-box:nth-child(2) { animation-delay: 0.2s; }
+  .stat-box:nth-child(3) { animation-delay: 0.3s; }
+  .stat-box:nth-child(4) { animation-delay: 0.4s; }
+  .stat-box .num { font-size: 26px; font-weight: 800; font-family: 'JetBrains Mono', 'SF Mono', monospace; }
+  .stat-box .num.blue { color: var(--blue); }
+  .stat-box .num.red  { color: var(--red); }
+  .stat-box .label { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  .problem-list { list-style: none; margin-top: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .problem-list li {
+    display: flex; gap: 14px; align-items: flex-start; font-size: 16px; color: #b6becd;
+  }
+  .problem-list li .icon {
+    width: 26px; height: 26px; border-radius: 6px;
+    background: rgba(255,93,108,0.15); color: var(--red);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0; margin-top: 2px;
+  }
+  .solution-list li .icon { background: rgba(126,231,135,0.12); color: var(--green); }
+
+  /* ── SLIDE 3 — ARCHITECTURE ── */
+  #s3 { padding: 32px; }
+  .arch-canvas { width: 100%; max-width: 1060px; position: relative; margin: 0 auto; }
+  .arch-title { text-align: center; margin-bottom: 6px; }
+  .arch-subtitle { text-align: center; font-size: 15px; color: var(--muted); margin-bottom: 24px; }
+
+  @keyframes dash-flow { to { stroke-dashoffset: -24; } }
+  .flowing-line { stroke-dasharray: 8 6; animation: dash-flow 0.9s linear infinite; }
+  .flowing-line-slow { stroke-dasharray: 8 6; animation: dash-flow 1.6s linear infinite; }
+
+  /* ── SLIDE 4 — TWO SIDES ── */
+  #s4 .layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 56px;
+    max-width: 1100px; width: 100%; align-items: start;
+  }
+  .yield-viz {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-top: 20px;
+  }
+  .yield-bar-track { background: var(--bg); border-radius: 6px; height: 10px; overflow: hidden; margin: 8px 0 4px; }
+  .yield-bar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--green), #1bbb7e); width: 0; transition: width 1.5s cubic-bezier(.4,0,.2,1); }
+  .yield-row { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); margin-bottom: 16px; }
+  .yield-row .val { color: var(--green); font-weight: 600; }
+
+  .fifo-wrap {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-top: 20px;
+  }
+  .fifo-label { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+  .queue-track { display: flex; flex-direction: column; gap: 7px; }
+  .q-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--bg);
+    font-size: 14px; transition: all 0.4s;
+  }
+  .q-item .q-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+  }
+  .q-item .q-info { flex: 1; }
+  .q-item .q-shares { font-size: 12px; color: var(--muted); }
+  .q-item .q-status { font-size: 12px; padding: 3px 8px; border-radius: 4px; }
+  .q-item.waiting .q-status { background: rgba(255,181,71,0.1); color: var(--yellow); }
+  .q-item.ready .q-status { background: rgba(126,231,135,0.12); color: var(--green); }
+  .q-item.done { opacity: 0.35; }
+  .q-item.done .q-status { background: rgba(90,100,120,0.2); color: var(--muted); }
+
+  .fifo-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+  .fifo-head .arrow { color: var(--green); font-size: 14px; }
+
+  /* ── SLIDE 5 — SOLVENCY + FIFO ── */
+  #s5 .layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 56px;
+    max-width: 1100px; width: 100%; align-items: start;
+  }
+  .solvency-viz {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-top: 20px;
+  }
+  .sol-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: 15px; }
+  .sol-bar-wrap { flex: 1; background: var(--bg); border-radius: 4px; height: 10px; overflow: hidden; }
+  .sol-bar { height: 100%; border-radius: 4px; transition: width 1.8s cubic-bezier(.4,0,.2,1); }
+  .sol-label { width: 110px; color: var(--muted); font-size: 14px; }
+  .sol-val { width: 60px; text-align: right; font-size: 14px; font-weight: 700; }
+
+  .decen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+  .decen-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px;
+  }
+  .decen-card .icon { font-size: 24px; margin-bottom: 8px; }
+  .decen-card .title { font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+  .decen-card .desc { font-size: 14px; color: var(--muted); line-height: 1.5; }
+
+  .slide.active .yield-bar { width: var(--w, 0); }
+  .slide.active .sol-bar   { width: var(--w, 0); }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── LANDING SLIDE ── */
+  #s0 .landing-inner {
+    text-align: center; display: flex; flex-direction: column; align-items: center; gap: 32px;
+  }
+  #s0 .landing-badge {
+    display: inline-block; padding: 8px 24px; border-radius: 20px;
+    font-size: 15px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    background: rgba(169,139,255,0.12); color: var(--stellar); border: 1px solid rgba(169,139,255,0.25);
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    animation: fade-in-up 0.6s both; animation-delay: 0.1s;
+  }
+  #s0 h1 { font-size: 80px; letter-spacing: -0.03em; animation: fade-in-up 0.7s both; animation-delay: 0.25s; }
+  #s0 h1 span { color: var(--stellar); }
+  #s0 .landing-sub { font-size: 26px; color: #b6becd; max-width: 600px; line-height: 1.5; animation: fade-in-up 0.6s both; animation-delay: 0.4s; }
+  #s0 .landing-tagline { font-size: 18px; color: var(--muted); font-family: 'JetBrains Mono', 'SF Mono', monospace; letter-spacing: 0.05em; animation: fade-in-up 0.6s both; animation-delay: 0.55s; }
+
+  /* ── STATE MACHINE SLIDE ── */
+  #s-states { padding: 32px; }
+  .states-canvas { width: 100%; max-width: 1060px; margin: 0 auto; }
+  .states-title { text-align: center; margin-bottom: 6px; }
+  .states-subtitle { text-align: center; font-size: 15px; color: var(--muted); margin-bottom: 24px; }
+
+  /* ── CRON JOBS SLIDE ── */
+  #s-crons .cron-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    max-width: 1000px; width: 100%;
+  }
+  .cron-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px;
+  }
+  .cron-card .cron-freq {
+    display: inline-block; padding: 3px 10px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    margin-bottom: 12px;
+  }
+  .cron-card .cron-name { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+  .cron-card .cron-desc { font-size: 14px; color: var(--muted); line-height: 1.55; }
+
+  /* ── DELIVERABLE SLIDES (proposed → delivered) ── */
+  .deliverable-layout {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
+    max-width: 1100px; width: 100%; align-items: start;
+  }
+  .proposed-col, .delivered-col { display: flex; flex-direction: column; gap: 16px; }
+  .proposed-col .tag { background: rgba(255,181,71,0.1); color: var(--yellow); }
+  .delivered-col .tag { background: rgba(126,231,135,0.1); color: var(--green); }
+  .budget-badge {
+    display: inline-block; padding: 4px 12px; border-radius: 6px;
+    font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    background: rgba(255,181,71,0.1); color: var(--yellow); margin-bottom: 8px;
+  }
+  .criteria-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .criteria-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; color: #b6becd; }
+  .criteria-list li .ci { flex-shrink: 0; font-size: 14px; }
+  .check-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+  .check-list li {
+    display: flex; gap: 12px; align-items: flex-start; font-size: 15px; color: var(--white); line-height: 1.5;
+  }
+  .check-list li .ck { color: var(--green); font-size: 16px; flex-shrink: 0; }
+  .check-list li .detail { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* ── BONUS SLIDE ── */
+  #s-bonus .bonus-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;
+    max-width: 1060px; width: 100%;
+  }
+  .bonus-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .bonus-card .bonus-icon { font-size: 28px; }
+  .bonus-card .bonus-title { font-size: 18px; font-weight: 800; }
+  .bonus-card .bonus-desc { font-size: 14px; color: var(--muted); line-height: 1.55; }
+
+</style>
+</head>
+<body>
+
+<div class="logo">SENTINEL <span>PROTOCOL</span></div>
+
+<div class="deck" id="deck">
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE 0 — LANDING                                  -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide active" id="s0">
+    <div class="landing-inner">
+      <div class="landing-badge">Solana Colosseum</div>
+      <h1>Sentinel <span>Protocol</span></h1>
+      <div class="landing-sub">A prediction market for flight delays &mdash; hedge your trip.</div>
+      <div class="landing-tagline">Parametric &middot; Trustless &middot; Settled on Solana</div>
+      <div style="margin-top:32px; display:inline-flex; align-items:center; gap:10px; padding:10px 18px; border-radius:999px; border:1px solid rgba(126,231,135,0.35); background:rgba(126,231,135,0.06); font-family:var(--mono,monospace); font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:#7ee787">
+        <span style="font-size:14px">&#9679;</span>
+        <span>Powered by <strong style="color:#eef1f7; letter-spacing:0.18em">Palm USD</strong> &middot; PUSD on Solana Token-2022</span>
+      </div>
+    </div>
+  </section>
+
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE 0.5 — TEAM                                   -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s-team">
+    <div style="text-align:center; margin-bottom:28px">
+      <div class="tag stellar">The Team</div>
+      <h1>Two engineers.<br>Two <em>continents</em>.</h1>
+    </div>
+
+    <div class="layout" style="display:grid; grid-template-columns:1fr 1fr; gap:48px; max-width:1100px; width:100%; align-items:start">
+      <!-- ── Ender / Saurav ─────────────────────────────── -->
+      <div class="card" style="padding:28px; border-color:rgba(94,224,210,0.3)">
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px">
+          <div style="width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg, rgba(94,224,210,0.18), rgba(126,231,135,0.10)); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800; color:var(--blue); font-family:'JetBrains Mono',monospace; flex-shrink:0">E</div>
+          <div>
+            <div style="font-size:22px; font-weight:700; color:var(--white)">Ender <span style="color:var(--muted); font-weight:500">(Saurav)</span></div>
+            <div style="font-size:13px; color:var(--blue); font-family:'JetBrains Mono',monospace; letter-spacing:0.08em; margin-top:2px">CALIFORNIA, USA</div>
+          </div>
+        </div>
+        <ul class="problem-list solution-list" style="margin-top:8px; gap:10px">
+          <li><div class="icon">&#10003;</div><span><strong style="color:var(--white)">10+ years</strong> as a software engineer.</span></li>
+          <li><div class="icon">&#10003;</div><span><strong style="color:var(--white)">Founding Engineer</strong> at a Boost VC startup that was <strong style="color:var(--white)">acquired</strong>.</span></li>
+          <li><div class="icon">&#10003;</div><span><strong style="color:var(--white)">2 years</strong> building in blockchain.</span></li>
+          <li><div class="icon">&#10003;</div><span><span style="color:var(--muted)">Web2:</span> Ruby, Python, TypeScript.</span></li>
+          <li><div class="icon">&#10003;</div><span><span style="color:var(--muted)">Web3:</span> Solidity, Rust, applied ZK.</span></li>
+        </ul>
+      </div>
+
+      <!-- ── JsMaxi / Jonas ─────────────────────────────── -->
+      <div class="card" style="padding:28px; border-color:rgba(169,139,255,0.3)">
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px">
+          <div style="width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg, rgba(169,139,255,0.20), rgba(94,224,210,0.10)); display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800; color:var(--stellar); font-family:'JetBrains Mono',monospace; flex-shrink:0">J</div>
+          <div>
+            <div style="font-size:22px; font-weight:700; color:var(--white)">JsMaxi <span style="color:var(--muted); font-weight:500">(Jonas)</span></div>
+            <div style="font-size:13px; color:var(--stellar); font-family:'JetBrains Mono',monospace; letter-spacing:0.08em; margin-top:2px">LITHUANIA, EU</div>
+          </div>
+        </div>
+        <ul class="problem-list solution-list" style="margin-top:8px; gap:10px">
+          <li><div class="icon" style="background:rgba(169,139,255,0.14); color:var(--stellar)">&#10003;</div><span><strong style="color:var(--white)">8 years</strong> as a software developer (ex&ndash;big-bank engineer).</span></li>
+          <li><div class="icon" style="background:rgba(169,139,255,0.14); color:var(--stellar)">&#10003;</div><span>Frontend specialist &mdash; React, TypeScript, Angular.</span></li>
+          <li><div class="icon" style="background:rgba(169,139,255,0.14); color:var(--stellar)">&#10003;</div><span><strong style="color:var(--white)">2 years</strong> in blockchain &mdash; Solidity, Move, Rust.</span></li>
+          <li><div class="icon" style="background:rgba(169,139,255,0.14); color:var(--stellar)">&#10003;</div><span>Contributor to the <strong style="color:var(--white)">OpenZeppelin Soroban Library</strong> &mdash; vault contracts for <strong style="color:var(--white)">SEP-56</strong> (Soroban's ERC-4626 equivalent).</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE 0.75 — WHY                                   -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s-why">
+    <div style="max-width:880px; width:100%; padding:0 16px">
+
+      <div style="margin-bottom:20px">
+        <div class="tag red">Why We're Building This</div>
+        <h1 style="font-size:44px; line-height:1.05; margin-top:6px">
+          A wildfire,<br>and a <em>better way</em> to pay claims.
+        </h1>
+      </div>
+
+      <!-- ── Story prose ────────────────────────────────── -->
+      <div style="border-left:2px solid rgba(255,93,108,0.35); padding:4px 0 4px 22px; margin-top:12px">
+        <p style="font-size:19px; line-height:1.55; color:#e3e6ee; margin:0">
+          I live in <strong style="color:var(--white)">Northern California</strong>, where wildfires have repeatedly burned down whole communities &mdash; and left people <em style="color:var(--yellow); font-family:'Instrument Serif',serif; font-style:italic">fighting insurers for months</em>.
+        </p>
+      </div>
+
+      <p style="font-size:17px; line-height:1.65; color:#cdd2dc; margin:22px 0 0 0">
+        That experience pushed me toward <strong style="color:var(--red)">parametric insurance</strong>: payouts triggered by a verifiable real-world event, not an adjuster's judgment. <strong style="color:var(--white)">Flights are the right first step</strong> &mdash; flight status is one of the cleanest real-world data feeds, easy to convert into a trustworthy oracle signal for a smart contract. If we can settle delays automatically, the same architecture extends to <strong style="color:var(--blue)">fire, hurricane, and other climate-driven risks</strong> where payouts matter most.
+      </p>
+
+      <p style="font-size:17px; line-height:1.65; color:#cdd2dc; margin:18px 0 0 0">
+        The timing is right because <strong style="color:var(--white)">prediction markets have gone mainstream</strong>. Polymarket and Kalshi made it normal to bet on real-world outcomes on-chain. Sentinel takes that primitive and points it at something <em style="color:var(--yellow); font-family:'Instrument Serif',serif; font-style:italic">useful</em>: hedging risk you actually face.
+      </p>
+
+      <!-- ── Closing tagline ─────────────────────────────── -->
+      <div style="margin-top:28px; padding:18px 24px; border-radius:12px; border:1px solid rgba(126,231,135,0.30); background:linear-gradient(90deg, rgba(126,231,135,0.06), rgba(94,224,210,0.04))">
+        <div style="font-size:16px; color:var(--white); line-height:1.6">
+          Underwriters get <strong style="color:var(--green)">real-world DeFi yield uncorrelated with crypto cycles.</strong><br>
+          Travelers get <strong style="color:var(--blue)">insurance that pays automatically.</strong><br>
+          Same mechanism as Polymarket &mdash; but <em style="color:var(--yellow); font-family:'Instrument Serif',serif; font-style:italic">more than gambling</em>.
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE 1 — THE PROBLEM                              -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s1">
+    <div class="layout">
+      <div>
+        <div class="tag red">The Problem</div>
+        <h1>Flight insurance<br>is broken.</h1>
+        <ul class="problem-list" style="margin-top:28px">
+          <li><div class="icon">&#10005;</div><span>File a claim. Wait weeks. Get denied on a technicality.</span></li>
+          <li><div class="icon">&#10005;</div><span>Insurance companies profit by <strong style="color:var(--white)">not paying</strong>. They decide if you get paid.</span></li>
+          <li><div class="icon">&#10005;</div><span>You can't verify the insurer has the money to pay you.</span></li>
+        </ul>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="num red">21%</div>
+            <div class="label">of US flights delayed or cancelled (BTS, 2024)</div>
+          </div>
+          <div class="stat-box">
+            <div class="num blue">$28B</div>
+            <div class="label">global travel insurance market (2025)</div>
+          </div>
+          <div class="stat-box">
+            <div class="num red">33%</div>
+            <div class="label">of claims denied (Squaremouth)</div>
+          </div>
+          <div class="stat-box">
+            <div class="num blue">4–6 wks</div>
+            <div class="label">average claim resolution time</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="tag green">The Fix</div>
+        <h2>A prediction market.<br>Used as <em>travel insurance.</em></h2>
+        <p class="lead" style="margin-top:12px; margin-bottom:20px">
+          Travelers buy delay payouts. Underwriters fund them. The smart contract settles automatically &mdash; and from the traveler's point of view, it's parametric insurance.
+        </p>
+        <ul class="problem-list solution-list">
+          <li><div class="icon">&#10003;</div><span>Flight delayed? <strong style="color:var(--white)">Payout is automatic.</strong> No claim form, no adjuster.</span></li>
+          <li><div class="icon">&#10003;</div><span>The contract <em>is</em> the policy. Anyone can read it. Nobody can rewrite it.</span></li>
+          <li><div class="icon">&#10003;</div><span>An automated keeper checks every 5 minutes. No human in the loop.</span></li>
+          <li><div class="icon">&#10003;</div><span>Every policy is 100% backed. The vault always has the cash.</span></li>
+        </ul>
+
+        <div class="card" style="margin-top:22px; display:flex; align-items:center; gap:16px; border-color:rgba(126,231,135,0.3)">
+          <div style="font-size:32px">&#9992;</div>
+          <div>
+            <div style="font-size:16px; color:var(--white); font-weight:600">Pay $12 premium &rarr; flight AA123 delayed 3 hours</div>
+            <div style="font-size:16px; color:var(--green); margin-top:6px">&rarr; Receive $150 PUSD automatically. No forms. No waiting.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE 4 — TWO SIDES: Underwriters + Travelers     -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s4">
+
+    <!-- ── PUSD partnership banner ──────────────────────── -->
+    <div style="margin:-8px 0 22px 0; padding:14px 22px; border-radius:14px; border:1.5px solid rgba(126,231,135,0.45); background:linear-gradient(90deg, rgba(126,231,135,0.10), rgba(94,224,210,0.06)); display:flex; align-items:center; gap:18px">
+      <div style="font-size:34px; line-height:1; color:#7ee787">&#9679;</div>
+      <div style="flex:1; min-width:0">
+        <div style="font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:#7ee787; font-family:var(--mono,monospace); font-weight:600">Stablecoin partner</div>
+        <div style="font-size:18px; color:var(--white); font-weight:700; margin-top:4px">Every premium &middot; every payout &middot; every share is denominated in <span style="color:#7ee787">Palm USD (PUSD)</span>.</div>
+        <div style="font-size:13px; color:var(--muted); margin-top:4px">Token-2022 stablecoin on Solana &middot; mainnet mint <code style="font-size:11px; color:#b6becd">CZzgUBvxaMLwMhVSLgqJn3npmxoTo6nzMNQPAnwtHF3s</code></div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div>
+        <div class="tag red">For Underwriters</div>
+        <h2>Earn yield.<br>No active management.</h2>
+        <p class="lead" style="margin-top:16px">
+          Deposit PUSD into the shared vault. Receive shares.
+          Every on-time flight returns premiums &mdash; share price rises automatically.
+        </p>
+
+        <div class="yield-viz">
+          <div style="font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:14px">Share price growth</div>
+          <div class="yield-row">
+            <span>Initial deposit</span><span class="val">1.000 PUSD/share</span>
+          </div>
+          <div class="yield-bar-track">
+            <div class="yield-bar" style="--w:60%; background:linear-gradient(90deg,#1a3a6b,#5ee0d2)"></div>
+          </div>
+          <div class="yield-row" style="margin-top:2px">
+            <span>After 10 on-time flights</span><span class="val">1.043 PUSD/share</span>
+          </div>
+          <div class="yield-bar-track">
+            <div class="yield-bar" style="--w:80%"></div>
+          </div>
+          <div class="yield-row" style="margin-top:2px">
+            <span>After 30 on-time flights</span><span class="val">1.131 PUSD/share</span>
+          </div>
+          <div class="yield-bar-track">
+            <div class="yield-bar" style="--w:100%; background:linear-gradient(90deg,#0d7a50,#7ee787)"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:18px">
+          <div>
+            <div style="font-size:13px; color:var(--muted)">Premium per policy</div>
+            <div style="font-size:20px; font-weight:700; color:var(--blue)">$12 PUSD</div>
+          </div>
+          <div>
+            <div style="font-size:13px; color:var(--muted)">Payoff if delayed</div>
+            <div style="font-size:20px; font-weight:700; color:var(--red)">$150 PUSD</div>
+          </div>
+          <div>
+            <div style="font-size:13px; color:var(--muted)">On-time rate (US avg)</div>
+            <div style="font-size:20px; font-weight:700; color:var(--green)">~80%</div>
+          </div>
+          <div>
+            <div style="font-size:13px; color:var(--muted)">Expected yield/cycle</div>
+            <div style="font-size:20px; font-weight:700; color:var(--yellow)">~21%</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="tag" style="background:rgba(94,224,210,0.1); color:var(--blue)">For Travelers</div>
+        <h2>Hedge your flight.<br>Get paid instantly.</h2>
+        <p class="lead" style="margin-top:16px">
+          Pay a small premium. If your flight is delayed, the payout is ready automatically.
+          No claim form. No adjuster. No waiting weeks for a decision.
+        </p>
+
+        <div class="card" style="margin-top:20px; border-color:rgba(126,231,135,0.3)">
+          <div style="font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:16px">How it works for you</div>
+          <div style="display:flex; flex-direction:column; gap:14px">
+            <div style="display:flex; gap:14px; align-items:flex-start">
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(94,224,210,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">1</div>
+              <div>
+                <div style="font-size:15px; font-weight:600; color:var(--white)">Pick your flight + date</div>
+                <div style="font-size:14px; color:var(--muted); margin-top:2px">Choose from whitelisted routes. Pay premium in PUSD.</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:14px; align-items:flex-start">
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(169,139,255,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--stellar)">2</div>
+              <div>
+                <div style="font-size:15px; font-weight:600; color:var(--white)">Settlement runs automatically</div>
+                <div style="font-size:14px; color:var(--muted); margin-top:2px">Every 5 minutes, the executor settles. You don't lift a finger.</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:14px; align-items:flex-start">
+              <div style="width:32px;height:32px;border-radius:8px;background:rgba(126,231,135,0.12);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:var(--green)">3</div>
+              <div>
+                <div style="font-size:15px; font-weight:600; color:var(--white)">Flight delayed? Collect your payout.</div>
+                <div style="font-size:14px; color:var(--muted); margin-top:2px">Payout is already credited. Just call <code style="color:var(--green)">claim()</code> and receive PUSD.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px; display:flex; align-items:center; gap:16px; border-color:rgba(126,231,135,0.3); background:rgba(126,231,135,0.03)">
+          <div style="font-size:32px">&#9992;</div>
+          <div>
+            <div style="font-size:16px; color:var(--white); font-weight:600">Pay $12 &rarr; flight AA123 delayed 3 hours</div>
+            <div style="font-size:16px; color:var(--green); margin-top:4px; font-weight:700">&rarr; Receive $150 PUSD. No forms. No waiting.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px">
+          <div class="card" style="padding:14px; text-align:center">
+            <div style="font-size:22px; font-weight:800; color:var(--green)">0</div>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px">Forms to file</div>
+          </div>
+          <div class="card" style="padding:14px; text-align:center">
+            <div style="font-size:22px; font-weight:800; color:var(--green)">0</div>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px">Days to wait</div>
+          </div>
+          <div class="card" style="padding:14px; text-align:center">
+            <div style="font-size:22px; font-weight:800; color:var(--green)">100%</div>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px">Payout guaranteed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE 3 — ARCHITECTURE (Solana + Executor)         -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s3">
+    <div class="arch-canvas">
+      <div class="arch-title">
+        <div class="tag stellar" style="margin-bottom:8px">System Architecture</div>
+        <h2>How it works</h2>
+      </div>
+      <div class="arch-subtitle">Five Anchor programs on Solana, driven by an off-chain executor.</div>
+
+      <svg viewBox="0 0 960 480" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
+
+        <!-- Solana boundary -->
+        <rect x="140" y="110" width="680" height="340" rx="14"
+              stroke="#1e2533" stroke-width="1.5" stroke-dasharray="6 4" fill="rgba(15,18,24,0.5)"/>
+        <text x="820" y="104" fill="#2a3040" font-size="13" font-family="monospace">Solana (on-chain)</text>
+
+        <!-- Executor (off-chain, above the boundary) -->
+        <rect x="340" y="14" width="280" height="68" rx="12"
+              fill="#0d0d1f" stroke="#a98bff" stroke-width="2"/>
+        <text x="480" y="36" fill="#a98bff" font-size="11" font-family="monospace" text-anchor="middle">EXECUTOR (CRON JOBS)</text>
+        <text x="480" y="56" fill="#eef1f7" font-size="14" font-weight="700" text-anchor="middle">Fetch &middot; Classify &middot; Settle &middot; Reprice</text>
+        <text x="480" y="74" fill="#b6becd" font-size="10" text-anchor="middle">4 keepers run the pipeline</text>
+
+        <!-- Row 1 — Governance · Controller · OracleAggregator -->
+
+        <!-- Governance -->
+        <rect x="160" y="140" width="180" height="64" rx="12"
+              fill="rgba(255,181,71,0.07)" stroke="#ffb547" stroke-width="1.5"/>
+        <text x="250" y="164" fill="#ffb547" font-size="11" font-family="monospace" text-anchor="middle">ROUTE TERMS</text>
+        <text x="250" y="186" fill="#eef1f7" font-size="16" font-weight="700" text-anchor="middle">Governance</text>
+
+        <!-- Controller (center, the orchestrator) -->
+        <rect x="380" y="140" width="200" height="64" rx="12"
+              fill="#12171f" stroke="#eef1f7" stroke-width="2"/>
+        <text x="480" y="164" fill="#b6becd" font-size="11" font-family="monospace" text-anchor="middle">ORCHESTRATOR</text>
+        <text x="480" y="188" fill="#eef1f7" font-size="18" font-weight="800" text-anchor="middle">Controller</text>
+
+        <!-- OracleAggregator -->
+        <rect x="620" y="140" width="180" height="64" rx="12"
+              fill="rgba(169,139,255,0.07)" stroke="#a98bff" stroke-width="1.5"/>
+        <text x="710" y="164" fill="#a98bff" font-size="11" font-family="monospace" text-anchor="middle">FLIGHT DATA</text>
+        <text x="710" y="186" fill="#eef1f7" font-size="16" font-weight="700" text-anchor="middle">OracleAggregator</text>
+
+        <!-- Row 2 — FlightPool · Vault -->
+
+        <!-- FlightPool -->
+        <rect x="200" y="340" width="220" height="68" rx="12"
+              fill="rgba(94,224,210,0.07)" stroke="#1a3a6b" stroke-width="2"/>
+        <text x="310" y="366" fill="#5ee0d2" font-size="11" font-family="monospace" text-anchor="middle">PER-FLIGHT POOL</text>
+        <text x="310" y="388" fill="#eef1f7" font-size="16" font-weight="700" text-anchor="middle">FlightPool</text>
+
+        <!-- Vault -->
+        <rect x="540" y="340" width="220" height="68" rx="12"
+              fill="rgba(255,93,108,0.07)" stroke="#5c1a22" stroke-width="2"/>
+        <text x="650" y="366" fill="#ff5d6c" font-size="11" font-family="monospace" text-anchor="middle">UNDERWRITER CAPITAL</text>
+        <text x="650" y="388" fill="#eef1f7" font-size="16" font-weight="700" text-anchor="middle">Vault</text>
+
+        <!-- Traveler -->
+        <circle cx="60" cy="374" r="22" fill="rgba(94,224,210,0.1)" stroke="#5ee0d2" stroke-width="1.5"/>
+        <text x="60" y="370" font-size="18" text-anchor="middle">&#128100;</text>
+        <text x="60" y="385" font-size="10" fill="#5ee0d2" font-family="monospace" text-anchor="middle">&#9992;</text>
+        <text x="60" y="412" fill="#5ee0d2" font-size="14" font-weight="600" text-anchor="middle">Traveler</text>
+
+        <!-- Underwriter -->
+        <circle cx="900" cy="374" r="22" fill="rgba(255,93,108,0.1)" stroke="#ff5d6c" stroke-width="1.5"/>
+        <text x="900" y="370" font-size="18" text-anchor="middle">&#127974;</text>
+        <text x="900" y="385" font-size="10" fill="#ff5d6c" font-family="monospace" text-anchor="middle">$</text>
+        <text x="900" y="412" fill="#ff5d6c" font-size="14" font-weight="600" text-anchor="middle">Underwriter</text>
+
+        <!-- Edges from Executor to its 3 on-chain destinations -->
+
+        <!-- Executor → Controller (classify · settle) -->
+        <path d="M 480 82 L 480 138" stroke="#a98bff" stroke-width="2"
+              stroke-dasharray="5 3" marker-end="url(#arr-stellar)" class="flowing-line"/>
+        <text x="500" y="116" fill="#a98bff" font-size="10" font-family="monospace">classify &middot; settle</text>
+
+        <!-- Executor → OracleAggregator (writes ETA) -->
+        <path d="M 580 82 L 700 138" stroke="#a98bff" stroke-width="1.4"
+              stroke-dasharray="4 3" marker-end="url(#arr-stellar)" class="flowing-line"/>
+        <text x="660" y="116" fill="#a98bff" font-size="10" font-family="monospace" text-anchor="middle">writes ETA</text>
+
+        <!-- Executor → Governance (reprices) -->
+        <path d="M 380 82 L 260 138" stroke="#ffb547" stroke-width="1.4"
+              stroke-dasharray="4 3" marker-end="url(#arr-yellow)" class="flowing-line"/>
+        <text x="300" y="116" fill="#ffb547" font-size="10" font-family="monospace" text-anchor="middle">reprices</text>
+
+        <!-- Controller reads Governance (route terms) -->
+        <path d="M 380 178 L 342 178" stroke="#ffb547" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arr-yellow)"/>
+        <text x="361" y="172" fill="#ffb547" font-size="9" font-family="monospace" text-anchor="middle">terms</text>
+
+        <!-- Controller reads OracleAggregator (flight data) -->
+        <path d="M 580 178 L 618 178" stroke="#a98bff" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arr-stellar)"/>
+        <text x="599" y="172" fill="#a98bff" font-size="9" font-family="monospace" text-anchor="middle">data</text>
+
+        <!-- Controller → FlightPool (register · settle) -->
+        <path d="M 420 204 L 330 338" stroke="#5ee0d2" stroke-width="2"
+              marker-end="url(#arr-blue)" class="flowing-line"/>
+        <text x="345" y="276" fill="#5ee0d2" font-size="11" font-family="monospace" text-anchor="middle">register &middot; settle</text>
+
+        <!-- Controller → Vault (lock · payout) -->
+        <path d="M 540 204 L 630 338" stroke="#ff5d6c" stroke-width="2"
+              marker-end="url(#arr-red)" class="flowing-line"/>
+        <text x="615" y="276" fill="#ff5d6c" font-size="11" font-family="monospace" text-anchor="middle">lock &middot; payout</text>
+
+        <!-- Traveler → FlightPool -->
+        <path d="M 82 364 L 198 364" stroke="#5ee0d2" stroke-width="1.5"
+              stroke-dasharray="5 3" marker-end="url(#arr-blue)" class="flowing-line"/>
+        <text x="140" y="356" fill="#5ee0d2" font-size="11" font-family="monospace" text-anchor="middle">premium</text>
+
+        <!-- FlightPool → Traveler (payout) -->
+        <path d="M 198 388 L 82 388" stroke="#7ee787" stroke-width="1.5"
+              stroke-dasharray="5 3" marker-end="url(#arr-green)"/>
+        <text x="140" y="402" fill="#7ee787" font-size="11" font-family="monospace" text-anchor="middle">payout</text>
+
+        <!-- Underwriter → Vault -->
+        <path d="M 878 364 L 762 364" stroke="#ff5d6c" stroke-width="1.5"
+              stroke-dasharray="5 3" marker-end="url(#arr-red)" class="flowing-line"/>
+        <text x="820" y="356" fill="#ff5d6c" font-size="11" font-family="monospace" text-anchor="middle">deposit</text>
+
+        <!-- Vault → Underwriter (yield) -->
+        <path d="M 762 388 L 878 388" stroke="#ffb547" stroke-width="1.5"
+              stroke-dasharray="5 3" marker-end="url(#arr-yellow)"/>
+        <text x="820" y="402" fill="#ffb547" font-size="11" font-family="monospace" text-anchor="middle">yield</text>
+
+        <!-- FlightPool ↔ Vault — capital flows -->
+        <path d="M 422 368 L 538 368" stroke="#7ee787" stroke-width="1.5"
+              stroke-dasharray="5 3" marker-end="url(#arr-green)" class="flowing-line-slow"/>
+        <text x="480" y="360" fill="#7ee787" font-size="10" font-family="monospace" text-anchor="middle">premiums (on-time)</text>
+
+        <path d="M 538 388 L 422 388" stroke="#ff5d6c" stroke-width="1.5"
+              stroke-dasharray="5 3" marker-end="url(#arr-red)" class="flowing-line-slow"/>
+        <text x="480" y="404" fill="#ff5d6c" font-size="10" font-family="monospace" text-anchor="middle">payout (delayed)</text>
+
+        <defs>
+          <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 Z" fill="#5ee0d2"/></marker>
+          <marker id="arr-red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 Z" fill="#ff5d6c"/></marker>
+          <marker id="arr-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 Z" fill="#7ee787"/></marker>
+          <marker id="arr-yellow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 Z" fill="#ffb547"/></marker>
+          <marker id="arr-stellar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 Z" fill="#a98bff"/></marker>
+        </defs>
+      </svg>
+    </div>
+  </section>
+
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE s-crons — CRON JOBS                           -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s-crons">
+    <div style="text-align:center; margin-bottom:20px; max-width:1000px">
+      <div class="tag stellar" style="margin-bottom:8px">Automation</div>
+      <h2>Four Cron Jobs Run the System</h2>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:20px; max-width:1060px; width:100%; height:auto">
+
+      <!-- Q1: FlightDataFetcher (deployed on Acurast TEE) -->
+      <div class="card" style="border-color:rgba(169,139,255,0.35); padding:24px; display:flex; flex-direction:column; gap:14px; background:rgba(169,139,255,0.04)">
+        <div style="display:flex; align-items:center; justify-content:space-between">
+          <div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap">
+              <div class="cron-freq" style="background:rgba(94,224,210,0.12); color:var(--blue); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 2h</div>
+              <div class="cron-freq" style="background:rgba(169,139,255,0.18); color:var(--stellar); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">&#128241; ACURAST TEE</div>
+            </div>
+            <div style="font-size:20px; font-weight:800; color:var(--blue); margin-top:8px">FlightDataFetcher</div>
+          </div>
+        </div>
+        <svg viewBox="0 0 320 80" fill="none" style="width:100%;height:auto">
+          <rect x="0" y="20" width="80" height="40" rx="8" fill="#0d1420" stroke="#2a3040" stroke-width="1.2"/>
+          <text x="40" y="44" fill="#b6becd" font-size="11" font-weight="700" text-anchor="middle">AeroAPI</text>
+          <path d="M 82 40 L 128 40" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+          <text x="105" y="34" fill="#a98bff" font-size="9" font-family="monospace" text-anchor="middle">HTTP</text>
+          <rect x="130" y="15" width="90" height="50" rx="8" fill="rgba(169,139,255,0.1)" stroke="#a98bff" stroke-width="1.5"/>
+          <text x="175" y="32" fill="#a98bff" font-size="10" font-weight="700" text-anchor="middle">Fetcher</text>
+          <text x="175" y="46" fill="#b6becd" font-size="8" text-anchor="middle">ACURAST TEE</text>
+          <text x="175" y="58" fill="#b6becd" font-size="8" text-anchor="middle">&#128241; on phone</text>
+          <path d="M 222 40 L 258 40" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+          <text x="240" y="34" fill="#a98bff" font-size="9" font-family="monospace" text-anchor="middle">attest</text>
+          <rect x="260" y="20" width="55" height="40" rx="8" fill="#12171f" stroke="#1e2533" stroke-width="1.2"/>
+          <text x="288" y="44" fill="#b6becd" font-size="9" font-weight="700" text-anchor="middle">Oracle</text>
+        </svg>
+        <div style="font-size:13px; color:var(--muted); line-height:1.5">Pulls flight data from FlightAware. Runs inside an attested TEE on the Acurast phone-processor network &mdash; signs with a key the operator can't extract.</div>
+      </div>
+
+      <!-- Q2: FlightClassifier (deployed on Acurast TEE) -->
+      <div class="card" style="border-color:rgba(255,181,71,0.3); padding:24px; display:flex; flex-direction:column; gap:14px; background:rgba(255,181,71,0.03)">
+        <div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            <div class="cron-freq" style="background:rgba(255,181,71,0.12); color:var(--yellow); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 1h</div>
+            <div class="cron-freq" style="background:rgba(169,139,255,0.18); color:var(--stellar); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">&#128241; ACURAST TEE</div>
+          </div>
+          <div style="font-size:20px; font-weight:800; color:var(--yellow); margin-top:8px">FlightClassifier</div>
+        </div>
+        <svg viewBox="0 0 320 80" fill="none" style="width:100%;height:auto">
+          <rect x="0" y="20" width="70" height="40" rx="8" fill="#12171f" stroke="#1e2533" stroke-width="1.2"/>
+          <text x="35" y="44" fill="#b6becd" font-size="9" font-weight="700" text-anchor="middle">Oracle</text>
+          <path d="M 72 40 L 108 40" stroke="#ffb547" stroke-width="1.5" marker-end="url(#arr-yellow)" class="flowing-line"/>
+          <text x="90" y="34" fill="#ffb547" font-size="9" font-family="monospace" text-anchor="middle">read</text>
+          <rect x="110" y="10" width="100" height="60" rx="8" fill="rgba(255,181,71,0.08)" stroke="#ffb547" stroke-width="1.5"/>
+          <text x="160" y="28" fill="#ffb547" font-size="10" font-weight="700" text-anchor="middle">Classifier</text>
+          <text x="160" y="42" fill="#a98bff" font-size="8" font-weight="700" text-anchor="middle">ACURAST TEE</text>
+          <text x="160" y="55" fill="#b6becd" font-size="8" text-anchor="middle">&#128241; on phone</text>
+          <path d="M 212 28 L 258 16" stroke="#7ee787" stroke-width="1.2" marker-end="url(#arr-green)"/>
+          <text x="283" y="16" fill="#7ee787" font-size="9" font-weight="600">OnTime</text>
+          <path d="M 212 40 L 258 40" stroke="#ffb547" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
+          <text x="283" y="42" fill="#ffb547" font-size="9" font-weight="600">Delayed</text>
+          <path d="M 212 52 L 258 64" stroke="#ff5d6c" stroke-width="1.2" marker-end="url(#arr-red)"/>
+          <text x="290" y="67" fill="#ff5d6c" font-size="9" font-weight="600">Cancelled</text>
+        </svg>
+        <div style="font-size:13px; color:var(--muted); line-height:1.5">Also an oracle &mdash; its verdict (OnTime / Delayed / Cancelled) is what unlocks payouts. Runs inside the same attested Acurast TEE so the classification is signed on-device and tamper-proof.</div>
+      </div>
+
+      <!-- Q3: SettlementExecutor -->
+      <div class="card" style="border-color:rgba(126,231,135,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
+        <div>
+          <div class="cron-freq" style="background:rgba(126,231,135,0.12); color:var(--green); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">every 5m</div>
+          <div style="font-size:20px; font-weight:800; color:var(--green); margin-top:8px">SettlementExecutor</div>
+        </div>
+        <svg viewBox="0 0 320 80" fill="none" style="width:100%;height:auto">
+          <rect x="0" y="20" width="80" height="40" rx="8" fill="rgba(126,231,135,0.08)" stroke="#7ee787" stroke-width="1.5"/>
+          <text x="40" y="36" fill="#7ee787" font-size="9" font-weight="700" text-anchor="middle">Settler</text>
+          <text x="40" y="50" fill="#b6becd" font-size="8" text-anchor="middle">settle()</text>
+          <path d="M 82 30 L 128 18" stroke="#5ee0d2" stroke-width="1.2" marker-end="url(#arr-blue)" class="flowing-line"/>
+          <path d="M 82 50 L 128 58" stroke="#ff5d6c" stroke-width="1.2" marker-end="url(#arr-red)" class="flowing-line"/>
+          <rect x="130" y="4" width="75" height="30" rx="6" fill="rgba(94,224,210,0.07)" stroke="#1a3a6b" stroke-width="1"/>
+          <text x="168" y="23" fill="#5ee0d2" font-size="9" font-weight="600" text-anchor="middle">FlightPool</text>
+          <rect x="130" y="46" width="75" height="30" rx="6" fill="rgba(255,93,108,0.07)" stroke="#5c1a22" stroke-width="1"/>
+          <text x="168" y="65" fill="#ff5d6c" font-size="9" font-weight="600" text-anchor="middle">Vault</text>
+          <path d="M 207 19 L 243 19" stroke="#7ee787" stroke-width="1.2" marker-end="url(#arr-green)"/>
+          <path d="M 207 61 L 243 61" stroke="#ffb547" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
+          <text x="280" y="22" fill="#7ee787" font-size="8" font-weight="600">premiums</text>
+          <text x="280" y="64" fill="#ffb547" font-size="8" font-weight="600">payouts</text>
+        </svg>
+        <div style="font-size:13px; color:var(--muted); line-height:1.5">Settles classified flights, moves capital, processes withdrawals.</div>
+      </div>
+
+      <!-- Q4: RouteRepricer (XGBoost + Grok agent) -->
+      <div class="card" style="border-color:rgba(169,139,255,0.3); padding:24px; display:flex; flex-direction:column; gap:14px">
+        <div>
+          <div class="cron-freq" style="background:rgba(169,139,255,0.12); color:var(--stellar); display:inline-block; padding:4px 12px; border-radius:6px; font-size:11px; font-weight:700; font-family:'SF Mono',monospace; letter-spacing:0.06em">daily</div>
+          <div style="font-size:20px; font-weight:800; color:var(--stellar); margin-top:8px">RouteRepricer</div>
+        </div>
+        <svg viewBox="0 0 320 80" fill="none" style="width:100%;height:auto">
+          <rect x="0" y="6" width="90" height="30" rx="6" fill="#0d1420" stroke="#2a3040" stroke-width="1.2"/>
+          <text x="45" y="25" fill="#b6becd" font-size="10" font-weight="700" text-anchor="middle">XGBoost</text>
+          <rect x="0" y="44" width="90" height="30" rx="6" fill="#0d1420" stroke="#2a3040" stroke-width="1.2"/>
+          <text x="45" y="63" fill="#b6becd" font-size="10" font-weight="700" text-anchor="middle">Grok agent</text>
+          <path d="M 92 21 L 138 32" stroke="#a98bff" stroke-width="1.2" marker-end="url(#arr-stellar)" class="flowing-line"/>
+          <path d="M 92 59 L 138 48" stroke="#a98bff" stroke-width="1.2" marker-end="url(#arr-stellar)" class="flowing-line"/>
+          <rect x="140" y="20" width="90" height="40" rx="8" fill="rgba(169,139,255,0.08)" stroke="#a98bff" stroke-width="1.5"/>
+          <text x="185" y="36" fill="#a98bff" font-size="9" font-weight="700" text-anchor="middle">Repricer</text>
+          <text x="185" y="50" fill="#b6becd" font-size="8" text-anchor="middle">$1 &mdash; $5 PUSD</text>
+          <path d="M 232 40 L 268 40" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+          <text x="250" y="34" fill="#a98bff" font-size="8" font-family="monospace" text-anchor="middle">update</text>
+          <rect x="270" y="20" width="50" height="40" rx="6" fill="#12171f" stroke="#1e2533" stroke-width="1"/>
+          <text x="295" y="38" fill="#b6becd" font-size="8" font-weight="600" text-anchor="middle">Govern.</text>
+          <text x="295" y="52" fill="#b6becd" font-size="8" font-weight="600" text-anchor="middle">terms</text>
+        </svg>
+        <div style="font-size:13px; color:var(--muted); line-height:1.5">Updates each route's premium daily. The model uses past delay history; Grok checks for storms or war zones. Bad conditions &rarr; premium up. Unsafe &rarr; route disabled.</div>
+      </div>
+
+    </div>
+  </section>
+
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE s-oracle — Oracle Infra & Executor Overview    -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s-oracle">
+    <div style="max-width:1100px; width:100%">
+      <div style="text-align:center; margin-bottom:20px">
+        <div class="tag" style="background:rgba(169,139,255,0.12); color:var(--stellar); margin-bottom:8px">Decentralised Oracle &middot; DePIN</div>
+        <h2 style="margin-top:8px">The Oracle runs on a <em>phone.</em></h2>
+        <p class="lead" style="margin:8px auto 0; text-align:center; max-width:780px; font-size:15px">Sentinel's flight-data oracle runs on <strong style="color:var(--white)">Acurast</strong> &mdash; a DePIN network where the workers are real Android phones. Our TypeScript runs inside each phone's secure chip; the API calls and the on-chain writes both happen from inside the TEE.</p>
+      </div>
+
+      <div style="display:grid; grid-template-columns:0.95fr 1.1fr; gap:22px; align-items:stretch">
+
+        <!-- LEFT — Acurast Processor cluster photo -->
+        <div style="border-radius:14px; overflow:hidden; border:1px solid var(--border); background:#000; position:relative; min-height:420px">
+          <img src="/presentation/acurast-cluster.jpg" alt="Acurast Processor cluster — real Android phones running attested TEEs" style="width:100%; height:100%; object-fit:cover; display:block; position:absolute; inset:0"/>
+          <div style="position:absolute; bottom:0; left:0; right:0; padding:14px 16px; background:linear-gradient(180deg, transparent, rgba(7,9,14,0.92)); font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--stellar); letter-spacing:0.05em">
+            Acurast Processor cluster &middot; each phone &#9410; a trusted compute node
+          </div>
+        </div>
+
+        <!-- RIGHT — 4 stacked cards -->
+        <div style="display:grid; grid-template-rows:repeat(4, 1fr); gap:10px">
+
+          <div class="card" style="border-color:rgba(169,139,255,0.35); padding:14px 16px; background:rgba(169,139,255,0.04)">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px">
+              <span style="font-size:18px">&#128241;</span>
+              <div style="font-size:15px; font-weight:800; color:var(--stellar)">DePIN &mdash; phones as workers</div>
+            </div>
+            <div style="font-size:13px; color:#b6becd; line-height:1.5">
+              Acurast is a DePIN network that turns retired Android phones into trusted compute nodes. We pay per run, not per server &mdash; no AWS, no single operator. If one phone goes offline, another picks up the job.
+            </div>
+          </div>
+
+          <div class="card" style="border-color:rgba(94,224,210,0.3); padding:14px 16px">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px">
+              <span style="font-size:18px">&#128187;</span>
+              <div style="font-size:15px; font-weight:800; color:var(--blue)">Our TypeScript runs inside the TEE</div>
+            </div>
+            <div style="font-size:13px; color:#b6becd; line-height:1.5">
+              The fetcher's TS code is deployed straight to the phone's secure chip. The AeroAPI calls go out from inside the TEE, and the signed write to Solana comes back out the same way.
+            </div>
+          </div>
+
+          <div class="card" style="border-color:rgba(126,231,135,0.3); padding:14px 16px">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px">
+              <span style="font-size:18px">&#128274;</span>
+              <div style="font-size:15px; font-weight:800; color:var(--green)">Attested signing &mdash; keys can't be extracted</div>
+            </div>
+            <div style="font-size:13px; color:#b6becd; line-height:1.5">
+              The signing key lives inside the secure hardware. Nobody &mdash; not even the phone's owner &mdash; can read or steal it. Solana verifies the signature came from an attested key on every write, or rejects it.
+            </div>
+          </div>
+
+          <div class="card" style="border-color:rgba(255,181,71,0.3); padding:14px 16px">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px">
+              <span style="font-size:18px">&#128221;</span>
+              <div style="font-size:15px; font-weight:800; color:var(--yellow)">Publicly verifiable code hash</div>
+            </div>
+            <div style="font-size:13px; color:#b6becd; line-height:1.5">
+              We can publish the hash of the code running inside the TEE. Anyone can verify that the oracle Sentinel <em>claims</em> to run is what's actually executing on the phones.
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE s-oracle-flow — OracleAggregator Lifecycle     -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s-oracle-flow">
+    <div style="max-width:1060px; width:100%">
+      <div style="text-align:center; margin-bottom:14px">
+        <div class="tag" style="background:rgba(94,224,210,0.1); color:var(--blue); margin-bottom:8px">How we scale</div>
+        <h2 style="margin-top:10px">One API call per insured flight.</h2>
+        <p class="lead" style="margin:8px auto 0; text-align:center; max-width:780px">A naive insurer polls every flight, every hour. We don't. Flights enter the oracle's watch list only when someone buys coverage. We only call the API <em>after</em> a flight should have landed. The moment settlement runs, the flight drops off the list. Cost scales with active policies &mdash; not with flights in the sky.</p>
+      </div>
+
+      <svg viewBox="0 0 960 340" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
+
+        <!-- ═══ LEFT: How flights enter ═══ -->
+
+        <!-- buy_insurance label -->
+        <text x="30" y="28" fill="#a98bff" font-size="11" font-weight="700" font-family="monospace">REGISTER</text>
+
+        <!-- Step: buy_insurance → Controller → register_flight → Oracle -->
+        <rect x="20" y="42" width="150" height="44" rx="8" fill="#12171f" stroke="#a98bff" stroke-width="1.5"/>
+        <text x="95" y="60" fill="#b6becd" font-size="9" font-family="monospace" text-anchor="middle">buy_insurance()</text>
+        <text x="95" y="76" fill="#eef1f7" font-size="12" font-weight="700" text-anchor="middle">Controller</text>
+
+        <path d="M 172 64 L 208 64" stroke="#a98bff" stroke-width="1.5" marker-end="url(#arr-stellar)" class="flowing-line"/>
+        <text x="190" y="56" fill="#a98bff" font-size="8" font-family="monospace" text-anchor="middle">register</text>
+
+        <!-- ═══ CENTER: OracleAggregator + ActiveFlightList ═══ -->
+
+        <rect x="210" y="16" width="530" height="300" rx="14" fill="#0c0e14" stroke="#1e2533" stroke-width="1.5"/>
+        <text x="475" y="40" fill="#eef1f7" font-size="18" font-weight="800" text-anchor="middle">OracleAggregator</text>
+        <text x="475" y="56" fill="#b6becd" font-size="10" text-anchor="middle">ActiveFlightList &mdash; source of truth for all flight state</text>
+
+        <!-- Flight entries -->
+        <!-- Entry 1: NotInitiated (just registered) -->
+        <rect x="232" y="74" width="486" height="38" rx="6" fill="var(--surface)" stroke="#6b7385" stroke-width="1"/>
+        <circle cx="254" cy="93" r="8" fill="rgba(106,116,136,0.15)" stroke="#6b7385" stroke-width="1"/>
+        <text x="254" y="97" fill="#6b7385" font-size="10" text-anchor="middle">1</text>
+        <text x="280" y="90" fill="#6b7385" font-size="12" font-weight="700">BA200</text>
+        <text x="350" y="90" fill="#6b7385" font-size="10">NotInitiated</text>
+        <text x="490" y="90" fill="#5a6478" font-size="10">ETA: &mdash;</text>
+        <text x="555" y="90" fill="#5a6478" font-size="9" font-style="italic">waiting for ETA</text>
+
+        <!-- Entry 2: Active, ETA in future (waiting) -->
+        <rect x="232" y="118" width="486" height="38" rx="6" fill="rgba(94,224,210,0.05)" stroke="rgba(94,224,210,0.3)" stroke-width="1.5">
+          <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
+        </rect>
+        <circle cx="254" cy="137" r="8" fill="rgba(94,224,210,0.15)" stroke="#5ee0d2" stroke-width="1"/>
+        <text x="254" y="141" fill="#5ee0d2" font-size="10" text-anchor="middle">2</text>
+        <text x="280" y="134" fill="#5ee0d2" font-size="12" font-weight="700">DL789</text>
+        <text x="348" y="134" fill="#5ee0d2" font-size="10" font-weight="600">Active</text>
+        <text x="490" y="134" fill="#5ee0d2" font-size="10">ETA: 18:00</text>
+        <text x="555" y="134" fill="#5a6478" font-size="9" font-style="italic">before ETA &mdash; waiting</text>
+
+        <!-- Entry 3: Active, ETA+1h passed → API CALL -->
+        <rect x="232" y="162" width="486" height="38" rx="6" fill="rgba(94,224,210,0.08)" stroke="#5ee0d2" stroke-width="2">
+          <animate attributeName="stroke-opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite"/>
+        </rect>
+        <circle cx="254" cy="181" r="8" fill="rgba(94,224,210,0.2)" stroke="#5ee0d2" stroke-width="1.5"/>
+        <text x="254" y="185" fill="#5ee0d2" font-size="10" text-anchor="middle">3</text>
+        <text x="280" y="178" fill="#5ee0d2" font-size="12" font-weight="700">AA123</text>
+        <text x="348" y="178" fill="#5ee0d2" font-size="10" font-weight="600">Active</text>
+        <text x="490" y="178" fill="#5ee0d2" font-size="10">ETA: 14:30</text>
+        <text x="555" y="178" fill="#eef1f7" font-size="9" font-weight="700">&#9654; calls API (ETA+1h)</text>
+
+        <!-- Entry 4: Landed (fetcher wrote actual arrival) -->
+        <rect x="232" y="206" width="486" height="38" rx="6" fill="rgba(126,231,135,0.05)" stroke="rgba(126,231,135,0.3)" stroke-width="1.5"/>
+        <circle cx="254" cy="225" r="8" fill="rgba(126,231,135,0.15)" stroke="#7ee787" stroke-width="1"/>
+        <text x="254" y="229" fill="#7ee787" font-size="10" text-anchor="middle">4</text>
+        <text x="280" y="222" fill="#7ee787" font-size="12" font-weight="700">UA456</text>
+        <text x="348" y="222" fill="#7ee787" font-size="10" font-weight="600">Landed</text>
+        <text x="490" y="222" fill="#7ee787" font-size="10">actual: 16:45</text>
+        <text x="555" y="222" fill="#5a6478" font-size="9" font-style="italic">ready for Classifier</text>
+
+        <!-- Entry 5: ToBeSettled (classified, ready for settlement) -->
+        <rect x="232" y="250" width="486" height="38" rx="6" fill="rgba(255,181,71,0.05)" stroke="rgba(255,181,71,0.3)" stroke-width="1.5"/>
+        <circle cx="254" cy="269" r="8" fill="rgba(255,181,71,0.15)" stroke="#ffb547" stroke-width="1"/>
+        <text x="254" y="273" fill="#ffb547" font-size="10" text-anchor="middle">5</text>
+        <text x="280" y="266" fill="#ffb547" font-size="12" font-weight="700">AF300</text>
+        <text x="358" y="266" fill="#ffb547" font-size="10" font-weight="600">ToBeSettledDelayed</text>
+        <text x="555" y="266" fill="#5a6478" font-size="9" font-style="italic">ready for Settler</text>
+
+        <!-- ═══ RIGHT: How flights exit ═══ -->
+
+        <!-- Arrow out: settled & removed -->
+        <text x="770" y="28" fill="#ff5d6c" font-size="11" font-weight="700" font-family="monospace">DEREGISTER</text>
+
+        <path d="M 742 64 L 778 64" stroke="#ff5d6c" stroke-width="1.5" marker-end="url(#arr-red)"/>
+
+        <rect x="780" y="42" width="160" height="44" rx="8" fill="rgba(255,93,108,0.06)" stroke="rgba(255,93,108,0.3)" stroke-width="1.5" stroke-dasharray="5 3"/>
+        <text x="860" y="60" fill="#ff5d6c" font-size="9" font-family="monospace" text-anchor="middle">execute_settlements()</text>
+        <text x="860" y="76" fill="#ff5d6c" font-size="11" font-weight="700" text-anchor="middle">Removed from active list</text>
+
+        <!-- ═══ LEFT SIDE: Fetcher reads list (deployed on Acurast TEE) ═══ -->
+        <rect x="20" y="130" width="150" height="56" rx="8" fill="rgba(169,139,255,0.08)" stroke="#a98bff" stroke-width="1.5"/>
+        <text x="95" y="148" fill="#a98bff" font-size="9" font-family="monospace" text-anchor="middle">ACURAST TEE &middot; 2h</text>
+        <text x="95" y="166" fill="#eef1f7" font-size="14" font-weight="700" text-anchor="middle">Fetcher</text>
+        <text x="95" y="180" fill="#b6becd" font-size="9" text-anchor="middle">&#128241; runs on phone</text>
+
+        <!-- Arrow: Fetcher reads list -->
+        <path d="M 172 158 L 208 158" stroke="#a98bff" stroke-width="1.2" marker-end="url(#arr-stellar)"/>
+
+        <!-- AeroAPI call annotation -->
+        <rect x="20" y="200" width="150" height="40" rx="8" fill="#0d1420" stroke="#2a3040" stroke-width="1.2"/>
+        <text x="95" y="216" fill="#5a6478" font-size="9" font-family="monospace" text-anchor="middle">FLIGHTAWARE</text>
+        <text x="95" y="232" fill="#eef1f7" font-size="12" font-weight="700" text-anchor="middle">AeroAPI</text>
+
+        <path d="M 95 186 L 95 198" stroke="#5ee0d2" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#arr-blue)"/>
+        <path d="M 172 220 L 230 200" stroke="#5ee0d2" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr-blue)" class="flowing-line"/>
+        <text x="130" y="250" fill="#5ee0d2" font-size="9" text-anchor="middle">writes ETA or actual arrival</text>
+
+        <!-- Classifier annotation -->
+        <rect x="20" y="268" width="150" height="44" rx="8" fill="rgba(255,181,71,0.06)" stroke="#ffb547" stroke-width="1.5"/>
+        <text x="95" y="286" fill="#ffb547" font-size="9" font-family="monospace" text-anchor="middle">via Controller &middot; every 1h</text>
+        <text x="95" y="302" fill="#eef1f7" font-size="13" font-weight="700" text-anchor="middle">Classifier</text>
+        <path d="M 172 290 L 230 270" stroke="#ffb547" stroke-width="1.2" marker-end="url(#arr-yellow)"/>
+
+        <!-- Bottom key insight -->
+        <rect x="780" y="120" width="160" height="80" rx="10" fill="rgba(94,224,210,0.06)" stroke="rgba(94,224,210,0.2)" stroke-width="1.5"/>
+        <text x="860" y="142" fill="#5ee0d2" font-size="10" font-weight="800" text-anchor="middle">SCALING WIN</text>
+        <text x="860" y="160" fill="#eef1f7" font-size="11" text-anchor="middle" font-weight="600">1 API call</text>
+        <text x="860" y="176" fill="#eef1f7" font-size="11" text-anchor="middle" font-weight="600">per insured flight.</text>
+        <text x="860" y="192" fill="#5ee0d2" font-size="11" text-anchor="middle" font-weight="700">Cost scales linearly.</text>
+
+        <!-- Bottom flow -->
+        <rect x="780" y="220" width="160" height="92" rx="10" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+        <text x="860" y="240" fill="#b6becd" font-size="9" font-family="monospace" text-anchor="middle">LIFECYCLE</text>
+        <text x="860" y="258" fill="#6b7385" font-size="10" text-anchor="middle">NotInitiated</text>
+        <text x="860" y="270" fill="#b6becd" font-size="10" text-anchor="middle">&#8595;</text>
+        <text x="860" y="282" fill="#5ee0d2" font-size="10" font-weight="700" text-anchor="middle">Active (has ETA)</text>
+        <text x="860" y="294" fill="#b6becd" font-size="10" text-anchor="middle">&#8595;</text>
+        <text x="860" y="306" fill="#ff5d6c" font-size="10" font-weight="700" text-anchor="middle">Settled &#8594; removed</text>
+
+        <defs>
+          <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 Z" fill="#5ee0d2"/></marker>
+          <marker id="arr-red" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 Z" fill="#ff5d6c"/></marker>
+          <marker id="arr-green" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 Z" fill="#7ee787"/></marker>
+          <marker id="arr-yellow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 Z" fill="#ffb547"/></marker>
+          <marker id="arr-stellar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 Z" fill="#a98bff"/></marker>
+        </defs>
+      </svg>
+    </div>
+  </section>
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE s-agent — Governance Agent (XGBoost + Grok)    -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s-agent">
+    <div style="max-width:1060px; width:100%">
+      <div style="text-align:center; margin-bottom:22px">
+        <div class="tag" style="background:rgba(169,139,255,0.12); color:var(--stellar); margin-bottom:8px">The Pricing Brain</div>
+        <h2 style="margin-top:10px">Two layers. <em>Both</em> matter.</h2>
+        <p class="lead" style="margin:10px auto 0; text-align:center; max-width:760px; font-size:16px">A flight from JFK to LAX next Tuesday is fundamentally different from JFK to Tehran during a war. One number can't price both. So we use two layers &mdash; one looks backward, one looks forward.</p>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:22px">
+
+        <!-- LEFT: The starting point — XGBoost on BTS -->
+        <div class="card" style="border-color:rgba(94,224,210,0.35); padding:24px">
+          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(94,224,210,0.14);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#128218;</div>
+            <div>
+              <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--blue); font-family:'JetBrains Mono',monospace">Layer 1 &mdash; The starting point</div>
+              <div style="font-size:19px; font-weight:800; color:var(--blue); margin-top:2px">What history says</div>
+            </div>
+          </div>
+          <div style="font-size:15px; color:#b6becd; line-height:1.6; margin-bottom:14px">
+            We trained an <strong style="color:var(--white)">XGBoost classifier</strong> on millions of past US flights from the Bureau of Transportation Statistics (<strong style="color:var(--white)">BTS</strong>). Tell it the carrier, route, time of day, and day of week &mdash; it tells you the chance the flight runs late.
+          </div>
+          <div style="background:rgba(94,224,210,0.06); border:1px solid rgba(94,224,210,0.25); border-radius:8px; padding:14px 16px; line-height:1.6">
+            <div style="font-size:13px; color:#b6becd"><strong style="color:var(--blue)">Example.</strong> "Delta JFK&rarr;LAX, 9 AM weekday."</div>
+            <div style="font-size:13px; color:#b6becd; margin-top:6px">XGBoost says: 19% chance of being late.</div>
+            <div style="font-size:13px; color:var(--white); margin-top:10px; font-weight:600">Starting premium: <span style="color:var(--blue); font-family:'JetBrains Mono',monospace">$1.76</span> for a $10 payout.</div>
+          </div>
+          <div style="margin-top:12px; font-size:12px; color:var(--muted); line-height:1.5">
+            That's the fair baseline based on history alone &mdash; clamped to a $1&ndash;$5 range so cheap flights aren't free and expensive ones don't cost more than the payout itself.
+          </div>
+        </div>
+
+        <!-- RIGHT: The live signal — Grok agent -->
+        <div class="card" style="border-color:rgba(169,139,255,0.4); padding:24px; background:rgba(169,139,255,0.04)">
+          <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(169,139,255,0.2);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">&#127758;</div>
+            <div>
+              <div style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--stellar); font-family:'JetBrains Mono',monospace">Layer 2 &mdash; What's happening now</div>
+              <div style="font-size:19px; font-weight:800; color:var(--stellar); margin-top:2px">What the world says today</div>
+            </div>
+          </div>
+          <div style="font-size:15px; color:#b6becd; line-height:1.6; margin-bottom:14px">
+            History doesn't know about today's hurricane, today's ATC strike, or today's war. So every day we ask <strong style="color:var(--white)">Grok</strong> &mdash; with live web search &mdash; what's happening on each route. It either nudges the premium up&hellip; or pulls the route entirely.
+          </div>
+          <div style="background:rgba(169,139,255,0.06); border:1px solid rgba(169,139,255,0.25); border-radius:8px; padding:14px 16px; line-height:1.6">
+            <div style="font-size:13px; color:#b6becd"><strong style="color:var(--stellar)">Storm coming.</strong> JFK&rarr;LAX, blizzard forecast.</div>
+            <div style="font-size:13px; color:#b6becd; margin-top:4px">Grok: bump premium &times;1.4. <span style="color:var(--white); font-family:'JetBrains Mono',monospace">$1.76 &rarr; $2.46</span></div>
+            <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(169,139,255,0.18)"></div>
+            <div style="font-size:13px; color:#b6becd"><strong style="color:var(--red)">War zone.</strong> JFK&rarr;Tehran, active conflict.</div>
+            <div style="font-size:13px; color:#b6becd; margin-top:4px">Grok: <span style="color:var(--red); font-weight:700">disable route.</span> No new policies.</div>
+          </div>
+          <div style="margin-top:12px; font-size:12px; color:var(--muted); line-height:1.5">
+            Auto re-enables when the storm passes or the conflict cools. The cron only re-opens routes it disabled itself &mdash; never overrides a human admin's decision.
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom flow strip -->
+      <div style="margin-top:20px; padding:16px 22px; border:1px solid var(--border); border-radius:10px; background:rgba(15,18,24,0.5)">
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-family:'JetBrains Mono',monospace; font-size:13px">
+          <span style="color:var(--blue); font-weight:700">BTS data</span>
+          <span style="color:#6b7385">&rarr;</span>
+          <span style="color:var(--blue); font-weight:700">XGBoost</span>
+          <span style="color:#6b7385">&rarr;</span>
+          <span style="color:var(--stellar); font-weight:700">Grok (live search)</span>
+          <span style="color:#6b7385">&rarr;</span>
+          <span style="color:var(--green); font-weight:700">RouteRepricer cron</span>
+          <span style="color:#6b7385">&rarr;</span>
+          <span style="color:var(--yellow); font-weight:700">on-chain governance update</span>
+        </div>
+        <div style="margin-top:10px; font-size:13px; color:var(--muted); line-height:1.55">
+          Runs daily. Premium reflects both the long-run risk of the route <em>and</em> the conditions of the day &mdash; without ever leaving the $1&ndash;$5 band, or paying out more than $10.
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE 5 — SOLVENCY + FIFO QUEUE                   -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s5">
+    <div class="layout">
+      <div>
+        <div class="tag" style="background:rgba(255,181,71,0.1); color:var(--yellow)">Solvency</div>
+        <h2>Every policy is<br>100% backed. Always.</h2>
+        <p class="lead" style="margin-top:16px">
+          Before every sale, the contract checks: does the vault have enough free cash to cover this payout? If not, the sale is refused. No exceptions.
+        </p>
+
+        <div class="solvency-viz">
+          <div style="font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:16px">Vault state &mdash; 3 active policies</div>
+
+          <div class="sol-row">
+            <div class="sol-label" style="color:var(--white); font-weight:600">Total Assets</div>
+            <div class="sol-bar-wrap"><div class="sol-bar" style="--w:90%; background:#5ee0d2;"></div></div>
+            <div class="sol-val" style="color:var(--blue)">$500</div>
+          </div>
+          <div class="sol-row">
+            <div class="sol-label">Locked (3&times;$100)</div>
+            <div class="sol-bar-wrap"><div class="sol-bar" style="--w:54%; background:#ff5d6c;"></div></div>
+            <div class="sol-val" style="color:var(--red)">$300</div>
+          </div>
+          <div class="sol-row">
+            <div class="sol-label">Free Capital</div>
+            <div class="sol-bar-wrap"><div class="sol-bar" style="--w:36%; background:#7ee787;"></div></div>
+            <div class="sol-val" style="color:var(--green)">$200</div>
+          </div>
+
+          <div style="margin-top:16px; padding:14px; background:var(--bg); border-radius:8px; font-size:14px; color:var(--muted); line-height:1.6">
+            <span style="color:var(--green)">&#10003; allowed</span> &mdash; vault has $200 free, payout is $100. Plenty of cash.<br>
+            <span style="color:var(--red)">&#10005; blocked</span> &mdash; vault has $100 free, payout would be $100+. Not enough.
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="tag" style="color:var(--yellow); background:rgba(255,181,71,0.1)">FIFO Withdrawal Queue</div>
+        <h2>Capital is locked<br>fairly, not arbitrarily.</h2>
+        <p class="lead" style="margin-top:16px">
+          If your withdrawal would dip into locked capital, it joins a queue. As flights settle and cash frees up, the queue drains in order &mdash; first in, first out. No jumping the line.
+        </p>
+
+        <div class="fifo-wrap">
+          <div class="fifo-head">
+            <span class="arrow">&#9654;</span>
+            <span>Queue drains after settlement</span>
+          </div>
+          <div class="fifo-label">Withdrawal queue &mdash; first in, first out</div>
+          <div class="queue-track" id="queue-track">
+            <div class="q-item done" style="opacity:0.3">
+              <div class="q-avatar" style="background:rgba(126,231,135,0.15);color:var(--green)">A</div>
+              <div class="q-info">
+                <div>Alice</div>
+                <div class="q-shares">500 shares &rarr; 512 PUSD</div>
+              </div>
+              <div class="q-status" style="background:rgba(126,231,135,0.12);color:var(--green)">collected</div>
+            </div>
+            <div class="q-item waiting" id="qi-bob">
+              <div class="q-avatar" style="background:rgba(255,181,71,0.12);color:var(--yellow)">B</div>
+              <div class="q-info">
+                <div>Bob</div>
+                <div class="q-shares">300 shares &rarr; queued</div>
+              </div>
+              <div class="q-status">waiting</div>
+            </div>
+            <div class="q-item waiting" id="qi-carol">
+              <div class="q-avatar" style="background:rgba(255,181,71,0.12);color:var(--yellow)">C</div>
+              <div class="q-info">
+                <div>Carol</div>
+                <div class="q-shares">800 shares &rarr; queued</div>
+              </div>
+              <div class="q-status">waiting</div>
+            </div>
+            <div class="q-item waiting" id="qi-dave">
+              <div class="q-avatar" style="background:rgba(255,181,71,0.12);color:var(--yellow)">D</div>
+              <div class="q-info">
+                <div>Dave</div>
+                <div class="q-shares">200 shares &rarr; queued</div>
+              </div>
+              <div class="q-status">waiting</div>
+            </div>
+          </div>
+          <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border); font-size:14px; color:var(--muted)">
+            &#8635; <span style="color:var(--green)">Flight AA100 settled OnTime</span> &mdash; capital released &rarr; queue processes FIFO
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- SLIDE s-quant — Monte Carlo (embedded /quant page)    -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <section class="slide" id="s-quant" style="padding:0">
+    <iframe
+      src="/quant"
+      title="Monte Carlo simulation"
+      style="position:absolute; inset:0; width:100%; height:100%; border:0; background:var(--bg); display:block"
+      loading="lazy"
+    ></iframe>
+  </section>
+
+</div><!-- /deck -->
+
+<!-- NAV -->
+<div class="nav">
+  <button class="nav-btn" id="prev-btn">&larr;</button>
+  <div class="nav-dots" id="dots"></div>
+  <button class="nav-btn" id="next-btn">&rarr;</button>
+  <div class="slide-counter" id="counter">1 / 10</div>
+</div>
+
+<script>
+  const slides  = Array.from(document.querySelectorAll('.slide'));
+  const dotsEl  = document.getElementById('dots');
+  const counter = document.getElementById('counter');
+  const total   = slides.length;
+  let current   = 0;
+
+  slides.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.addEventListener('click', () => go(i));
+    dotsEl.appendChild(d);
+  });
+
+  function go(idx) {
+    if (idx === current) return;
+
+    // Clean up any stale exit classes from previous transitions
+    slides.forEach(s => s.classList.remove('exit'));
+
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exit');
+    const old = current;
+    setTimeout(() => slides[old].classList.remove('exit'), 600);
+
+    current = (idx + total) % total;
+    slides[current].classList.add('active');
+
+    dotsEl.querySelectorAll('.dot').forEach((d, i) =>
+      d.classList.toggle('active', i === current));
+    counter.textContent = `${current + 1} / ${total}`;
+
+    onSlideEnter(current);
+  }
+
+  document.getElementById('prev-btn').addEventListener('click', () => go(current - 1));
+  document.getElementById('next-btn').addEventListener('click', () => go(current + 1));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  go(current + 1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    go(current - 1);
+  });
+
+  // Slide index mapping (story arc: hook → pain → solution → architecture →
+  // off-chain jobs → zoom into Oracle → zoom into Repricer brain → solvency → quant):
+  // 0 = s0 (landing)
+  // 1 = s1 (problem)
+  // 2 = s4 (two sides — solution shape)
+  // 3 = s3 (architecture — all 5 programs)
+  // 4 = s-crons (4 off-chain keeper jobs — overview)
+  // 5 = s-oracle (zoom into Fetcher — Acurast TEE on phones)
+  // 6 = s-oracle-flow (oracle scaling — 1 API call per insured flight)
+  // 7 = s-agent (zoom into Repricer brain — XGBoost + Grok)
+  // 8 = s5 (solvency + FIFO) ← queue animation
+  // 9 = s-quant (Monte Carlo iframe)
+
+  function onSlideEnter(idx) {
+    if (idx === 8) animateQueue();  // s5 = Solvency + FIFO
+  }
+
+  let queueAnimating = false;
+  function animateQueue() {
+    if (queueAnimating) return;
+    queueAnimating = true;
+    const items = [
+      document.getElementById('qi-bob'),
+      document.getElementById('qi-carol'),
+      document.getElementById('qi-dave')
+    ];
+    items.forEach(el => {
+      el.classList.remove('ready','done');
+      el.classList.add('waiting');
+      el.querySelector('.q-status').textContent = 'waiting';
+      el.querySelector('.q-status').style.background = 'rgba(255,181,71,0.1)';
+      el.querySelector('.q-status').style.color = 'var(--yellow)';
+      el.style.opacity = '1';
+    });
+
+    let delay = 800;
+    items.forEach((el, i) => {
+      setTimeout(() => {
+        el.classList.remove('waiting');
+        el.classList.add('ready');
+        el.querySelector('.q-status').textContent = 'credited \u2713';
+        el.querySelector('.q-status').style.background = 'rgba(126,231,135,0.12)';
+        el.querySelector('.q-status').style.color = 'var(--green)';
+        setTimeout(() => {
+          el.classList.remove('ready');
+          el.classList.add('done');
+          el.style.opacity = '0.3';
+          el.querySelector('.q-status').textContent = 'collected';
+          el.querySelector('.q-status').style.background = 'rgba(90,100,120,0.2)';
+          el.querySelector('.q-status').style.color = 'var(--muted)';
+          if (i === items.length - 1) {
+            setTimeout(() => { queueAnimating = false; animateQueue(); }, 2000);
+          }
+        }, 1200);
+      }, delay);
+      delay += 900;
+    });
+  }
+
+  onSlideEnter(0);
+</script>
+</body>
+</html>
